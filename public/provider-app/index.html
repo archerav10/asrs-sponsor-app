@@ -795,7 +795,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: items, generalNotes: generalNotesValue })
       });
-      loadFirstAid();
+      alert('Successfully saved.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
     } catch (e) {
       setError('fa-error', e.message);
     } finally {
@@ -959,7 +962,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: items, generalNotes: generalNotesValue })
       });
-      loadEmergencySupplies();
+      alert('Successfully saved.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
     } catch (e) {
       setError('es-error', e.message);
     } finally {
