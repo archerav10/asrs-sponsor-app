@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASRS Provider App</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16332B">
+<style>
+  :root {
+    --forest: #16332B;
+    --forest-light: #2F5D45;
+    --cream: #F6F3EC;
+    --ink: #1C1C1A;
+    --border: #D8D2C2;
+    --error: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--forest);
+    color: var(--cream);
+    padding: 20px 24px 18px;
+  }
+  header .wordmark {
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
+    margin: 0 0 2px;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 0;
+    font-weight: 600;
+  }
+  main {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 18px 0 6px;
+  }
+  input[type="email"],
+  input[type="password"],
+  input[type="tel"],
+  input[type="text"] {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+  }
+  input:focus {
+    outline: 2px solid var(--forest-light);
+    outline-offset: 1px;
+  }
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    background: var(--forest);
+    color: var(--cream);
+    margin-top: 22px;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  button.secondary {
+    background: transparent;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+    margin-top: 10px;
+  }
+  .help-text {
+    font-size: 13px;
+    color: #555;
+    margin-top: 6px;
+  }
+  .error-text {
+    font-size: 14px;
+    color: var(--error);
+    margin-top: 14px;
+    display: none;
+  }
+  .home-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 24px;
+    background: #fff;
+  }
+  .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .home-card .meta { font-size: 14px; color: #555; margin: 0; }
+  .action-list { display: flex; flex-direction: column; gap: 12px; }
+  .action-button {
+    text-align: left;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 18px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 0;
+  }
+  .action-button .sub {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: #666;
+    margin-top: 3px;
+  }
+  .logout-link {
+    display: block;
+    text-align: center;
+    margin-top: 32px;
+    font-size: 14px;
+    color: #666;
+    background: none;
+    border: none;
+    text-decoration: underline;
+    padding: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="wordmark">Arch Support Residential Services</p>
+  <h1>Provider App</h1>
+</header>
+
+<main>
+
+  <!-- Screen 1: Email + Password -->
+  <section id="screen-login" class="screen active">
+    <label for="login-email">Email</label>
+    <input type="email" id="login-email" autocomplete="username" inputmode="email">
+
+    <label for="login-password">Password</label>
+    <input type="password" id="login-password" autocomplete="current-password">
+
+    <p class="help-text">Use the email and password provided to you by ASRS.</p>
+    <p class="error-text" id="login-error"></p>
+
+    <button id="login-submit">Log In</button>
+  </section>
+
+  <!-- Screen 2: SMS Code -->
+  <section id="screen-otp" class="screen">
+    <label for="otp-code">Enter the 6-digit code</label>
+    <input type="text" id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <p class="help-text" id="otp-help">We sent a code by text message.</p>
+    <p class="error-text" id="otp-error"></p>
+
+    <button id="otp-submit">Verify Code</button>
+    <button id="otp-back" class="secondary">Back</button>
+  </section>
+
+  <!-- Screen 3: Home -->
+  <section id="screen-home" class="screen">
+    <div class="home-card">
+      <p class="name" id="home-name"></p>
+      <p class="meta" id="home-meta"></p>
+    </div>
+
+    <div class="action-list">
+      <button class="action-button" data-action="first-aid">
+        First Aid Supplies Report
+        <span class="sub">Review or update expiration dates</span>
+      </button>
+      <button class="action-button" data-action="fire-drill">
+        Log Fire Drill
+        <span class="sub">Record a completed drill</span>
+      </button>
+      <button class="action-button" data-action="log-event">
+        Log an Event
+        <span class="sub">Appointments and community outings</span>
+      </button>
+    </div>
+
+    <button class="logout-link" id="logout">Log Out</button>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  const FN_BASE = '/.netlify/functions';
+  const SESSION_KEY = 'asrs_provider_session';
+
+  const screens = {
+    login: document.getElementById('screen-login'),
+    otp: document.getElementById('screen-otp'),
+    home: document.getElementById('screen-home')
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
+    screens[name].classList.add('active');
+  }
+
+  function setError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+  }
+
+  let pendingOtpToken = null;
+
+  // --- Screen 1: email + password ---
+  document.getElementById('login-submit').addEventListener('click', async function () {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    setError('login-error', '');
+
+    if (!email || !password) {
+      setError('login-error', 'Enter your email and password.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/provider-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('login-error', data.error || 'Something went wrong.');
+        return;
+      }
+      pendingOtpToken = data.otpToken;
+      document.getElementById('otp-help').textContent = 'We sent a code to ' + data.maskedPhone + '.';
+      document.getElementById('otp-code').value = '';
+      showScreen('otp');
+    } catch (e) {
+      setError('login-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Screen 2: OTP ---
+  document.getElementById('otp-back').addEventListener('click', function () {
+    setError('otp-error', '');
+    showScreen('login');
+  });
+
+  document.getElementById('otp-submit').addEventListener('click', async function () {
+    const code = document.getElementById('otp-code').value.trim();
+    setError('otp-error', '');
+
+    if (!code) {
+      setError('otp-error', 'Enter the code we texted you.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/provider-verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otpToken: pendingOtpToken, code: code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('otp-error', data.error || 'Something went wrong.');
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        sessionToken: data.sessionToken,
+        session: data.session
+      }));
+      renderHome(data.session);
+      showScreen('home');
+    } catch (e) {
+      setError('otp-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Screen 3: Home ---
+  function renderHome(session) {
+    document.getElementById('home-name').textContent = session.name || 'Provider';
+    const parts = [session.location];
+    if (session.residentInitials) parts.push('Resident: ' + session.residentInitials);
+    document.getElementById('home-meta').textContent = parts.filter(Boolean).join(' · ');
+  }
+
+  document.querySelectorAll('.action-button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      // Report screens land here in the next build pass.
+      alert('This screen is coming next.');
+    });
+  });
+
+  document.getElementById('logout').addEventListener('click', function () {
+    localStorage.removeItem(SESSION_KEY);
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    showScreen('login');
+  });
+
+  // --- Restore existing session on load ---
+  (function init() {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored);
+      renderHome(parsed.session);
+      showScreen('home');
+    } catch (e) {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  })();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "ASRS Provider App",
+  "short_name": "ASRS Provider",
+  "start_url": "/provider-app/",
+  "display": "standalone",
+  "background_color": "#F6F3EC",
+  "theme_color": "#16332B",
+  "icons": []
+}
