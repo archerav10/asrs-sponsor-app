@@ -114,12 +114,14 @@ don't pick up env var changes until the next deploy.
     "1900-01-01" rather than blank, so it always reads as maximally
     overdue instead of "not yet looked at"). PRN medications
     additionally get a free-text Quantity field. Every medication also
-    has an optional **Date Delivered** field.
+    has a **Date Delivered** field, required for finalizing unless the
+    medication is marked Missing.
   - **Save Progress** persists whatever's currently entered, complete
     or not — no validation, safe to leave and come back to.
-  - **Finalize Report** validates first: every medication must be
-    captured (Missing checked, or a real expiration date entered), and
-    no non-missing medication's date may already be expired. Failing
+  - **Finalize Report** validates first: every non-missing medication
+    must have both an expiration date and a delivered date, and that
+    expiration date must not already be in the past; a medication
+    marked Missing is exempt from both (nothing was delivered). Failing
     either blocks finalizing with a message naming which medications
     need attention. Passing updates the MAR Review Periods tracker
     (separate from the medication data itself) with the finalized

@@ -68,8 +68,9 @@ exports.handler = async function (event) {
       const submitted = submittedById[id];
       const isMissing = submitted ? !!submitted.missing : false;
       const expDate = submitted ? submitted.currentExpDate : '';
+      const deliveredDate = submitted ? submitted.dateDelivered : '';
 
-      if (!submitted || (!isMissing && !expDate)) {
+      if (!submitted || (!isMissing && (!expDate || !deliveredDate))) {
         uncaptured.push(med.itemName);
         return;
       }
