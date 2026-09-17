@@ -32,9 +32,9 @@ exports.handler = async function (event) {
     if (!residents.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No resident on file for this account.' }) };
     }
-    const residentFilter = residents.length === 1
-      ? { property: 'Resident Initials', rich_text: { equals: residents[0] } }
-      : { or: residents.map(function (r) { return { property: 'Resident Initials', rich_text: { equals: r } }; }) };
+    const requestedResident = body.resident;
+    const targetResident = requestedResident && residents.indexOf(requestedResident) !== -1 ? requestedResident : residents[0];
+    const residentFilter = { property: 'Resident Initials', rich_text: { equals: targetResident } };
 
     const result = await queryDatabase(MAR_DB_ID, {
       and: [

@@ -11,10 +11,17 @@ exports.handler = async function (event) {
 
   try {
     const session = requireSession(event);
-    const residents = (session.residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    const allResidents = (session.residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+    // A specific resident can be requested (for the per-resident Home
+    // buttons/screen) — but it must actually belong to this session.
+    const requestedResident = event.queryStringParameters && event.queryStringParameters.resident;
+    const residents = requestedResident && allResidents.indexOf(requestedResident) !== -1
+      ? [requestedResident]
+      : allResidents;
 
     if (!residents.length) {
-      return { statusCode: 200, body: JSON.stringify({ location: session.location, residents: [], medications: [], allergyInfo: null, generalNotes: null, period: null }) };
+      return { statusCode: 200, body: JSON.stringify({ location: session.location, residents: [], medications: [], allergyInfo: null, generalNotes: null, deliveryDate: null, period: null }) };
     }
 
     const residentFilter = residents.length === 1

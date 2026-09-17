@@ -28,9 +28,9 @@ exports.handler = async function (event) {
     if (!residents.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No resident on file for this account.' }) };
     }
-    const residentFilter = residents.length === 1
-      ? { property: 'Resident Initials', rich_text: { equals: residents[0] } }
-      : { or: residents.map(function (r) { return { property: 'Resident Initials', rich_text: { equals: r } }; }) };
+    const requestedResident = body.resident;
+    const targetResident = requestedResident && residents.indexOf(requestedResident) !== -1 ? requestedResident : residents[0];
+    const residentFilter = { property: 'Resident Initials', rich_text: { equals: targetResident } };
 
     const result = await queryDatabase(MAR_DB_ID, {
       and: [
@@ -147,7 +147,7 @@ exports.handler = async function (event) {
     const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
       and: [
         { property: 'Location', select: { equals: session.location } },
-        { property: 'Resident Initials', rich_text: { equals: residents[0] } },
+        { property: 'Resident Initials', rich_text: { equals: targetResident } },
         { property: 'Active', checkbox: { equals: true } }
       ]
     });
@@ -165,9 +165,9 @@ exports.handler = async function (event) {
       await updatePage(periodPage.id, periodProperties);
     } else {
       await createPage(MAR_PERIODS_DB_ID, Object.assign({
-        'Period Title': { title: [{ text: { content: session.location + ' - ' + residents[0] } }] },
+        'Period Title': { title: [{ text: { content: session.location + ' - ' + targetResident } }] },
         'Location': { select: { name: session.location } },
-        'Resident Initials': { rich_text: [{ text: { content: residents[0] } }] },
+        'Resident Initials': { rich_text: [{ text: { content: targetResident } }] },
         'Active': { checkbox: true }
       }, periodProperties));
     }

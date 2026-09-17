@@ -136,7 +136,15 @@ don't pick up env var changes until the next deploy.
     that period's due date is within 7 days, flashing red if overdue
     (including a period that was never finalized in time — this
     self-corrects each month rather than getting stuck). Home also
-    shows last-reviewed, latest delivery date, and last-finalized date.
+    shows which month is being reviewed, last-reviewed, latest delivery
+    date, and last-finalized date. **One button per resident** — if an
+    account has more than one resident, each gets its own MAR Review
+    button, own status dot, own screen instance (pass `?resident=XX` to
+    `get-mar-review`, or `resident` in the POST body for
+    confirm/finalize, to scope to one specific resident).
+- All five report buttons (First Aid, Fire Drill, Emergency Supplies,
+  Physical Environment, MAR Review) now show the same red/yellow/green
+  status dot, driven by each report's own due-date logic.
 
 ## Admin multi-location login
 

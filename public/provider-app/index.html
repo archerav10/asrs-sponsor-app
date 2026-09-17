@@ -467,25 +467,37 @@
 
     <div class="action-list">
       <button class="action-button" data-action="first-aid">
-        First Aid Supplies Report
+        <span class="mar-label-row">
+          <span id="home-fa-dot" class="status-dot status-green"></span>
+          <span>First Aid Supplies Report</span>
+        </span>
         <span class="sub">Review or update expiration dates</span>
         <span class="sub" id="home-fa-status"></span>
         <span class="sub" id="home-fa-due"></span>
       </button>
       <button class="action-button" data-action="fire-drill">
-        Log Fire Drill
+        <span class="mar-label-row">
+          <span id="home-fd-dot" class="status-dot status-green"></span>
+          <span>Log Fire Drill</span>
+        </span>
         <span class="sub">Record a completed drill</span>
         <span class="sub" id="home-fd-status"></span>
         <span class="sub" id="home-fd-due"></span>
       </button>
       <button class="action-button" data-action="emergency-supplies">
-        Emergency Supplies Report
+        <span class="mar-label-row">
+          <span id="home-es-dot" class="status-dot status-green"></span>
+          <span>Emergency Supplies Report</span>
+        </span>
         <span class="sub">Review or update emergency supplies</span>
         <span class="sub" id="home-es-status"></span>
         <span class="sub" id="home-es-due"></span>
       </button>
       <button class="action-button" data-action="physical-environment">
-        Physical Environment Report
+        <span class="mar-label-row">
+          <span id="home-pe-dot" class="status-dot status-green"></span>
+          <span>Physical Environment Report</span>
+        </span>
         <span class="sub">Checklist, fire extinguisher date, temps</span>
         <span class="sub" id="home-pe-status"></span>
         <span class="sub" id="home-pe-due"></span>
@@ -494,17 +506,7 @@
         Log an Event
         <span class="sub">Appointments and community outings</span>
       </button>
-      <button class="action-button" data-action="mar-review">
-        <span class="mar-label-row">
-          <span id="home-mar-dot" class="status-dot status-green"></span>
-          <span>&#128138; MAR Review</span>
-        </span>
-        <span class="sub">Medication expiration and PRN quantities</span>
-        <span class="sub" id="home-mar-status"></span>
-        <span class="sub" id="home-mar-delivered"></span>
-        <span class="sub" id="home-mar-finalized"></span>
-        <span class="sub" id="home-mar-due"></span>
-      </button>
+      <div id="mar-buttons-container"></div>
     </div>
 
     <button class="logout-link" id="logout">Log Out</button>
@@ -865,27 +867,31 @@
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
-    loadHomeMarStatus();
+    renderMarButtons(session.residentInitials);
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
   // "Last reviewed" and "Next due" under its Home button. Fails silently —
   // the report screen itself will surface any real error.
   async function loadHomeFireDrillStatus() {
+    const dotEl = document.getElementById('home-fd-dot');
     const statusEl = document.getElementById('home-fd-status');
     const dueEl = document.getElementById('home-fd-due');
     statusEl.textContent = '';
     dueEl.textContent = '';
     try {
       const data = await apiFetch('/get-fire-drill-status');
+      const due = computeDueDate(data.lastReviewed);
       statusEl.textContent = 'Last reviewed: ' + (data.lastReviewed ? formatDate(data.lastReviewed) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(data.lastReviewed).toISOString().slice(0, 10));
+      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
+      dotEl.className = 'status-dot ' + statusClassForDueDate(data.lastReviewed, due);
     } catch (e) {
       // leave blank
     }
   }
 
   async function loadHomeEmergencySuppliesStatus() {
+    const dotEl = document.getElementById('home-es-dot');
     const statusEl = document.getElementById('home-es-status');
     const dueEl = document.getElementById('home-es-due');
     statusEl.textContent = '';
@@ -894,14 +900,17 @@
       const data = await apiFetch('/get-emergency-supplies');
       const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
+      const due = computeDueDate(recent);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
+      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
+      dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
     } catch (e) {
       // leave blank
     }
   }
 
   async function loadHomePhysicalEnvironmentStatus() {
+    const dotEl = document.getElementById('home-pe-dot');
     const statusEl = document.getElementById('home-pe-status');
     const dueEl = document.getElementById('home-pe-due');
     statusEl.textContent = '';
@@ -910,8 +919,10 @@
       const data = await apiFetch('/get-physical-environment');
       const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
+      const due = computeDueDate(recent);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
+      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
+      dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
     } catch (e) {
       // leave blank
     }
@@ -938,23 +949,53 @@
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
-  // MAR gets a colored status dot in addition to text: red+flashing if
-  // overdue or never done, yellow+flashing if due within 7 days, solid
-  // green otherwise (green specifically means "finalized for the
-  // current target period," not just "not yet due").
-  async function loadHomeMarStatus() {
-    const dotEl = document.getElementById('home-mar-dot');
-    const statusEl = document.getElementById('home-mar-status');
-    const deliveredEl = document.getElementById('home-mar-delivered');
-    const finalizedEl = document.getElementById('home-mar-finalized');
-    const dueEl = document.getElementById('home-mar-due');
+  // Builds one MAR Review button per resident on the account — matches
+  // how a location with more than one resident should work: each gets
+  // their own button, own status dot, own screen instance.
+  function renderMarButtons(residentInitialsStr) {
+    const container = document.getElementById('mar-buttons-container');
+    container.innerHTML = '';
+    const residents = (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-mar-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#128138; MAR Review \u2014 ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-mar-period-' + initials + '"></span>' +
+        '<span class="sub" id="home-mar-status-' + initials + '"></span>' +
+        '<span class="sub" id="home-mar-delivered-' + initials + '"></span>' +
+        '<span class="sub" id="home-mar-finalized-' + initials + '"></span>' +
+        '<span class="sub" id="home-mar-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentMarResidentInitials = initials;
+        showScreen('marReview');
+        loadMarReview();
+      });
+      container.appendChild(btn);
+      loadHomeMarStatus(initials);
+    });
+  }
+
+  async function loadHomeMarStatus(initials) {
+    const dotEl = document.getElementById('home-mar-dot-' + initials);
+    const periodEl = document.getElementById('home-mar-period-' + initials);
+    const statusEl = document.getElementById('home-mar-status-' + initials);
+    const deliveredEl = document.getElementById('home-mar-delivered-' + initials);
+    const finalizedEl = document.getElementById('home-mar-finalized-' + initials);
+    const dueEl = document.getElementById('home-mar-due-' + initials);
+    if (!dotEl) return;
+    periodEl.textContent = '';
     statusEl.textContent = '';
     deliveredEl.textContent = '';
     finalizedEl.textContent = '';
     dueEl.textContent = '';
 
     try {
-      const data = await apiFetch('/get-mar-review');
+      const data = await apiFetch('/get-mar-review?resident=' + encodeURIComponent(initials));
       const meds = data.medications || [];
       const period = data.period || {};
 
@@ -965,7 +1006,6 @@
       if (data.deliveryDate && data.deliveryDate.date) {
         deliveredEl.textContent = 'Medications delivered: ' + formatDate(data.deliveryDate.date);
       }
-
       if (period.lastFinalizedDate) {
         finalizedEl.textContent = 'Last finalized: ' + formatDate(period.lastFinalizedDate);
       }
@@ -974,6 +1014,8 @@
       const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
       const isFinalizedForTarget = period.lastFinalizedPeriod === targetPeriodStr;
       const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+
+      periodEl.textContent = 'Reviewing: ' + monthLabel(target);
 
       let statusClass = 'status-green';
       if (!isFinalizedForTarget) {
@@ -990,11 +1032,20 @@
     }
   }
 
+  function statusClassForDueDate(recent, dueDate) {
+    if (!recent) return 'status-red';
+    const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+    if (daysUntilDue < 0) return 'status-red';
+    if (daysUntilDue <= 7) return 'status-yellow';
+    return 'status-green';
+  }
+
   // Fire-and-forget: pulls just enough from First Aid Supplies to show a
   // "Last reviewed" / "Next due" line under its Home button, before the
   // provider taps in. Fails silently — a broken status line shouldn't
   // block Home.
   async function loadHomeFirstAidStatus() {
+    const dotEl = document.getElementById('home-fa-dot');
     const statusEl = document.getElementById('home-fa-status');
     const dueEl = document.getElementById('home-fa-due');
     statusEl.textContent = '';
@@ -1003,8 +1054,10 @@
       const data = await apiFetch('/get-first-aid-supplies');
       const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
+      const due = computeDueDate(recent);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
+      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
+      dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
     } catch (e) {
       // Leave it blank — the report screen itself will surface any real error.
     }
@@ -1029,9 +1082,6 @@
         resetLogEventForm();
         showScreen('logEvent');
         loadEventsList();
-      } else if (action === 'mar-review') {
-        showScreen('marReview');
-        loadMarReview();
       } else {
         alert('This screen is coming next.');
       }
@@ -1718,6 +1768,7 @@
     return wrap;
   }
 
+  let currentMarResidentInitials = null;
   let currentMarAllergy = null;
   let currentMarGeneralNotes = null;
   let currentMarDeliveryDate = null;
@@ -1735,12 +1786,15 @@
     deliveryWrap.style.display = 'none';
 
     try {
-      const data = await apiFetch('/get-mar-review');
+      const data = await apiFetch('/get-mar-review?resident=' + encodeURIComponent(currentMarResidentInitials || ''));
       const meds = data.medications || [];
       currentMarAllergy = data.allergyInfo || null;
       currentMarGeneralNotes = data.generalNotes || null;
       currentMarDeliveryDate = data.deliveryDate || null;
       currentMarPeriod = data.period || {};
+
+      document.querySelector('#screen-mar-review .screen-title').textContent =
+        'MAR Review \u2014 ' + (currentMarResidentInitials || '');
 
       if (currentMarDeliveryDate) {
         document.getElementById('mar-delivery-date').value = currentMarDeliveryDate.date || '';
@@ -1813,7 +1867,7 @@
       await apiFetch('/confirm-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
       });
       alert('Progress saved. Come back anytime to keep working before finalizing.');
       loadMarReview();
@@ -1840,7 +1894,7 @@
       await apiFetch('/finalize-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
       });
       alert('Report finalized.');
       const stored = getStoredSession();
