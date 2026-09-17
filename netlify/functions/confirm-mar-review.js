@@ -23,9 +23,10 @@ exports.handler = async function (event) {
   try {
     const session = requireSession(event);
     const body = JSON.parse(event.body || '{}');
-    const submittedItems = body.items || [];   // [{ id, currentExpDate?, missing?, quantity?, dateDelivered? }]
+    const submittedItems = body.items || [];   // [{ id, currentExpDate?, missing?, quantity? }]
     const allergyInfo = body.allergyInfo;
     const generalNotes = body.generalNotes;
+    const deliveryDate = body.deliveryDate;    // single date for the whole report, or undefined
 
     const residents = (session.residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     if (!residents.length) {
@@ -46,12 +47,15 @@ exports.handler = async function (event) {
     const authoritative = {};
     let allergyId = null;
     let generalNotesId = null;
+    let deliveryDateId = null;
     (result.results || []).forEach(function (page) {
       const name = getPlainText(page.properties['Item Name']);
       if (name === 'Allergy Info') {
         allergyId = page.id;
       } else if (name === 'General Notes') {
         generalNotesId = page.id;
+      } else if (name === 'Medication Delivery Date') {
+        deliveryDateId = page.id;
       } else {
         authoritative[page.id] = { medicationType: getPlainText(page.properties['Medication Type']) };
       }
@@ -75,9 +79,6 @@ exports.handler = async function (event) {
         'Last Updated Date': { date: { start: today } }
       };
 
-      if (submitted.dateDelivered !== undefined) {
-        properties['Date Delivered'] = submitted.dateDelivered ? { date: { start: submitted.dateDelivered } } : { date: null };
-      }
       if (known.medicationType === 'PRN' && submitted.quantity !== undefined) {
         properties['Quantity'] = { rich_text: [{ text: { content: submitted.quantity } }] };
       }
@@ -96,6 +97,13 @@ exports.handler = async function (event) {
     if (generalNotesId && generalNotes !== undefined) {
       await updatePage(generalNotesId, {
         'Notes': { rich_text: [{ text: { content: generalNotes } }] },
+        'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
+        'Last Updated Date': { date: { start: today } }
+      });
+    }
+    if (deliveryDateId && deliveryDate !== undefined) {
+      await updatePage(deliveryDateId, {
+        'Date Delivered': deliveryDate ? { date: { start: deliveryDate } } : { date: null },
         'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
         'Last Updated Date': { date: { start: today } }
       });

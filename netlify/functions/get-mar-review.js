@@ -50,6 +50,7 @@ exports.handler = async function (event) {
 
     const allergyRow = allRows.find(function (r) { return r.itemName === 'Allergy Info'; });
     const generalNotesRow = allRows.find(function (r) { return r.itemName === 'General Notes'; });
+    const deliveryDateRow = allRows.find(function (r) { return r.itemName === 'Medication Delivery Date'; });
     const medications = allRows
       .filter(function (r) { return r.medicationType !== 'Info'; })
       .sort(function (a, b) {
@@ -85,6 +86,7 @@ exports.handler = async function (event) {
         medications: medications,
         allergyInfo: allergyRow ? { id: allergyRow.id, notes: allergyRow.notes } : null,
         generalNotes: generalNotesRow ? { id: generalNotesRow.id, notes: generalNotesRow.notes } : null,
+        deliveryDate: deliveryDateRow ? { id: deliveryDateRow.id, date: deliveryDateRow.dateDelivered } : null,
         period: period
       })
     };

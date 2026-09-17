@@ -22,6 +22,7 @@ exports.handler = async function (event) {
     const submittedItems = body.items || [];
     const allergyInfo = body.allergyInfo;
     const generalNotes = body.generalNotes;
+    const deliveryDate = body.deliveryDate;
 
     const residents = (session.residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     if (!residents.length) {
@@ -42,12 +43,15 @@ exports.handler = async function (event) {
     const authoritative = {}; // id -> { medicationType, itemName }
     let allergyId = null;
     let generalNotesId = null;
+    let deliveryDateId = null;
     (result.results || []).forEach(function (page) {
       const name = getPlainText(page.properties['Item Name']);
       if (name === 'Allergy Info') {
         allergyId = page.id;
       } else if (name === 'General Notes') {
         generalNotesId = page.id;
+      } else if (name === 'Medication Delivery Date') {
+        deliveryDateId = page.id;
       } else {
         authoritative[page.id] = {
           medicationType: getPlainText(page.properties['Medication Type']),
@@ -68,9 +72,8 @@ exports.handler = async function (event) {
       const submitted = submittedById[id];
       const isMissing = submitted ? !!submitted.missing : false;
       const expDate = submitted ? submitted.currentExpDate : '';
-      const deliveredDate = submitted ? submitted.dateDelivered : '';
 
-      if (!submitted || (!isMissing && (!expDate || !deliveredDate))) {
+      if (!submitted || (!isMissing && !expDate)) {
         uncaptured.push(med.itemName);
         return;
       }
@@ -78,6 +81,10 @@ exports.handler = async function (event) {
         expired.push(med.itemName);
       }
     });
+
+    if (!deliveryDate) {
+      uncaptured.push('Medication Delivery Date');
+    }
 
     if (uncaptured.length || expired.length) {
       const parts = [];
@@ -106,9 +113,6 @@ exports.handler = async function (event) {
         'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
         'Last Updated Date': { date: { start: today } }
       };
-      if (submitted.dateDelivered !== undefined) {
-        properties['Date Delivered'] = submitted.dateDelivered ? { date: { start: submitted.dateDelivered } } : { date: null };
-      }
       if (known.medicationType === 'PRN' && submitted.quantity !== undefined) {
         properties['Quantity'] = { rich_text: [{ text: { content: submitted.quantity } }] };
       }
@@ -127,6 +131,13 @@ exports.handler = async function (event) {
     if (generalNotesId && generalNotes !== undefined) {
       await updatePage(generalNotesId, {
         'Notes': { rich_text: [{ text: { content: generalNotes } }] },
+        'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
+        'Last Updated Date': { date: { start: today } }
+      });
+    }
+    if (deliveryDateId && deliveryDate) {
+      await updatePage(deliveryDateId, {
+        'Date Delivered': { date: { start: deliveryDate } },
         'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
         'Last Updated Date': { date: { start: today } }
       });

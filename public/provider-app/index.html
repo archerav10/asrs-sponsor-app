@@ -272,8 +272,6 @@
     background: #fff;
   }
   input[type="date"] {
-    -webkit-appearance: none;
-    appearance: none;
     background-color: #fff;
   }
   .event-list-box {
@@ -688,6 +686,11 @@
       <textarea id="mar-allergy" rows="2"></textarea>
     </div>
 
+    <div class="form-field" id="mar-delivery-date-wrap" style="display:none;">
+      <label for="mar-delivery-date">Medications Delivered Date *</label>
+      <input type="date" id="mar-delivery-date">
+    </div>
+
     <div id="mar-list"></div>
 
     <div id="mar-general-notes-wrap" class="general-notes-wrap" style="display:none;">
@@ -959,9 +962,8 @@
       const recent = dates.length ? dates[dates.length - 1] : null;
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
 
-      const delivered = meds.map(function (m) { return m.dateDelivered; }).filter(Boolean).sort();
-      if (delivered.length) {
-        deliveredEl.textContent = 'Latest delivery: ' + formatDate(delivered[delivered.length - 1]);
+      if (data.deliveryDate && data.deliveryDate.date) {
+        deliveredEl.textContent = 'Medications delivered: ' + formatDate(data.deliveryDate.date);
       }
 
       if (period.lastFinalizedDate) {
@@ -1692,10 +1694,6 @@
           '<label>Expiration Date *</label>' +
           '<input type="date" class="mar-exp-input' + (isMissing ? ' med-disabled' : '') + '" value="' + (med.currentExpDate || '') + '"' + (isMissing ? ' disabled' : '') + '>' +
         '</div>' +
-        '<div class="med-field">' +
-          '<label>Date Delivered *</label>' +
-          '<input type="date" class="mar-delivered-input" value="' + (med.dateDelivered || '') + '">' +
-        '</div>' +
         quantityFieldHtml +
         '<div class="med-missing-field">' +
           '<input type="checkbox" class="mar-missing-input"' + (isMissing ? ' checked' : '') + '>' +
@@ -1722,23 +1720,32 @@
 
   let currentMarAllergy = null;
   let currentMarGeneralNotes = null;
+  let currentMarDeliveryDate = null;
   let currentMarPeriod = null;
 
   async function loadMarReview() {
     const listEl = document.getElementById('mar-list');
     const allergyWrap = document.getElementById('mar-allergy-wrap');
     const notesWrap = document.getElementById('mar-general-notes-wrap');
+    const deliveryWrap = document.getElementById('mar-delivery-date-wrap');
     setError('mar-error', '');
     listEl.innerHTML = '<p class="loading-text">Loading medications&hellip;</p>';
     allergyWrap.style.display = 'none';
     notesWrap.style.display = 'none';
+    deliveryWrap.style.display = 'none';
 
     try {
       const data = await apiFetch('/get-mar-review');
       const meds = data.medications || [];
       currentMarAllergy = data.allergyInfo || null;
       currentMarGeneralNotes = data.generalNotes || null;
+      currentMarDeliveryDate = data.deliveryDate || null;
       currentMarPeriod = data.period || {};
+
+      if (currentMarDeliveryDate) {
+        document.getElementById('mar-delivery-date').value = currentMarDeliveryDate.date || '';
+        deliveryWrap.style.display = 'block';
+      }
 
       const { target, dueDate } = computeMarTarget(currentMarPeriod.lastFinalizedPeriod);
       const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
@@ -1782,8 +1789,7 @@
       const entry = {
         id: row.dataset.itemId,
         missing: missing,
-        currentExpDate: missing ? '' : row.querySelector('.mar-exp-input').value,
-        dateDelivered: row.querySelector('.mar-delivered-input').value
+        currentExpDate: missing ? '' : row.querySelector('.mar-exp-input').value
       };
       const qtyInput = row.querySelector('.mar-quantity-input');
       if (qtyInput) entry.quantity = qtyInput.value;
@@ -1801,12 +1807,13 @@
     const items = gatherMarItems();
     const allergyValue = currentMarAllergy ? document.getElementById('mar-allergy').value : undefined;
     const generalNotesValue = currentMarGeneralNotes ? document.getElementById('mar-general-notes').value : undefined;
+    const deliveryDateValue = currentMarDeliveryDate ? document.getElementById('mar-delivery-date').value : undefined;
 
     try {
       await apiFetch('/confirm-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue })
+        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
       });
       alert('Progress saved. Come back anytime to keep working before finalizing.');
       loadMarReview();
@@ -1827,12 +1834,13 @@
     const items = gatherMarItems();
     const allergyValue = currentMarAllergy ? document.getElementById('mar-allergy').value : undefined;
     const generalNotesValue = currentMarGeneralNotes ? document.getElementById('mar-general-notes').value : undefined;
+    const deliveryDateValue = currentMarDeliveryDate ? document.getElementById('mar-delivery-date').value : undefined;
 
     try {
       await apiFetch('/finalize-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue })
+        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
       });
       alert('Report finalized.');
       const stored = getStoredSession();

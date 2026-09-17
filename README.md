@@ -113,19 +113,21 @@ don't pick up env var changes until the next deploy.
     date field; when Missing is set, the stored date becomes a sentinel
     "1900-01-01" rather than blank, so it always reads as maximally
     overdue instead of "not yet looked at"). PRN medications
-    additionally get a free-text Quantity field. Every medication also
-    has a **Date Delivered** field, required for finalizing unless the
-    medication is marked Missing.
+    additionally get a free-text Quantity field.
+  - **Medications Delivered Date** is a single field for the whole
+    report (not per-medication) — stored on its own special
+    "Medication Delivery Date" row, same pattern as Allergy Info/General
+    Notes. Required to finalize.
   - **Save Progress** persists whatever's currently entered, complete
     or not — no validation, safe to leave and come back to.
   - **Finalize Report** validates first: every non-missing medication
-    must have both an expiration date and a delivered date, and that
-    expiration date must not already be in the past; a medication
-    marked Missing is exempt from both (nothing was delivered). Failing
-    either blocks finalizing with a message naming which medications
-    need attention. Passing updates the MAR Review Periods tracker
-    (separate from the medication data itself) with the finalized
-    period, date, and who finalized it.
+    must have an expiration date that isn't already in the past, and
+    the report-level delivery date must be set. A medication marked
+    Missing is exempt from the expiration-date check. Failing either
+    blocks finalizing with a message naming which medications (or the
+    delivery date) need attention. Passing updates the MAR Review
+    Periods tracker (separate from the medication data itself) with the
+    finalized period, date, and who finalized it.
   - A red-bordered Allergies banner sits at the top (editable), sourced
     from a special "Allergy Info" row, same pattern as the "General
     Notes" row used elsewhere.
