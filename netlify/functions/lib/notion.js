@@ -2,6 +2,9 @@ const NOTION_VERSION = '2022-06-28';
 
 async function notionFetch(path, options) {
   options = options || {};
+  if (!process.env.NOTION_TOKEN) {
+    throw new Error('NOTION_TOKEN is not set in this function\'s environment (check its scope includes Functions in Netlify).');
+  }
   const res = await fetch('https://api.notion.com/v1' + path, Object.assign({}, options, {
     headers: Object.assign({
       'Authorization': 'Bearer ' + process.env.NOTION_TOKEN,
