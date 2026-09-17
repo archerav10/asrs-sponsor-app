@@ -273,6 +273,16 @@
   .evac-time-row { display: flex; gap: 12px; }
   .evac-time-row .evac-field { flex: 1; }
   .evac-time-row label { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
+  .range-warning {
+    font-size: 12px;
+    color: var(--error);
+    margin: 6px 0 0;
+    display: none;
+    font-weight: 600;
+  }
+  .numeric-row input.out-of-range {
+    border-color: var(--error);
+  }
 </style>
 </head>
 <body>
@@ -334,6 +344,12 @@
         <span class="sub">Review or update emergency supplies</span>
         <span class="sub" id="home-es-status"></span>
         <span class="sub" id="home-es-due"></span>
+      </button>
+      <button class="action-button" data-action="physical-environment">
+        Physical Environment Report
+        <span class="sub">Checklist, fire extinguisher date, temps</span>
+        <span class="sub" id="home-pe-status"></span>
+        <span class="sub" id="home-pe-due"></span>
       </button>
       <button class="action-button" data-action="log-event">
         Log an Event
@@ -435,6 +451,29 @@
     </div>
   </section>
 
+  <!-- Screen 7: Physical Environment -->
+  <section id="screen-physical-environment" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Physical Environment</p>
+    <div class="fa-status-card" id="pe-last-reviewed">Loading&hellip;</div>
+    <p class="error-text" id="pe-error"></p>
+
+    <div id="pe-list" class="item-list">
+      <p class="loading-text">Loading items&hellip;</p>
+    </div>
+
+    <div id="pe-general-notes-wrap" class="general-notes-wrap" style="display:none;">
+      <label for="pe-general-notes">Notes (optional)</label>
+      <textarea id="pe-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
+    </div>
+
+    <div class="confirm-bar">
+      <button id="pe-confirm">Confirm Everything Is Correct</button>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -448,7 +487,8 @@
     home: document.getElementById('screen-home'),
     firstAid: document.getElementById('screen-first-aid'),
     fireDrill: document.getElementById('screen-fire-drill'),
-    emergencySupplies: document.getElementById('screen-emergency-supplies')
+    emergencySupplies: document.getElementById('screen-emergency-supplies'),
+    physicalEnvironment: document.getElementById('screen-physical-environment')
   };
 
   function getStoredSession() {
@@ -592,6 +632,7 @@
     loadHomeFirstAidStatus();
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
+    loadHomePhysicalEnvironmentStatus();
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -618,6 +659,22 @@
     dueEl.textContent = '';
     try {
       const data = await apiFetch('/get-emergency-supplies');
+      const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
+    } catch (e) {
+      // leave blank
+    }
+  }
+
+  async function loadHomePhysicalEnvironmentStatus() {
+    const statusEl = document.getElementById('home-pe-status');
+    const dueEl = document.getElementById('home-pe-due');
+    statusEl.textContent = '';
+    dueEl.textContent = '';
+    try {
+      const data = await apiFetch('/get-physical-environment');
       const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
@@ -659,6 +716,9 @@
       } else if (action === 'emergency-supplies') {
         showScreen('emergencySupplies');
         loadEmergencySupplies();
+      } else if (action === 'physical-environment') {
+        showScreen('physicalEnvironment');
+        loadPhysicalEnvironment();
       } else {
         // Log an Event screen lands here in a future build pass.
         alert('This screen is coming next.');
@@ -962,6 +1022,176 @@
       showScreen('home');
     } catch (e) {
       setError('es-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Everything Is Correct';
+    }
+  });
+
+  // --- Screen 7: Physical Environment ---
+  // Acceptable ranges from the existing compliance dashboard.
+  const PE_RANGES = {
+    'Kitchen Hot Water Temp': { min: 100, max: 110 },
+    'Bathroom Hot Water Temp': { min: 100, max: 110 },
+    'Refrigerator Temp': { min: 32, max: 40 },
+    'Freezer Temp': { max: 32 }
+  };
+
+  function checkRange(itemName, value) {
+    const range = PE_RANGES[itemName];
+    if (!range || value === '' || value === null || isNaN(value)) return true;
+    const num = Number(value);
+    if (range.min !== undefined && num < range.min) return false;
+    if (range.max !== undefined && num > range.max) return false;
+    return true;
+  }
+
+  function rangeLabel(itemName) {
+    const range = PE_RANGES[itemName];
+    if (!range) return '';
+    if (range.min !== undefined && range.max !== undefined) return range.min + '\u2013' + range.max + '\u00b0F';
+    if (range.max !== undefined) return '<' + range.max + '\u00b0F';
+    return '';
+  }
+
+  function renderPeCheckboxRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row checkbox-row';
+    wrap.dataset.itemId = item.id;
+    const checked = item.present === true;
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      '<input type="checkbox" class="pe-present-input"' + (checked ? ' checked' : '') + '>';
+    return wrap;
+  }
+
+  function renderPeDateRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row date-row';
+    wrap.dataset.itemId = item.id;
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      '<label>Expiration Date</label>' +
+      '<input type="date" class="pe-exp-input" value="' + (item.currentExpDate || '') + '">' +
+      '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
+    return wrap;
+  }
+
+  function renderPeNumericRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row numeric-row';
+    wrap.dataset.itemId = item.id;
+    const label = rangeLabel(item.itemName);
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + (label ? ' <span style="font-weight:400;color:#777;">(' + label + ')</span>' : '') + '</p>' +
+      '<label>Reading (\u00b0F)</label>' +
+      '<input type="number" class="pe-numeric-input" value="' + (item.numericValue != null ? item.numericValue : '') + '">' +
+      '<p class="range-warning">Outside the expected range \u2014 double check this reading.</p>';
+
+    const input = wrap.querySelector('.pe-numeric-input');
+    const warning = wrap.querySelector('.range-warning');
+    function updateWarning() {
+      const ok = checkRange(item.itemName, input.value);
+      input.classList.toggle('out-of-range', !ok);
+      warning.style.display = ok ? 'none' : 'block';
+    }
+    input.addEventListener('input', updateWarning);
+    updateWarning();
+
+    return wrap;
+  }
+
+  let currentPeGeneralNotes = null;
+
+  async function loadPhysicalEnvironment() {
+    const listEl = document.getElementById('pe-list');
+    const notesWrap = document.getElementById('pe-general-notes-wrap');
+    setError('pe-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading items&hellip;</p>';
+    notesWrap.style.display = 'none';
+
+    try {
+      const data = await apiFetch('/get-physical-environment');
+      const items = data.items || [];
+      currentPeGeneralNotes = data.generalNotes || null;
+
+      const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      document.getElementById('pe-last-reviewed').textContent =
+        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+
+      listEl.innerHTML = '';
+      if (!items.length) {
+        listEl.innerHTML = '<p class="empty-text">No active items found for your location.</p>';
+        return;
+      }
+
+      const checklistItems = items.filter(function (i) { return i.itemType === 'Checklist'; });
+      const dateItems = items.filter(function (i) { return i.itemType === 'Expiration Date'; });
+      const numericItems = items.filter(function (i) { return i.itemType === 'Numeric Reading'; });
+
+      if (checklistItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Checklist';
+        listEl.appendChild(heading);
+        checklistItems.forEach(function (item) { listEl.appendChild(renderPeCheckboxRow(item)); });
+      }
+      if (dateItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Expiration Date';
+        listEl.appendChild(heading);
+        dateItems.forEach(function (item) { listEl.appendChild(renderPeDateRow(item)); });
+      }
+      if (numericItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Temperature Readings';
+        listEl.appendChild(heading);
+        numericItems.forEach(function (item) { listEl.appendChild(renderPeNumericRow(item)); });
+      }
+
+      if (currentPeGeneralNotes) {
+        document.getElementById('pe-general-notes').value = currentPeGeneralNotes.notes || '';
+        notesWrap.style.display = 'block';
+      }
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('pe-error', e.message);
+    }
+  }
+
+  document.getElementById('pe-confirm').addEventListener('click', async function () {
+    const btn = this;
+    setError('pe-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const items = [];
+    document.querySelectorAll('#pe-list .checkbox-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, present: row.querySelector('.pe-present-input').checked });
+    });
+    document.querySelectorAll('#pe-list .date-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, currentExpDate: row.querySelector('.pe-exp-input').value });
+    });
+    document.querySelectorAll('#pe-list .numeric-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, numericValue: row.querySelector('.pe-numeric-input').value });
+    });
+    const generalNotesValue = currentPeGeneralNotes ? document.getElementById('pe-general-notes').value : undefined;
+
+    try {
+      await apiFetch('/confirm-physical-environment-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items, generalNotes: generalNotesValue })
+      });
+      alert('Successfully saved.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
+    } catch (e) {
+      setError('pe-error', e.message);
     } finally {
       btn.disabled = false;
       btn.textContent = 'Confirm Everything Is Correct';

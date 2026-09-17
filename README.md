@@ -37,6 +37,7 @@ workflow as your other portals.
 | `FIRST_AID_DB_ID` | `13467800-fa4f-420b-9fac-77204750b36c` |
 | `FIRE_DRILL_DB_ID` | `2cd3e109-c6b9-4cc2-80cb-fde91d28a2f4` |
 | `EMERGENCY_SUPPLIES_DB_ID` | `2512e571-d0fb-4937-8594-646da323a734` |
+| `PHYSICAL_ENV_DB_ID` | `f65e9956-bfe5-4e81-8612-cf533d345796` |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
@@ -73,13 +74,18 @@ don't pick up env var changes until the next deploy.
 - Emergency Supplies screen: same pattern as First Aid Supplies (grouped
   date/checklist sections, one Confirm action) — plus a Gallons field on
   the Emergency Supply Water item specifically
+- Physical Environment screen: 3 plain checklist items, 1 fire
+  extinguisher expiration date, and 4 temperature readings (Kitchen/
+  Bathroom hot water, Refrigerator, Freezer) that flag red inline when
+  outside the standard ranges (100-110°F hot water, 32-40°F fridge,
+  <32°F freezer) — informational only, doesn't block saving
 - Home screen shows, separately under each report's button: its own
   last-reviewed/last-logged date, and its own next-due date — due date
   is the end of the month AFTER the month it was last completed (e.g.
   reviewed Sep 17 -> due Oct 31); falls back to end of the current month
   if it's never been done
 
-**Before trying Emergency Supplies:** connect the Emergency Supplies
+**Before trying Physical Environment:** connect the Physical Environment
 Master List database to your Notion integration, same as the others.
 - `lib/session.js` — every function requires and validates the session
   token server-side; nothing trusts client-supplied location data
