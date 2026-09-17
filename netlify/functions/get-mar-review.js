@@ -1,7 +1,8 @@
 const { queryDatabase, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
 
-const MAR_DB_ID = process.env.MAR_DB_ID; // 7dbf6757-dd9b-4c7c-ad78-168c745ed555
+const MAR_DB_ID = process.env.MAR_DB_ID;
+const MAR_PERIODS_DB_ID = process.env.MAR_PERIODS_DB_ID;
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -13,7 +14,7 @@ exports.handler = async function (event) {
     const residents = (session.residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 
     if (!residents.length) {
-      return { statusCode: 200, body: JSON.stringify({ location: session.location, residents: [], medications: [], allergyInfo: null, generalNotes: null }) };
+      return { statusCode: 200, body: JSON.stringify({ location: session.location, residents: [], medications: [], allergyInfo: null, generalNotes: null, period: null }) };
     }
 
     const residentFilter = residents.length === 1
@@ -38,6 +39,7 @@ exports.handler = async function (event) {
         purpose: getPlainText(page.properties['Purpose']),
         medicationType: getPlainText(page.properties['Medication Type']), // Regular | PRN | Info
         currentExpDate: getPlainText(page.properties['Current Exp Date']),
+        dateDelivered: getPlainText(page.properties['Date Delivered']),
         quantity: getPlainText(page.properties['Quantity']),
         missing: getPlainText(page.properties['Missing']),
         notes: getPlainText(page.properties['Notes']),
@@ -46,17 +48,34 @@ exports.handler = async function (event) {
       };
     });
 
-    // Pull the special Info rows (Allergy Info banner, General Notes) out of
-    // the medication list — same pattern as "General Notes" in other reports.
     const allergyRow = allRows.find(function (r) { return r.itemName === 'Allergy Info'; });
     const generalNotesRow = allRows.find(function (r) { return r.itemName === 'General Notes'; });
     const medications = allRows
       .filter(function (r) { return r.medicationType !== 'Info'; })
       .sort(function (a, b) {
-        // Group by resident, then alphabetically by drug name within each.
         if (a.residentInitials !== b.residentInitials) return a.residentInitials.localeCompare(b.residentInitials);
         return a.itemName.localeCompare(b.itemName);
       });
+
+    // Period tracker: one row per Location x Resident set (using the
+    // first resident on the account — matches how the rest of this
+    // report is scoped for now).
+    let period = null;
+    const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
+      and: [
+        { property: 'Location', select: { equals: session.location } },
+        { property: 'Resident Initials', rich_text: { equals: residents[0] } },
+        { property: 'Active', checkbox: { equals: true } }
+      ]
+    });
+    const periodPage = (periodResult.results || [])[0];
+    if (periodPage) {
+      period = {
+        lastFinalizedPeriod: getPlainText(periodPage.properties['Last Finalized Period']),
+        lastFinalizedDate: getPlainText(periodPage.properties['Last Finalized Date']),
+        lastFinalizedBy: getPlainText(periodPage.properties['Last Finalized By'])
+      };
+    }
 
     return {
       statusCode: 200,
@@ -65,7 +84,8 @@ exports.handler = async function (event) {
         residents: residents,
         medications: medications,
         allergyInfo: allergyRow ? { id: allergyRow.id, notes: allergyRow.notes } : null,
-        generalNotes: generalNotesRow ? { id: generalNotesRow.id, notes: generalNotesRow.notes } : null
+        generalNotes: generalNotesRow ? { id: generalNotesRow.id, notes: generalNotesRow.notes } : null,
+        period: period
       })
     };
   } catch (err) {

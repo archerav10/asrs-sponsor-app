@@ -40,6 +40,7 @@ workflow as your other portals.
 | `PHYSICAL_ENV_DB_ID` | `f65e9956-bfe5-4e81-8612-cf533d345796` |
 | `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
 | `MAR_DB_ID` | `7dbf6757-dd9b-4c7c-ad78-168c745ed555` |
+| `MAR_PERIODS_DB_ID` | `9b81d8e5-141b-4ffc-8616-bc2743d0f1e8` |
 | `LOCATION_CODES_DB_ID` | `4bf686f3-056b-49c3-925c-a321a2c78591` |
 | `ADMIN_ACCOUNTS_DB_ID` | `725e633a-e593-4352-8a66-29954e9d7b71` |
 | `ZAPIER_EVENT_WEBHOOK_URL` | The Catch Hook URL from your dedicated "Provider Event Log Attachments" Zap — see setup steps below |
@@ -99,15 +100,39 @@ don't pick up env var changes until the next deploy.
   days for that location, each with type, resident, notes preview, and
   an attachment indicator; future events are labeled "(Upcoming)."
 - MAR Review screen: per-resident medication list (not per-location —
-  each row is tied to a specific resident's initials). Each medication
-  gets an expiration date OR a "Missing" checkbox (mutually exclusive —
-  checking Missing disables and clears the date field); PRN medications
-  additionally get a free-text Quantity field. A red-bordered Allergies
-  banner sits at the top (editable), sourced from a special "Allergy
-  Info" row, same pattern as the "General Notes" row used elsewhere.
-  The Home button includes a colored status dot: solid green if
-  current, flashing yellow if due within 7 days, flashing red if
-  overdue or never completed.
+  each row is tied to a specific resident's initials). This report is
+  forward-looking on a rolling monthly cycle: during any given month,
+  staff review and finalize NEXT month's medications (delivered near
+  month-end), so the "due date" is always the last day of the current
+  month — see `netlify/functions/lib/mar-period.js` for the rolling
+  target-period calculation (it snaps back to catch up if even the
+  current month was never finalized, rather than silently skipping
+  ahead).
+  - Each medication needs an **Expiration Date** OR a **Missing**
+    checkbox (mutually exclusive — checking Missing disables/clears the
+    date field; when Missing is set, the stored date becomes a sentinel
+    "1900-01-01" rather than blank, so it always reads as maximally
+    overdue instead of "not yet looked at"). PRN medications
+    additionally get a free-text Quantity field. Every medication also
+    has an optional **Date Delivered** field.
+  - **Save Progress** persists whatever's currently entered, complete
+    or not — no validation, safe to leave and come back to.
+  - **Finalize Report** validates first: every medication must be
+    captured (Missing checked, or a real expiration date entered), and
+    no non-missing medication's date may already be expired. Failing
+    either blocks finalizing with a message naming which medications
+    need attention. Passing updates the MAR Review Periods tracker
+    (separate from the medication data itself) with the finalized
+    period, date, and who finalized it.
+  - A red-bordered Allergies banner sits at the top (editable), sourced
+    from a special "Allergy Info" row, same pattern as the "General
+    Notes" row used elsewhere.
+  - The Home button includes a colored status dot: solid green only
+    once finalized for the current target period, flashing yellow if
+    that period's due date is within 7 days, flashing red if overdue
+    (including a period that was never finalized in time — this
+    self-corrects each month rather than getting stuck). Home also
+    shows last-reviewed, latest delivery date, and last-finalized date.
 
 ## Admin multi-location login
 

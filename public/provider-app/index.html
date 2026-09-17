@@ -392,6 +392,24 @@
   }
   .med-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--forest); }
   .med-row input.med-disabled { opacity: 0.5; }
+  .period-banner {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: #444;
+  }
+  .period-banner strong { color: var(--forest); }
+  .save-finalize-bar { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; }
+  .save-finalize-bar button.secondary-save {
+    background: transparent;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+    margin-top: 0;
+  }
+  .save-finalize-bar button.primary-finalize { margin-top: 0; }
   .form-field textarea { resize: vertical; }
   .evac-time-row { display: flex; gap: 12px; }
   .evac-time-row .evac-field { flex: 1; }
@@ -485,6 +503,8 @@
         </span>
         <span class="sub">Medication expiration and PRN quantities</span>
         <span class="sub" id="home-mar-status"></span>
+        <span class="sub" id="home-mar-delivered"></span>
+        <span class="sub" id="home-mar-finalized"></span>
         <span class="sub" id="home-mar-due"></span>
       </button>
     </div>
@@ -659,6 +679,7 @@
       <button class="back-button" data-back="home">&larr; Back</button>
     </div>
     <p class="screen-title">MAR Review</p>
+    <div class="period-banner" id="mar-period-banner">Loading&hellip;</div>
     <div class="fa-status-card" id="mar-last-reviewed">Loading&hellip;</div>
     <p class="error-text" id="mar-error"></p>
 
@@ -674,8 +695,9 @@
       <textarea id="mar-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
     </div>
 
-    <div class="confirm-bar">
-      <button id="mar-confirm">Confirm Everything Is Correct</button>
+    <div class="save-finalize-bar">
+      <button id="mar-save" class="secondary-save">Save Progress</button>
+      <button id="mar-finalize" class="primary-finalize">Finalize Report</button>
     </div>
   </section>
 
@@ -892,34 +914,75 @@
     }
   }
 
+  // MAR reviews are forward-looking (this month, review NEXT month's
+  // meds) — mirrors netlify/functions/lib/mar-period.js server-side.
+  function computeMarTarget(lastFinalizedPeriod) {
+    const now = new Date();
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    let target = currentMonthStart;
+    if (lastFinalizedPeriod) {
+      const parts = lastFinalizedPeriod.split('-');
+      const lfYear = parseInt(parts[0], 10);
+      const lfMonth = parseInt(parts[1], 10) - 1;
+      const afterFinalized = new Date(lfYear, lfMonth + 1, 1);
+      target = afterFinalized > currentMonthStart ? afterFinalized : currentMonthStart;
+    }
+    const dueDate = new Date(target.getFullYear(), target.getMonth(), 0);
+    return { target: target, dueDate: dueDate };
+  }
+
+  function monthLabel(date) {
+    return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+
   // MAR gets a colored status dot in addition to text: red+flashing if
   // overdue or never done, yellow+flashing if due within 7 days, solid
-  // green otherwise.
+  // green otherwise (green specifically means "finalized for the
+  // current target period," not just "not yet due").
   async function loadHomeMarStatus() {
     const dotEl = document.getElementById('home-mar-dot');
     const statusEl = document.getElementById('home-mar-status');
+    const deliveredEl = document.getElementById('home-mar-delivered');
+    const finalizedEl = document.getElementById('home-mar-finalized');
     const dueEl = document.getElementById('home-mar-due');
     statusEl.textContent = '';
+    deliveredEl.textContent = '';
+    finalizedEl.textContent = '';
     dueEl.textContent = '';
+
     try {
       const data = await apiFetch('/get-mar-review');
       const meds = data.medications || [];
-      const dates = meds.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const period = data.period || {};
+
+      const dates = meds.map(function (m) { return m.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      const due = computeDueDate(recent);
-      const dueISO = due.toISOString().slice(0, 10);
-      const daysUntilDue = Math.ceil((due.getTime() - Date.now()) / 86400000);
+      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+
+      const delivered = meds.map(function (m) { return m.dateDelivered; }).filter(Boolean).sort();
+      if (delivered.length) {
+        deliveredEl.textContent = 'Latest delivery: ' + formatDate(delivered[delivered.length - 1]);
+      }
+
+      if (period.lastFinalizedDate) {
+        finalizedEl.textContent = 'Last finalized: ' + formatDate(period.lastFinalizedDate);
+      }
+
+      const { target, dueDate } = computeMarTarget(period.lastFinalizedPeriod);
+      const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
+      const isFinalizedForTarget = period.lastFinalizedPeriod === targetPeriodStr;
+      const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
 
       let statusClass = 'status-green';
-      if (!recent || daysUntilDue < 0) {
-        statusClass = 'status-red';
-      } else if (daysUntilDue <= 7) {
-        statusClass = 'status-yellow';
+      if (!isFinalizedForTarget) {
+        if (daysUntilDue < 0) {
+          statusClass = 'status-red';
+        } else if (daysUntilDue <= 7) {
+          statusClass = 'status-yellow';
+        }
       }
       dotEl.className = 'status-dot ' + statusClass;
-
-      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(dueISO);
+      dueEl.textContent = 'Next due: ' + formatDate(dueDate.toISOString().slice(0, 10));
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
     }
@@ -1626,8 +1689,12 @@
       (detailParts.length ? '<p class="med-details">' + detailParts.join(' \u00b7 ') + '</p>' : '') +
       '<div class="med-controls-row">' +
         '<div class="med-field">' +
-          '<label>Expiration Date</label>' +
+          '<label>Expiration Date *</label>' +
           '<input type="date" class="mar-exp-input' + (isMissing ? ' med-disabled' : '') + '" value="' + (med.currentExpDate || '') + '"' + (isMissing ? ' disabled' : '') + '>' +
+        '</div>' +
+        '<div class="med-field">' +
+          '<label>Date Delivered</label>' +
+          '<input type="date" class="mar-delivered-input" value="' + (med.dateDelivered || '') + '">' +
         '</div>' +
         quantityFieldHtml +
         '<div class="med-missing-field">' +
@@ -1655,6 +1722,7 @@
 
   let currentMarAllergy = null;
   let currentMarGeneralNotes = null;
+  let currentMarPeriod = null;
 
   async function loadMarReview() {
     const listEl = document.getElementById('mar-list');
@@ -1670,11 +1738,20 @@
       const meds = data.medications || [];
       currentMarAllergy = data.allergyInfo || null;
       currentMarGeneralNotes = data.generalNotes || null;
+      currentMarPeriod = data.period || {};
+
+      const { target, dueDate } = computeMarTarget(currentMarPeriod.lastFinalizedPeriod);
+      const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
+      const isFinalizedForTarget = currentMarPeriod.lastFinalizedPeriod === targetPeriodStr;
+      document.getElementById('mar-period-banner').innerHTML = isFinalizedForTarget
+        ? '<strong>' + monthLabel(target) + '</strong> medications — already finalized.'
+        : 'Reviewing medications for <strong>' + monthLabel(target) + '</strong> — due by ' + formatDate(dueDate.toISOString().slice(0, 10)) + '.';
 
       const dates = meds.map(function (m) { return m.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
       document.getElementById('mar-last-reviewed').textContent =
-        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never') +
+        (currentMarPeriod.lastFinalizedDate ? ' \u00b7 Last finalized: ' + formatDate(currentMarPeriod.lastFinalizedDate) : '');
 
       if (currentMarAllergy) {
         document.getElementById('mar-allergy').value = currentMarAllergy.notes || '';
@@ -1698,25 +1775,30 @@
     }
   }
 
-  document.getElementById('mar-confirm').addEventListener('click', async function () {
-    const btn = this;
-    setError('mar-error', '');
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-
+  function gatherMarItems() {
     const items = [];
     document.querySelectorAll('#mar-list .med-row').forEach(function (row) {
       const missing = row.querySelector('.mar-missing-input').checked;
       const entry = {
         id: row.dataset.itemId,
         missing: missing,
-        currentExpDate: missing ? '' : row.querySelector('.mar-exp-input').value
+        currentExpDate: missing ? '' : row.querySelector('.mar-exp-input').value,
+        dateDelivered: row.querySelector('.mar-delivered-input').value
       };
       const qtyInput = row.querySelector('.mar-quantity-input');
       if (qtyInput) entry.quantity = qtyInput.value;
       items.push(entry);
     });
+    return items;
+  }
 
+  document.getElementById('mar-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('mar-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const items = gatherMarItems();
     const allergyValue = currentMarAllergy ? document.getElementById('mar-allergy').value : undefined;
     const generalNotesValue = currentMarGeneralNotes ? document.getElementById('mar-general-notes').value : undefined;
 
@@ -1726,7 +1808,33 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue })
       });
-      alert('Successfully saved.');
+      alert('Progress saved. Come back anytime to keep working before finalizing.');
+      loadMarReview();
+    } catch (e) {
+      setError('mar-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Progress';
+    }
+  });
+
+  document.getElementById('mar-finalize').addEventListener('click', async function () {
+    const btn = this;
+    setError('mar-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Finalizing…';
+
+    const items = gatherMarItems();
+    const allergyValue = currentMarAllergy ? document.getElementById('mar-allergy').value : undefined;
+    const generalNotesValue = currentMarGeneralNotes ? document.getElementById('mar-general-notes').value : undefined;
+
+    try {
+      await apiFetch('/finalize-mar-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue })
+      });
+      alert('Report finalized.');
       const stored = getStoredSession();
       if (stored) renderHome(stored.session);
       showScreen('home');
@@ -1734,7 +1842,7 @@
       setError('mar-error', e.message);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Confirm Everything Is Correct';
+      btn.textContent = 'Finalize Report';
     }
   });
 
