@@ -1,4 +1,4 @@
-const NOTION_VERSION = '2022-06-28';
+const NOTION_VERSION = '2025-09-03';
 
 async function notionFetch(path, options) {
   options = options || {};
@@ -19,8 +19,12 @@ async function notionFetch(path, options) {
   return json;
 }
 
-function queryDatabase(databaseId, filter) {
-  return notionFetch('/databases/' + databaseId + '/query', {
+// Note: the "ids" used throughout this app (SPONSORS_DB_ID, FIRST_AID_DB_ID,
+// etc.) are Data Source IDs, not the older top-level Database IDs — this
+// workspace's databases are multi-source, so rows are queried through the
+// Data Source API rather than the legacy /databases/{id}/query endpoint.
+function queryDatabase(dataSourceId, filter) {
+  return notionFetch('/data_sources/' + dataSourceId + '/query', {
     method: 'POST',
     body: JSON.stringify(filter ? { filter: filter } : {})
   });
