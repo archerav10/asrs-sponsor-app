@@ -40,6 +40,8 @@ workflow as your other portals.
 | `PHYSICAL_ENV_DB_ID` | `f65e9956-bfe5-4e81-8612-cf533d345796` |
 | `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
 | `MAR_DB_ID` | `7dbf6757-dd9b-4c7c-ad78-168c745ed555` |
+| `LOCATION_CODES_DB_ID` | `4bf686f3-056b-49c3-925c-a321a2c78591` |
+| `ADMIN_ACCOUNTS_DB_ID` | `725e633a-e593-4352-8a66-29954e9d7b71` |
 | `ZAPIER_EVENT_WEBHOOK_URL` | The Catch Hook URL from your dedicated "Provider Event Log Attachments" Zap — see setup steps below |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
@@ -106,6 +108,43 @@ don't pick up env var changes until the next deploy.
   The Home button includes a colored status dot: solid green if
   current, flashing yellow if due within 7 days, flashing red if
   overdue or never completed.
+
+## Admin multi-location login
+
+In addition to a sponsor's personal email+password (tied to one
+location), an admin can be granted access to multiple locations, each
+unlocked with that **location's own shared password** — not a personal
+one. Both paths go through the same login screen and the same
+email+password+SMS-OTP flow; `provider-login.js` tries the sponsor
+match first, then falls back to checking whether the email belongs to
+an enabled admin and the submitted password matches a location they've
+been granted.
+
+- **Sponsors** database: unchanged, one row per provider, personal password.
+- **Location Access Codes** database: one row per location, a single
+  shared password hash, gates entirely on being "Active."
+- **Admin Accounts** database: one row per admin — their own name,
+  email, and phone (for OTP), plus a comma-separated "Granted
+  Locations" list. No password lives here; the location's password
+  *is* the credential, and being listed as granted is what makes it
+  usable for that admin.
+- An admin session has no personal resident list (unlike a sponsor);
+  `provider-verify-otp.js` resolves residents for that login by
+  querying which resident initials actually appear in the MAR Review
+  data for the chosen location — the only place per-location resident
+  identity currently lives. If a location has more than one resident,
+  the existing resident-picker UI (already built for Log an Event /
+  MAR Review) just works without changes.
+
+**Provisioning tools:**
+- `/admin/set-location-password.html` — set or reset a location's
+  shared password (also flips it to Active).
+- `/admin/manage-admin.html` — create or update an admin's name,
+  email, phone, and which locations they're granted. Re-submitting the
+  same email updates their existing record instead of duplicating it.
+
+Both are gated by `ADMIN_ALLOWED_EMAILS`, same as the provider
+password-provisioning tool.
 
 ## Setting up event attachments (Zapier)
 
