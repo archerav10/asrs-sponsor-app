@@ -38,6 +38,8 @@ workflow as your other portals.
 | `FIRE_DRILL_DB_ID` | `2cd3e109-c6b9-4cc2-80cb-fde91d28a2f4` |
 | `EMERGENCY_SUPPLIES_DB_ID` | `2512e571-d0fb-4937-8594-646da323a734` |
 | `PHYSICAL_ENV_DB_ID` | `f65e9956-bfe5-4e81-8612-cf533d345796` |
+| `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
+| `ZAPIER_EVENT_WEBHOOK_URL` | The Catch Hook URL from your dedicated "Provider Event Log Attachments" Zap — see setup steps below |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
@@ -86,6 +88,30 @@ don't pick up env var changes until the next deploy.
   is the end of the month AFTER the month it was last completed (e.g.
   reviewed Sep 17 -> due Oct 31); falls back to end of the current month
   if it's never been done
+- Log an Event screen: event type, resident (auto-filled if the provider
+  has one, a picker only appears with two), date/time, notes, and an
+  optional photo/document attachment. No due-date tracking here — it's
+  an ongoing activity log, not a monthly compliance report.
+
+## Setting up event attachments (Zapier)
+
+The file upload goes straight from the browser to a dedicated Zapier
+webhook — not routed through a Netlify function — to avoid serverless
+payload-size limits.
+
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the webhook
+   URL it gives you into `ZAPIER_EVENT_WEBHOOK_URL` in Netlify.
+2. Action = Google Drive -> Upload File. Map the file field to the
+   webhook's incoming `file`, and the Drive filename to the incoming
+   `filename` field (already built as
+   `Location_ResidentInitials_EventType_YYYYMMDDHHMMSS.ext`).
+3. Publish the Zap. Nothing needs to write back to Notion — the event's
+   metadata (including the filename, for cross-reference) is saved to
+   the Provider Event Log database separately, by `create-event-log.js`.
+
+The file input intentionally has no `capture` attribute, so iOS/Android
+show their full native picker (Take Photo, Photo Library, and — on iOS —
+Scan Documents) rather than forcing straight to the camera.
 
 **Before trying Physical Environment:** connect the Physical Environment
 Master List database to your Notion integration, same as the others.

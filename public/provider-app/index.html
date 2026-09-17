@@ -261,6 +261,7 @@
   .form-field input[type="text"],
   .form-field input[type="datetime-local"],
   .form-field input[type="number"],
+  .form-field select,
   .form-field textarea {
     width: 100%;
     padding: 12px 14px;
@@ -268,6 +269,7 @@
     border: 1px solid var(--border);
     border-radius: 6px;
     font-family: inherit;
+    background: #fff;
   }
   input[type="date"] {
     -webkit-appearance: none;
@@ -479,6 +481,46 @@
     </div>
   </section>
 
+  <!-- Screen 8: Log an Event -->
+  <section id="screen-log-event" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Log an Event</p>
+    <p class="error-text" id="le-error"></p>
+
+    <div class="form-field">
+      <label for="le-type">Event Type</label>
+      <select id="le-type">
+        <option value="Appointment">Appointment</option>
+        <option value="Community Outing">Community Outing</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-field" id="le-resident-wrap" style="display:none;">
+      <label for="le-resident">Resident</label>
+      <select id="le-resident"></select>
+    </div>
+
+    <div class="form-field">
+      <label for="le-datetime">Date and Time</label>
+      <input type="datetime-local" id="le-datetime">
+    </div>
+
+    <div class="form-field">
+      <label for="le-notes">Notes</label>
+      <textarea id="le-notes" rows="4" placeholder="Optional"></textarea>
+    </div>
+
+    <div class="form-field">
+      <label for="le-attachment">Attach a Photo or Scan a Document</label>
+      <input type="file" id="le-attachment" accept="image/*,application/pdf">
+    </div>
+
+    <button id="le-submit">Log Event</button>
+  </section>
+
 </main>
 
 <script>
@@ -493,7 +535,8 @@
     firstAid: document.getElementById('screen-first-aid'),
     fireDrill: document.getElementById('screen-fire-drill'),
     emergencySupplies: document.getElementById('screen-emergency-supplies'),
-    physicalEnvironment: document.getElementById('screen-physical-environment')
+    physicalEnvironment: document.getElementById('screen-physical-environment'),
+    logEvent: document.getElementById('screen-log-event')
   };
 
   function getStoredSession() {
@@ -724,8 +767,10 @@
       } else if (action === 'physical-environment') {
         showScreen('physicalEnvironment');
         loadPhysicalEnvironment();
+      } else if (action === 'log-event') {
+        resetLogEventForm();
+        showScreen('logEvent');
       } else {
-        // Log an Event screen lands here in a future build pass.
         alert('This screen is coming next.');
       }
     });
@@ -1200,6 +1245,116 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Confirm Everything Is Correct';
+    }
+  });
+
+  // --- Screen 8: Log an Event ---
+  function currentResidentInitials() {
+    const stored = getStoredSession();
+    if (!stored) return [];
+    return (stored.session.residentInitials || '')
+      .split(',')
+      .map(function (s) { return s.trim(); })
+      .filter(Boolean);
+  }
+
+  function resetLogEventForm() {
+    setError('le-error', '');
+    document.getElementById('le-type').value = 'Appointment';
+    document.getElementById('le-datetime').value = '';
+    document.getElementById('le-notes').value = '';
+    document.getElementById('le-attachment').value = '';
+
+    const residents = currentResidentInitials();
+    const wrap = document.getElementById('le-resident-wrap');
+    const select = document.getElementById('le-resident');
+    select.innerHTML = '';
+    residents.forEach(function (initials) {
+      const opt = document.createElement('option');
+      opt.value = initials;
+      opt.textContent = initials;
+      select.appendChild(opt);
+    });
+    // Only show the picker when there's an actual choice to make.
+    wrap.style.display = residents.length > 1 ? 'block' : 'none';
+  }
+
+  function sanitizeForFilename(s) {
+    return (s || '').replace(/[^a-zA-Z0-9]+/g, '');
+  }
+
+  document.getElementById('le-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('le-error', '');
+
+    const eventType = document.getElementById('le-type').value;
+    const eventDateTime = document.getElementById('le-datetime').value;
+    const notes = document.getElementById('le-notes').value;
+    const fileInput = document.getElementById('le-attachment');
+    const file = fileInput.files[0];
+
+    const residents = currentResidentInitials();
+    const residentInitials = residents.length > 1
+      ? document.getElementById('le-resident').value
+      : (residents[0] || '');
+
+    if (!eventDateTime) {
+      setError('le-error', 'Enter the date and time.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      let attachmentFilename = '';
+
+      if (file) {
+        const stored = getStoredSession();
+        const configData = await apiFetch('/get-event-upload-config');
+        const now = new Date();
+        const stamp = now.toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        attachmentFilename =
+          sanitizeForFilename(stored.session.location) + '_' +
+          sanitizeForFilename(residentInitials || 'NA') + '_' +
+          sanitizeForFilename(eventType) + '_' +
+          stamp + '.' + ext;
+
+        const formData = new FormData();
+        formData.append('file', file, attachmentFilename);
+        formData.append('location', stored.session.location);
+        formData.append('residentInitials', residentInitials);
+        formData.append('eventType', eventType);
+        formData.append('filename', attachmentFilename);
+
+        const uploadRes = await fetch(configData.webhookUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) {
+          throw new Error('The attachment failed to upload. The event was not saved — try again.');
+        }
+      }
+
+      await apiFetch('/create-event-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: eventType,
+          residentInitials: residentInitials,
+          eventDateTime: eventDateTime,
+          notes: notes,
+          hasAttachment: !!file,
+          attachmentFilename: attachmentFilename
+        })
+      });
+
+      alert('Successfully saved.');
+      resetLogEventForm();
+      showScreen('home');
+    } catch (e) {
+      setError('le-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log Event';
     }
   });
 
