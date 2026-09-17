@@ -251,6 +251,34 @@
     margin: 22px 0 10px;
   }
   .item-section-title:first-child { margin-top: 0; }
+  .form-field { margin-bottom: 4px; }
+  .form-field label {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 6px;
+    display: block;
+  }
+  .form-field input[type="text"],
+  .form-field input[type="datetime-local"],
+  .form-field input[type="number"],
+  .form-field textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .form-field textarea { resize: vertical; }
+  .evac-time-row { display: flex; gap: 12px; }
+  .evac-time-row .evac-field { flex: 1; }
+  .evac-time-row label { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
+  .success-text {
+    font-size: 14px;
+    color: var(--forest-light);
+    margin: 14px 0 0;
+    display: none;
+  }
 </style>
 </head>
 <body>
@@ -292,6 +320,7 @@
     <div class="home-card">
       <p class="name" id="home-name"></p>
       <p class="meta" id="home-meta"></p>
+      <p class="meta" id="home-due-date"></p>
     </div>
 
     <div class="action-list">
@@ -336,6 +365,52 @@
     </div>
   </section>
 
+  <!-- Screen 5: Fire Drill Report -->
+  <section id="screen-fire-drill" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Log Fire Drill</p>
+    <p class="error-text" id="fd-error"></p>
+    <p class="success-text" id="fd-success">Fire drill logged.</p>
+
+    <div class="form-field">
+      <label for="fd-datetime">Date and Time of Drill</label>
+      <input type="datetime-local" id="fd-datetime">
+    </div>
+
+    <div class="form-field">
+      <label for="fd-mock-location">Location of "Mock Fire" in the Home</label>
+      <input type="text" id="fd-mock-location" placeholder="e.g. Kitchen">
+    </div>
+
+    <div class="form-field">
+      <label for="fd-individuals">Individuals Present (Initials)</label>
+      <input type="text" id="fd-individuals" placeholder="e.g. JS, MP, AA">
+    </div>
+
+    <div class="form-field">
+      <label>Total Time to Evacuate</label>
+      <div class="evac-time-row">
+        <div class="evac-field">
+          <label for="fd-evac-min">Minutes</label>
+          <input type="number" id="fd-evac-min" min="0" inputmode="numeric" value="0">
+        </div>
+        <div class="evac-field">
+          <label for="fd-evac-sec">Seconds</label>
+          <input type="number" id="fd-evac-sec" min="0" max="59" inputmode="numeric" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label for="fd-notes">Notes (Recommendations/Observations)</label>
+      <textarea id="fd-notes" rows="4" placeholder="Optional"></textarea>
+    </div>
+
+    <button id="fd-submit">Log Fire Drill</button>
+  </section>
+
 </main>
 
 <script>
@@ -347,7 +422,8 @@
     login: document.getElementById('screen-login'),
     otp: document.getElementById('screen-otp'),
     home: document.getElementById('screen-home'),
-    firstAid: document.getElementById('screen-first-aid')
+    firstAid: document.getElementById('screen-first-aid'),
+    fireDrill: document.getElementById('screen-fire-drill')
   };
 
   function getStoredSession() {
@@ -470,11 +546,19 @@
   });
 
   // --- Screen 3: Home ---
+  function nextReportDueDate() {
+    const now = new Date();
+    // Last day of the current month, at local midnight.
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  }
+
   function renderHome(session) {
     document.getElementById('home-name').textContent = session.name || 'Provider';
     const parts = [session.location];
     if (session.residentInitials) parts.push('Resident: ' + session.residentInitials);
     document.getElementById('home-meta').textContent = parts.filter(Boolean).join(' · ');
+    document.getElementById('home-due-date').textContent =
+      'Next report due: ' + formatDate(nextReportDueDate().toISOString().slice(0, 10));
     loadHomeFirstAidStatus();
   }
 
@@ -500,8 +584,11 @@
       if (action === 'first-aid') {
         showScreen('firstAid');
         loadFirstAid();
+      } else if (action === 'fire-drill') {
+        resetFireDrillForm();
+        showScreen('fireDrill');
       } else {
-        // Fire Drill and Log an Event screens land here in the next build pass.
+        // Log an Event screen lands here in a future build pass.
         alert('This screen is coming next.');
       }
     });
@@ -635,6 +722,54 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Confirm Everything Is Correct';
+    }
+  });
+
+  // --- Screen 5: Fire Drill Report ---
+  function resetFireDrillForm() {
+    setError('fd-error', '');
+    document.getElementById('fd-success').style.display = 'none';
+    document.getElementById('fd-datetime').value = '';
+    document.getElementById('fd-mock-location').value = '';
+    document.getElementById('fd-individuals').value = '';
+    document.getElementById('fd-evac-min').value = '0';
+    document.getElementById('fd-evac-sec').value = '0';
+    document.getElementById('fd-notes').value = '';
+  }
+
+  document.getElementById('fd-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('fd-error', '');
+    document.getElementById('fd-success').style.display = 'none';
+
+    const drillDateTime = document.getElementById('fd-datetime').value;
+    if (!drillDateTime) {
+      setError('fd-error', 'Enter the date and time of the drill.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Logging…';
+    try {
+      await apiFetch('/create-fire-drill-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          drillDateTime: drillDateTime,
+          mockFireLocation: document.getElementById('fd-mock-location').value,
+          individualsPresent: document.getElementById('fd-individuals').value,
+          evacMinutes: document.getElementById('fd-evac-min').value,
+          evacSeconds: document.getElementById('fd-evac-sec').value,
+          notes: document.getElementById('fd-notes').value
+        })
+      });
+      resetFireDrillForm();
+      document.getElementById('fd-success').style.display = 'block';
+    } catch (e) {
+      setError('fd-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log Fire Drill';
     }
   });
 

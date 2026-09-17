@@ -37,6 +37,18 @@ function updatePage(pageId, properties) {
   });
 }
 
+// Same multi-source-database note as queryDatabase above: the parent here
+// must be a Data Source ID, not the older top-level Database ID.
+function createPage(dataSourceId, properties) {
+  return notionFetch('/pages', {
+    method: 'POST',
+    body: JSON.stringify({
+      parent: { type: 'data_source_id', data_source_id: dataSourceId },
+      properties: properties
+    })
+  });
+}
+
 // Reads the common property types used across ASRS's Notion schemas down to a plain JS value.
 function getPlainText(prop) {
   if (!prop) return '';
@@ -58,4 +70,4 @@ function getPlainText(prop) {
   }
 }
 
-module.exports = { notionFetch, queryDatabase, updatePage, getPlainText };
+module.exports = { notionFetch, queryDatabase, updatePage, createPage, getPlainText };

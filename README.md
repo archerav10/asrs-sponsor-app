@@ -35,6 +35,7 @@ workflow as your other portals.
 | `NOTION_TOKEN` | Your existing Notion integration token (already set elsewhere) |
 | `SPONSORS_DB_ID` | `39fff13f-62f9-80f0-9134-000bddf16417` |
 | `FIRST_AID_DB_ID` | `13467800-fa4f-420b-9fac-77204750b36c` |
+| `FIRE_DRILL_DB_ID` | `2cd3e109-c6b9-4cc2-80cb-fde91d28a2f4` |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
@@ -64,8 +65,20 @@ don't pick up env var changes until the next deploy.
   the end (backed by a per-location "General Notes" row in the same
   database); "Confirm Everything Is Correct" bulk-stamps every row's
   Last Updated fields without changing values
-- `lib/session.js` — every First Aid function requires and validates the
-  session token server-side; nothing trusts client-supplied location data
+- Fire Drill Report screen: a plain form (date/time, mock fire location,
+  individuals present, evacuation time in minutes+seconds, notes) that
+  creates a new Fire Drill Reports row per submission — no editing, since
+  each drill is its own event
+- Home screen shows the First Aid Supplies last-reviewed date and the
+  next report due date (last day of the current month, since both
+  reports are due monthly)
+- `lib/session.js` — every function requires and validates the session
+  token server-side; nothing trusts client-supplied location data
+
+**Before trying Fire Drill Report:** connect the new Fire Drill Reports
+database to your Notion integration the same way you did for Sponsors
+and First Aid Supplies Master List ("..." menu -> Connections -> add
+the integration matching your NOTION_TOKEN).
 
 ## What's intentionally not built yet
 
