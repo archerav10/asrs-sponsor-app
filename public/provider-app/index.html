@@ -233,6 +233,24 @@
     border-radius: 6px;
     resize: vertical;
   }
+  .fa-status-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 4px 0 22px;
+    background: #fff;
+    font-size: 14px;
+    color: #444;
+  }
+  .item-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #777;
+    margin: 22px 0 10px;
+  }
+  .item-section-title:first-child { margin-top: 0; }
 </style>
 </head>
 <body>
@@ -300,7 +318,7 @@
       <button class="back-button" data-back="home">&larr; Back</button>
     </div>
     <p class="screen-title">First Aid Supplies</p>
-    <p class="last-reviewed" id="fa-last-reviewed"></p>
+    <div class="fa-status-card" id="fa-last-reviewed">Loading&hellip;</div>
     <p class="error-text" id="fa-error"></p>
 
     <div id="fa-list" class="item-list">
@@ -310,7 +328,6 @@
     <div id="fa-general-notes-wrap" class="general-notes-wrap" style="display:none;">
       <label for="fa-general-notes">Notes (optional)</label>
       <textarea id="fa-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
-      <button id="fa-general-notes-save" class="item-save">Save Notes</button>
     </div>
 
     <div class="confirm-bar">
@@ -490,69 +507,29 @@
     return dates.length ? dates[dates.length - 1] : null;
   }
 
-  // Date-tracked items: an editable date field. Leaving the existing date
-  // and tapping Save confirms it; changing it and tapping Save updates it.
+  // Plain editable date field — no per-row save; the value is read back
+  // when Confirm Everything Is Correct is pressed.
   function renderDateRow(item) {
     const wrap = document.createElement('div');
     wrap.className = 'item-row date-row';
+    wrap.dataset.itemId = item.id;
     wrap.innerHTML =
       '<p class="item-name">' + item.itemName + '</p>' +
       '<label>Expiration Date</label>' +
       '<input type="date" class="fa-exp-input" value="' + (item.currentExpDate || '') + '">' +
-      '<button class="item-save">Save</button>' +
       '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
-
-    wrap.querySelector('.item-save').addEventListener('click', async function () {
-      const expInput = wrap.querySelector('.fa-exp-input');
-      const saveBtn = this;
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Saving…';
-      try {
-        await apiFetch('/update-first-aid-item', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemId: item.id, currentExpDate: expInput.value })
-        });
-        saveBtn.textContent = 'Saved';
-        setTimeout(function () { saveBtn.textContent = 'Save'; saveBtn.disabled = false; }, 1200);
-        loadFirstAid();
-      } catch (e) {
-        setError('fa-error', e.message);
-        saveBtn.textContent = 'Save';
-        saveBtn.disabled = false;
-      }
-    });
-
     return wrap;
   }
 
-  // Non-date items: a plain checkbox for "we have it" / "we don't."
-  // Saves immediately on toggle — no separate Save button to tap.
+  // Plain checkbox — also no auto-save; read back at Confirm time.
   function renderCheckboxRow(item) {
     const wrap = document.createElement('div');
     wrap.className = 'item-row checkbox-row';
+    wrap.dataset.itemId = item.id;
     const checked = item.present === true;
     wrap.innerHTML =
       '<p class="item-name">' + item.itemName + '</p>' +
       '<input type="checkbox" class="fa-present-input"' + (checked ? ' checked' : '') + '>';
-
-    const checkbox = wrap.querySelector('.fa-present-input');
-    checkbox.addEventListener('change', async function () {
-      checkbox.disabled = true;
-      try {
-        await apiFetch('/update-first-aid-item', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemId: item.id, present: checkbox.checked })
-        });
-      } catch (e) {
-        checkbox.checked = !checkbox.checked; // revert on failure
-        setError('fa-error', e.message);
-      } finally {
-        checkbox.disabled = false;
-      }
-    });
-
     return wrap;
   }
 
@@ -579,9 +556,27 @@
         listEl.innerHTML = '<p class="empty-text">No active items found for your location.</p>';
         return;
       }
-      items.forEach(function (item) {
-        listEl.appendChild(item.tracksExpiration ? renderDateRow(item) : renderCheckboxRow(item));
-      });
+
+      // Grouped and in order: all date-tracked items first, then the
+      // plain checklist items — rather than interleaved alphabetically.
+      const dateItems = items.filter(function (i) { return i.tracksExpiration; });
+      const checklistItems = items.filter(function (i) { return !i.tracksExpiration; });
+
+      if (dateItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Expiration Dates';
+        listEl.appendChild(heading);
+        dateItems.forEach(function (item) { listEl.appendChild(renderDateRow(item)); });
+      }
+
+      if (checklistItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Supply Checklist';
+        listEl.appendChild(heading);
+        checklistItems.forEach(function (item) { listEl.appendChild(renderCheckboxRow(item)); });
+      }
 
       if (currentGeneralNotes) {
         document.getElementById('fa-general-notes').value = currentGeneralNotes.notes || '';
@@ -593,34 +588,29 @@
     }
   }
 
-  document.getElementById('fa-general-notes-save').addEventListener('click', async function () {
-    if (!currentGeneralNotes) return;
-    const btn = this;
-    const value = document.getElementById('fa-general-notes').value;
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-    try {
-      await apiFetch('/update-first-aid-item', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId: currentGeneralNotes.id, notes: value })
-      });
-      btn.textContent = 'Saved';
-      setTimeout(function () { btn.textContent = 'Save Notes'; btn.disabled = false; }, 1200);
-    } catch (e) {
-      setError('fa-error', e.message);
-      btn.textContent = 'Save Notes';
-      btn.disabled = false;
-    }
-  });
-
+  // The single save action: gathers every date field and checkbox
+  // currently on screen, plus the notes box, and writes it all at once.
   document.getElementById('fa-confirm').addEventListener('click', async function () {
     const btn = this;
     setError('fa-error', '');
     btn.disabled = true;
-    btn.textContent = 'Confirming…';
+    btn.textContent = 'Saving…';
+
+    const items = [];
+    document.querySelectorAll('#fa-list .date-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, currentExpDate: row.querySelector('.fa-exp-input').value });
+    });
+    document.querySelectorAll('#fa-list .checkbox-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, present: row.querySelector('.fa-present-input').checked });
+    });
+    const generalNotesValue = currentGeneralNotes ? document.getElementById('fa-general-notes').value : undefined;
+
     try {
-      await apiFetch('/confirm-first-aid-review', { method: 'POST' });
+      await apiFetch('/confirm-first-aid-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items, generalNotes: generalNotesValue })
+      });
       loadFirstAid();
     } catch (e) {
       setError('fa-error', e.message);
