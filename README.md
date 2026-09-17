@@ -91,7 +91,10 @@ don't pick up env var changes until the next deploy.
 - Log an Event screen: event type, resident (auto-filled if the provider
   has one, a picker only appears with two), date/time, notes, and an
   optional photo/document attachment. No due-date tracking here — it's
-  an ongoing activity log, not a monthly compliance report.
+  an ongoing activity log, not a monthly compliance report. Above the
+  form, a scrollable list shows every event in the past 30 and next 30
+  days for that location, each with type, resident, notes preview, and
+  an attachment indicator; future events are labeled "(Upcoming)."
 
 ## Setting up event attachments (Zapier)
 
