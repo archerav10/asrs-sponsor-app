@@ -320,7 +320,6 @@
     <div class="home-card">
       <p class="name" id="home-name"></p>
       <p class="meta" id="home-meta"></p>
-      <p class="meta" id="home-due-date"></p>
     </div>
 
     <div class="action-list">
@@ -328,10 +327,12 @@
         First Aid Supplies Report
         <span class="sub">Review or update expiration dates</span>
         <span class="sub" id="home-fa-status"></span>
+        <span class="sub" id="home-fa-due"></span>
       </button>
       <button class="action-button" data-action="fire-drill">
         Log Fire Drill
         <span class="sub">Record a completed drill</span>
+        <span class="sub" id="home-fd-due"></span>
       </button>
       <button class="action-button" data-action="log-event">
         Log an Event
@@ -557,8 +558,11 @@
     const parts = [session.location];
     if (session.residentInitials) parts.push('Resident: ' + session.residentInitials);
     document.getElementById('home-meta').textContent = parts.filter(Boolean).join(' · ');
-    document.getElementById('home-due-date').textContent =
-      'Next report due: ' + formatDate(nextReportDueDate().toISOString().slice(0, 10));
+
+    const dueText = 'Next due: ' + formatDate(nextReportDueDate().toISOString().slice(0, 10));
+    document.getElementById('home-fa-due').textContent = dueText;
+    document.getElementById('home-fd-due').textContent = dueText;
+
     loadHomeFirstAidStatus();
   }
 
