@@ -1314,12 +1314,14 @@
         const configData = await apiFetch('/get-event-upload-config');
         const now = new Date();
         const stamp = now.toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 14); // YYYYMMDDHHMMSS
-        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        // No extension here — Google Drive appends the real one automatically
+        // based on the file's actual type, so including one ourselves causes
+        // a "name.jpg.jpg" duplicate.
         attachmentFilename =
           sanitizeForFilename(stored.session.location) + '_' +
           sanitizeForFilename(residentInitials || 'NA') + '_' +
           sanitizeForFilename(eventType) + '_' +
-          stamp + '.' + ext;
+          stamp;
 
         const formData = new FormData();
         formData.append('file', file, attachmentFilename);
