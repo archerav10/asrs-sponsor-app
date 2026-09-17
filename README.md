@@ -74,11 +74,13 @@ don't pick up env var changes until the next deploy.
 - Emergency Supplies screen: same pattern as First Aid Supplies (grouped
   date/checklist sections, one Confirm action) — plus a Gallons field on
   the Emergency Supply Water item specifically
-- Physical Environment screen: 3 plain checklist items, 1 fire
-  extinguisher expiration date, and 4 temperature readings (Kitchen/
-  Bathroom hot water, Refrigerator, Freezer) that flag red inline when
-  outside the standard ranges (100-110°F hot water, 32-40°F fridge,
-  <32°F freezer) — informational only, doesn't block saving
+- Physical Environment screen: 4 temperature readings and 1 fire
+  extinguisher expiration date shown first (flags red inline when a
+  reading is outside the standard range — 100-110°F hot water, 32-40°F
+  fridge, <32°F freezer — informational only, doesn't block saving),
+  followed by a 10-item checklist (First Aid Kit Complete, Emergency
+  Supply Kit Complete, Home Clean, No Knives Accessible, Smoke Alarms
+  Tested, and 5 postings/signage items)
 - Home screen shows, separately under each report's button: its own
   last-reviewed/last-logged date, and its own next-due date — due date
   is the end of the month AFTER the month it was last completed (e.g.

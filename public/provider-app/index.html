@@ -1130,12 +1130,12 @@
       const dateItems = items.filter(function (i) { return i.itemType === 'Expiration Date'; });
       const numericItems = items.filter(function (i) { return i.itemType === 'Numeric Reading'; });
 
-      if (checklistItems.length) {
+      if (numericItems.length) {
         const heading = document.createElement('p');
         heading.className = 'item-section-title';
-        heading.textContent = 'Checklist';
+        heading.textContent = 'Temperature Readings';
         listEl.appendChild(heading);
-        checklistItems.forEach(function (item) { listEl.appendChild(renderPeCheckboxRow(item)); });
+        numericItems.forEach(function (item) { listEl.appendChild(renderPeNumericRow(item)); });
       }
       if (dateItems.length) {
         const heading = document.createElement('p');
@@ -1144,12 +1144,12 @@
         listEl.appendChild(heading);
         dateItems.forEach(function (item) { listEl.appendChild(renderPeDateRow(item)); });
       }
-      if (numericItems.length) {
+      if (checklistItems.length) {
         const heading = document.createElement('p');
         heading.className = 'item-section-title';
-        heading.textContent = 'Temperature Readings';
+        heading.textContent = 'Checklist';
         listEl.appendChild(heading);
-        numericItems.forEach(function (item) { listEl.appendChild(renderPeNumericRow(item)); });
+        checklistItems.forEach(function (item) { listEl.appendChild(renderPeCheckboxRow(item)); });
       }
 
       if (currentPeGeneralNotes) {
