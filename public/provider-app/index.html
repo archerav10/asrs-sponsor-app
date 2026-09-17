@@ -335,6 +335,12 @@
         <span class="sub" id="home-fd-status"></span>
         <span class="sub" id="home-fd-due"></span>
       </button>
+      <button class="action-button" data-action="emergency-supplies">
+        Emergency Supplies Report
+        <span class="sub">Review or update emergency supplies</span>
+        <span class="sub" id="home-es-status"></span>
+        <span class="sub" id="home-es-due"></span>
+      </button>
       <button class="action-button" data-action="log-event">
         Log an Event
         <span class="sub">Appointments and community outings</span>
@@ -413,6 +419,29 @@
     <button id="fd-submit">Log Fire Drill</button>
   </section>
 
+  <!-- Screen 6: Emergency Supplies -->
+  <section id="screen-emergency-supplies" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Emergency Supplies</p>
+    <div class="fa-status-card" id="es-last-reviewed">Loading&hellip;</div>
+    <p class="error-text" id="es-error"></p>
+
+    <div id="es-list" class="item-list">
+      <p class="loading-text">Loading items&hellip;</p>
+    </div>
+
+    <div id="es-general-notes-wrap" class="general-notes-wrap" style="display:none;">
+      <label for="es-general-notes">Notes (optional)</label>
+      <textarea id="es-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
+    </div>
+
+    <div class="confirm-bar">
+      <button id="es-confirm">Confirm Everything Is Correct</button>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -425,7 +454,8 @@
     otp: document.getElementById('screen-otp'),
     home: document.getElementById('screen-home'),
     firstAid: document.getElementById('screen-first-aid'),
-    fireDrill: document.getElementById('screen-fire-drill')
+    fireDrill: document.getElementById('screen-fire-drill'),
+    emergencySupplies: document.getElementById('screen-emergency-supplies')
   };
 
   function getStoredSession() {
@@ -568,6 +598,7 @@
 
     loadHomeFirstAidStatus();
     loadHomeFireDrillStatus();
+    loadHomeEmergencySuppliesStatus();
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -582,6 +613,22 @@
       const data = await apiFetch('/get-fire-drill-status');
       statusEl.textContent = 'Last reviewed: ' + (data.lastReviewed ? formatDate(data.lastReviewed) : 'Never');
       dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(data.lastReviewed).toISOString().slice(0, 10));
+    } catch (e) {
+      // leave blank
+    }
+  }
+
+  async function loadHomeEmergencySuppliesStatus() {
+    const statusEl = document.getElementById('home-es-status');
+    const dueEl = document.getElementById('home-es-due');
+    statusEl.textContent = '';
+    dueEl.textContent = '';
+    try {
+      const data = await apiFetch('/get-emergency-supplies');
+      const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
     } catch (e) {
       // leave blank
     }
@@ -616,6 +663,9 @@
       } else if (action === 'fire-drill') {
         resetFireDrillForm();
         showScreen('fireDrill');
+      } else if (action === 'emergency-supplies') {
+        showScreen('emergencySupplies');
+        loadEmergencySupplies();
       } else {
         // Log an Event screen lands here in a future build pass.
         alert('This screen is coming next.');
@@ -799,6 +849,122 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Log Fire Drill';
+    }
+  });
+
+  // --- Screen 6: Emergency Supplies ---
+  function renderEsDateRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row date-row';
+    wrap.dataset.itemId = item.id;
+    const isWater = item.itemName === 'Emergency Supply Water';
+    const quantityHtml = isWater
+      ? '<label>Gallons</label><input type="number" class="es-quantity-input" min="0" value="' + (item.quantity != null ? item.quantity : '') + '">'
+      : '';
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      quantityHtml +
+      '<label>Expiration Date</label>' +
+      '<input type="date" class="fa-exp-input" value="' + (item.currentExpDate || '') + '">' +
+      '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
+    return wrap;
+  }
+
+  function renderEsCheckboxRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row checkbox-row';
+    wrap.dataset.itemId = item.id;
+    const checked = item.present === true;
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      '<input type="checkbox" class="fa-present-input"' + (checked ? ' checked' : '') + '>';
+    return wrap;
+  }
+
+  let currentEsGeneralNotes = null;
+
+  async function loadEmergencySupplies() {
+    const listEl = document.getElementById('es-list');
+    const notesWrap = document.getElementById('es-general-notes-wrap');
+    setError('es-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading items&hellip;</p>';
+    notesWrap.style.display = 'none';
+
+    try {
+      const data = await apiFetch('/get-emergency-supplies');
+      const items = data.items || [];
+      currentEsGeneralNotes = data.generalNotes || null;
+
+      const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      document.getElementById('es-last-reviewed').textContent =
+        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+
+      listEl.innerHTML = '';
+      if (!items.length) {
+        listEl.innerHTML = '<p class="empty-text">No active items found for your location.</p>';
+        return;
+      }
+
+      const dateItems = items.filter(function (i) { return i.tracksExpiration; });
+      const checklistItems = items.filter(function (i) { return !i.tracksExpiration; });
+
+      if (dateItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Expiration Dates';
+        listEl.appendChild(heading);
+        dateItems.forEach(function (item) { listEl.appendChild(renderEsDateRow(item)); });
+      }
+
+      if (checklistItems.length) {
+        const heading = document.createElement('p');
+        heading.className = 'item-section-title';
+        heading.textContent = 'Supply Checklist';
+        listEl.appendChild(heading);
+        checklistItems.forEach(function (item) { listEl.appendChild(renderEsCheckboxRow(item)); });
+      }
+
+      if (currentEsGeneralNotes) {
+        document.getElementById('es-general-notes').value = currentEsGeneralNotes.notes || '';
+        notesWrap.style.display = 'block';
+      }
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('es-error', e.message);
+    }
+  }
+
+  document.getElementById('es-confirm').addEventListener('click', async function () {
+    const btn = this;
+    setError('es-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const items = [];
+    document.querySelectorAll('#es-list .date-row').forEach(function (row) {
+      const entry = { id: row.dataset.itemId, currentExpDate: row.querySelector('.fa-exp-input').value };
+      const qtyInput = row.querySelector('.es-quantity-input');
+      if (qtyInput) entry.quantity = qtyInput.value;
+      items.push(entry);
+    });
+    document.querySelectorAll('#es-list .checkbox-row').forEach(function (row) {
+      items.push({ id: row.dataset.itemId, present: row.querySelector('.fa-present-input').checked });
+    });
+    const generalNotesValue = currentEsGeneralNotes ? document.getElementById('es-general-notes').value : undefined;
+
+    try {
+      await apiFetch('/confirm-emergency-supplies-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items, generalNotes: generalNotesValue })
+      });
+      loadEmergencySupplies();
+    } catch (e) {
+      setError('es-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Everything Is Correct';
     }
   });
 

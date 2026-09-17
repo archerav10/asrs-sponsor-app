@@ -36,6 +36,7 @@ workflow as your other portals.
 | `SPONSORS_DB_ID` | `39fff13f-62f9-80f0-9134-000bddf16417` |
 | `FIRST_AID_DB_ID` | `13467800-fa4f-420b-9fac-77204750b36c` |
 | `FIRE_DRILL_DB_ID` | `2cd3e109-c6b9-4cc2-80cb-fde91d28a2f4` |
+| `EMERGENCY_SUPPLIES_DB_ID` | `2512e571-d0fb-4937-8594-646da323a734` |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
@@ -69,11 +70,17 @@ don't pick up env var changes until the next deploy.
   individuals present, evacuation time in minutes+seconds, notes) that
   creates a new Fire Drill Reports row per submission — no editing, since
   each drill is its own event
+- Emergency Supplies screen: same pattern as First Aid Supplies (grouped
+  date/checklist sections, one Confirm action) — plus a Gallons field on
+  the Emergency Supply Water item specifically
 - Home screen shows, separately under each report's button: its own
   last-reviewed/last-logged date, and its own next-due date — due date
   is the end of the month AFTER the month it was last completed (e.g.
   reviewed Sep 17 -> due Oct 31); falls back to end of the current month
   if it's never been done
+
+**Before trying Emergency Supplies:** connect the Emergency Supplies
+Master List database to your Notion integration, same as the others.
 - `lib/session.js` — every function requires and validates the session
   token server-side; nothing trusts client-supplied location data
 
