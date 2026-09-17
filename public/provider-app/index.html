@@ -298,6 +298,7 @@
       <button class="action-button" data-action="first-aid">
         First Aid Supplies Report
         <span class="sub">Review or update expiration dates</span>
+        <span class="sub" id="home-fa-status"></span>
       </button>
       <button class="action-button" data-action="fire-drill">
         Log Fire Drill
@@ -474,6 +475,23 @@
     const parts = [session.location];
     if (session.residentInitials) parts.push('Resident: ' + session.residentInitials);
     document.getElementById('home-meta').textContent = parts.filter(Boolean).join(' · ');
+    loadHomeFirstAidStatus();
+  }
+
+  // Fire-and-forget: pulls just enough from First Aid Supplies to show a
+  // "Last reviewed" line under its Home button, before the provider taps
+  // in. Fails silently — a broken status line shouldn't block Home.
+  async function loadHomeFirstAidStatus() {
+    const el = document.getElementById('home-fa-status');
+    el.textContent = '';
+    try {
+      const data = await apiFetch('/get-first-aid-supplies');
+      const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      el.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+    } catch (e) {
+      // Leave it blank — the report screen itself will surface any real error.
+    }
   }
 
   document.querySelectorAll('.action-button').forEach(function (btn) {
