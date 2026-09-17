@@ -69,9 +69,11 @@ don't pick up env var changes until the next deploy.
   individuals present, evacuation time in minutes+seconds, notes) that
   creates a new Fire Drill Reports row per submission — no editing, since
   each drill is its own event
-- Home screen shows the First Aid Supplies last-reviewed date and the
-  next report due date (last day of the current month, since both
-  reports are due monthly)
+- Home screen shows, separately under each report's button: its own
+  last-reviewed/last-logged date, and its own next-due date — due date
+  is the end of the month AFTER the month it was last completed (e.g.
+  reviewed Sep 17 -> due Oct 31); falls back to end of the current month
+  if it's never been done
 - `lib/session.js` — every function requires and validates the session
   token server-side; nothing trusts client-supplied location data
 

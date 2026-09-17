@@ -332,6 +332,7 @@
       <button class="action-button" data-action="fire-drill">
         Log Fire Drill
         <span class="sub">Record a completed drill</span>
+        <span class="sub" id="home-fd-status"></span>
         <span class="sub" id="home-fd-due"></span>
       </button>
       <button class="action-button" data-action="log-event">
@@ -547,9 +548,15 @@
   });
 
   // --- Screen 3: Home ---
-  function nextReportDueDate() {
+  // Due date rule: end of the month AFTER the month a report was last
+  // reviewed/logged. If it's never been done, falls back to end of the
+  // current month (more urgent, signals it's overdue-ish).
+  function computeDueDate(lastReviewedISO) {
+    if (lastReviewedISO) {
+      const base = new Date(lastReviewedISO + 'T00:00:00');
+      return new Date(base.getFullYear(), base.getMonth() + 2, 0);
+    }
     const now = new Date();
-    // Last day of the current month, at local midnight.
     return new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
 
@@ -559,24 +566,42 @@
     if (session.residentInitials) parts.push('Resident: ' + session.residentInitials);
     document.getElementById('home-meta').textContent = parts.filter(Boolean).join(' · ');
 
-    const dueText = 'Next due: ' + formatDate(nextReportDueDate().toISOString().slice(0, 10));
-    document.getElementById('home-fa-due').textContent = dueText;
-    document.getElementById('home-fd-due').textContent = dueText;
-
     loadHomeFirstAidStatus();
+    loadHomeFireDrillStatus();
+  }
+
+  // Fire-and-forget: pulls just enough from Fire Drill Reports to show
+  // "Last reviewed" and "Next due" under its Home button. Fails silently —
+  // the report screen itself will surface any real error.
+  async function loadHomeFireDrillStatus() {
+    const statusEl = document.getElementById('home-fd-status');
+    const dueEl = document.getElementById('home-fd-due');
+    statusEl.textContent = '';
+    dueEl.textContent = '';
+    try {
+      const data = await apiFetch('/get-fire-drill-status');
+      statusEl.textContent = 'Last reviewed: ' + (data.lastReviewed ? formatDate(data.lastReviewed) : 'Never');
+      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(data.lastReviewed).toISOString().slice(0, 10));
+    } catch (e) {
+      // leave blank
+    }
   }
 
   // Fire-and-forget: pulls just enough from First Aid Supplies to show a
-  // "Last reviewed" line under its Home button, before the provider taps
-  // in. Fails silently — a broken status line shouldn't block Home.
+  // "Last reviewed" / "Next due" line under its Home button, before the
+  // provider taps in. Fails silently — a broken status line shouldn't
+  // block Home.
   async function loadHomeFirstAidStatus() {
-    const el = document.getElementById('home-fa-status');
-    el.textContent = '';
+    const statusEl = document.getElementById('home-fa-status');
+    const dueEl = document.getElementById('home-fa-due');
+    statusEl.textContent = '';
+    dueEl.textContent = '';
     try {
       const data = await apiFetch('/get-first-aid-supplies');
       const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      el.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+      dueEl.textContent = 'Next due: ' + formatDate(computeDueDate(recent).toISOString().slice(0, 10));
     } catch (e) {
       // Leave it blank — the report screen itself will surface any real error.
     }
