@@ -273,12 +273,6 @@
   .evac-time-row { display: flex; gap: 12px; }
   .evac-time-row .evac-field { flex: 1; }
   .evac-time-row label { font-size: 12px; font-weight: 600; margin: 0 0 4px; }
-  .success-text {
-    font-size: 14px;
-    color: var(--forest-light);
-    margin: 14px 0 0;
-    display: none;
-  }
 </style>
 </head>
 <body>
@@ -380,7 +374,6 @@
     </div>
     <p class="screen-title">Log Fire Drill</p>
     <p class="error-text" id="fd-error"></p>
-    <p class="success-text" id="fd-success">Fire drill logged.</p>
 
     <div class="form-field">
       <label for="fd-datetime">Date and Time of Drill</label>
@@ -810,7 +803,6 @@
   // --- Screen 5: Fire Drill Report ---
   function resetFireDrillForm() {
     setError('fd-error', '');
-    document.getElementById('fd-success').style.display = 'none';
     document.getElementById('fd-datetime').value = '';
     document.getElementById('fd-mock-location').value = '';
     document.getElementById('fd-individuals').value = '';
@@ -822,7 +814,6 @@
   document.getElementById('fd-submit').addEventListener('click', async function () {
     const btn = this;
     setError('fd-error', '');
-    document.getElementById('fd-success').style.display = 'none';
 
     const drillDateTime = document.getElementById('fd-datetime').value;
     if (!drillDateTime) {
@@ -846,7 +837,10 @@
         })
       });
       resetFireDrillForm();
-      document.getElementById('fd-success').style.display = 'block';
+      alert('Successfully saved.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
     } catch (e) {
       setError('fd-error', e.message);
     } finally {
