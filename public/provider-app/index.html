@@ -137,6 +137,70 @@
     text-decoration: underline;
     padding: 6px;
   }
+  .screen-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .back-button {
+    width: auto;
+    background: none;
+    color: var(--forest);
+    border: none;
+    padding: 8px 0;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .screen-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 14px 0 4px;
+  }
+  .last-reviewed {
+    font-size: 13px;
+    color: #555;
+    margin: 0 0 18px;
+  }
+  .item-list { display: flex; flex-direction: column; gap: 10px; }
+  .item-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    padding: 14px 16px;
+  }
+  .item-row .item-name { font-weight: 600; font-size: 15px; margin: 0 0 8px; }
+  .item-row .item-meta { font-size: 12px; color: #777; margin: 8px 0 0; }
+  .item-row label {
+    font-size: 12px;
+    font-weight: 600;
+    margin: 8px 0 4px;
+  }
+  .item-row input[type="date"],
+  .item-row input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .item-save {
+    margin-top: 10px;
+    padding: 9px;
+    font-size: 14px;
+  }
+  .confirm-bar {
+    margin: 26px 0 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+  .loading-text, .empty-text {
+    font-size: 14px;
+    color: #666;
+    padding: 20px 0;
+    text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -198,6 +262,24 @@
     <button class="logout-link" id="logout">Log Out</button>
   </section>
 
+  <!-- Screen 4: First Aid Supplies -->
+  <section id="screen-first-aid" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">First Aid Supplies</p>
+    <p class="last-reviewed" id="fa-last-reviewed"></p>
+    <p class="error-text" id="fa-error"></p>
+
+    <div id="fa-list" class="item-list">
+      <p class="loading-text">Loading items&hellip;</p>
+    </div>
+
+    <div class="confirm-bar">
+      <button id="fa-confirm">Confirm Reviewed Today</button>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -208,8 +290,39 @@
   const screens = {
     login: document.getElementById('screen-login'),
     otp: document.getElementById('screen-otp'),
-    home: document.getElementById('screen-home')
+    home: document.getElementById('screen-home'),
+    firstAid: document.getElementById('screen-first-aid')
   };
+
+  function getStoredSession() {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
+    try { return JSON.parse(stored); } catch (e) { return null; }
+  }
+
+  // Wraps fetch with the session token attached and a shared 401 handler —
+  // an expired/invalid session bounces the person back to the login screen
+  // instead of showing a broken report screen.
+  async function apiFetch(path, options) {
+    options = options || {};
+    const stored = getStoredSession();
+    const headers = Object.assign({}, options.headers || {});
+    if (stored) headers['Authorization'] = 'Bearer ' + stored.sessionToken;
+
+    const res = await fetch(FN_BASE + path, Object.assign({}, options, { headers: headers }));
+
+    if (res.status === 401) {
+      localStorage.removeItem(SESSION_KEY);
+      showScreen('login');
+      throw new Error('Your session expired. Please log in again.');
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Something went wrong.');
+    }
+    return data;
+  }
 
   function showScreen(name) {
     Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
@@ -310,9 +423,121 @@
 
   document.querySelectorAll('.action-button').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      // Report screens land here in the next build pass.
-      alert('This screen is coming next.');
+      const action = btn.getAttribute('data-action');
+      if (action === 'first-aid') {
+        showScreen('firstAid');
+        loadFirstAid();
+      } else {
+        // Fire Drill and Log an Event screens land here in the next build pass.
+        alert('This screen is coming next.');
+      }
     });
+  });
+
+  document.querySelectorAll('[data-back]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      showScreen(btn.getAttribute('data-back'));
+    });
+  });
+
+  // --- Screen 4: First Aid Supplies ---
+  function formatDate(iso) {
+    if (!iso) return 'Never';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function mostRecent(items) {
+    const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+    return dates.length ? dates[dates.length - 1] : null;
+  }
+
+  function renderItemRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row';
+
+    const dateFieldHtml = item.tracksExpiration
+      ? '<label>Expiration Date</label><input type="date" class="fa-exp-input" value="' + (item.currentExpDate || '') + '">'
+      : '';
+
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      dateFieldHtml +
+      '<label>Notes</label>' +
+      '<input type="text" class="fa-notes-input" value="' + (item.notes || '').replace(/"/g, '&quot;') + '" placeholder="Optional">' +
+      '<button class="item-save">Save</button>' +
+      '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
+
+    wrap.querySelector('.item-save').addEventListener('click', async function () {
+      const expInput = wrap.querySelector('.fa-exp-input');
+      const notesInput = wrap.querySelector('.fa-notes-input');
+      const saveBtn = this;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      try {
+        await apiFetch('/update-first-aid-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            itemId: item.id,
+            currentExpDate: expInput ? expInput.value : '',
+            notes: notesInput.value
+          })
+        });
+        saveBtn.textContent = 'Saved';
+        setTimeout(function () { saveBtn.textContent = 'Save'; saveBtn.disabled = false; }, 1200);
+        loadFirstAid(); // refresh "last updated" line and last-reviewed banner
+      } catch (e) {
+        setError('fa-error', e.message);
+        saveBtn.textContent = 'Save';
+        saveBtn.disabled = false;
+      }
+    });
+
+    return wrap;
+  }
+
+  async function loadFirstAid() {
+    const listEl = document.getElementById('fa-list');
+    setError('fa-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading items&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-first-aid-supplies');
+      const items = data.items || [];
+
+      const recent = mostRecent(items);
+      document.getElementById('fa-last-reviewed').textContent =
+        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+
+      listEl.innerHTML = '';
+      if (!items.length) {
+        listEl.innerHTML = '<p class="empty-text">No active items found for your location.</p>';
+        return;
+      }
+      items.forEach(function (item) {
+        listEl.appendChild(renderItemRow(item));
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('fa-error', e.message);
+    }
+  }
+
+  document.getElementById('fa-confirm').addEventListener('click', async function () {
+    const btn = this;
+    setError('fa-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Confirming…';
+    try {
+      await apiFetch('/confirm-first-aid-review', { method: 'POST' });
+      loadFirstAid();
+    } catch (e) {
+      setError('fa-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Reviewed Today';
+    }
   });
 
   document.getElementById('logout').addEventListener('click', function () {
