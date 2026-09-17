@@ -201,6 +201,38 @@
     padding: 20px 0;
     text-align: center;
   }
+  .item-row.checkbox-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .item-row.checkbox-row .item-name { margin: 0; }
+  .item-row.checkbox-row input[type="checkbox"] {
+    width: 26px;
+    height: 26px;
+    accent-color: var(--forest);
+    flex-shrink: 0;
+  }
+  .item-row.date-row .item-save { margin-top: 12px; }
+  .general-notes-wrap {
+    margin: 22px 0 0;
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+  }
+  .general-notes-wrap label {
+    font-size: 14px;
+    margin: 0 0 6px;
+  }
+  .general-notes-wrap textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    resize: vertical;
+  }
 </style>
 </head>
 <body>
@@ -275,8 +307,14 @@
       <p class="loading-text">Loading items&hellip;</p>
     </div>
 
+    <div id="fa-general-notes-wrap" class="general-notes-wrap" style="display:none;">
+      <label for="fa-general-notes">Notes (optional)</label>
+      <textarea id="fa-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
+      <button id="fa-general-notes-save" class="item-save">Save Notes</button>
+    </div>
+
     <div class="confirm-bar">
-      <button id="fa-confirm">Confirm Reviewed Today</button>
+      <button id="fa-confirm">Confirm Everything Is Correct</button>
     </div>
   </section>
 
@@ -452,25 +490,20 @@
     return dates.length ? dates[dates.length - 1] : null;
   }
 
-  function renderItemRow(item) {
+  // Date-tracked items: an editable date field. Leaving the existing date
+  // and tapping Save confirms it; changing it and tapping Save updates it.
+  function renderDateRow(item) {
     const wrap = document.createElement('div');
-    wrap.className = 'item-row';
-
-    const dateFieldHtml = item.tracksExpiration
-      ? '<label>Expiration Date</label><input type="date" class="fa-exp-input" value="' + (item.currentExpDate || '') + '">'
-      : '';
-
+    wrap.className = 'item-row date-row';
     wrap.innerHTML =
       '<p class="item-name">' + item.itemName + '</p>' +
-      dateFieldHtml +
-      '<label>Notes</label>' +
-      '<input type="text" class="fa-notes-input" value="' + (item.notes || '').replace(/"/g, '&quot;') + '" placeholder="Optional">' +
+      '<label>Expiration Date</label>' +
+      '<input type="date" class="fa-exp-input" value="' + (item.currentExpDate || '') + '">' +
       '<button class="item-save">Save</button>' +
       '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
 
     wrap.querySelector('.item-save').addEventListener('click', async function () {
       const expInput = wrap.querySelector('.fa-exp-input');
-      const notesInput = wrap.querySelector('.fa-notes-input');
       const saveBtn = this;
       saveBtn.disabled = true;
       saveBtn.textContent = 'Saving…';
@@ -478,15 +511,11 @@
         await apiFetch('/update-first-aid-item', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            itemId: item.id,
-            currentExpDate: expInput ? expInput.value : '',
-            notes: notesInput.value
-          })
+          body: JSON.stringify({ itemId: item.id, currentExpDate: expInput.value })
         });
         saveBtn.textContent = 'Saved';
         setTimeout(function () { saveBtn.textContent = 'Save'; saveBtn.disabled = false; }, 1200);
-        loadFirstAid(); // refresh "last updated" line and last-reviewed banner
+        loadFirstAid();
       } catch (e) {
         setError('fa-error', e.message);
         saveBtn.textContent = 'Save';
@@ -497,14 +526,49 @@
     return wrap;
   }
 
+  // Non-date items: a plain checkbox for "we have it" / "we don't."
+  // Saves immediately on toggle — no separate Save button to tap.
+  function renderCheckboxRow(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row checkbox-row';
+    const checked = item.present === true;
+    wrap.innerHTML =
+      '<p class="item-name">' + item.itemName + '</p>' +
+      '<input type="checkbox" class="fa-present-input"' + (checked ? ' checked' : '') + '>';
+
+    const checkbox = wrap.querySelector('.fa-present-input');
+    checkbox.addEventListener('change', async function () {
+      checkbox.disabled = true;
+      try {
+        await apiFetch('/update-first-aid-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemId: item.id, present: checkbox.checked })
+        });
+      } catch (e) {
+        checkbox.checked = !checkbox.checked; // revert on failure
+        setError('fa-error', e.message);
+      } finally {
+        checkbox.disabled = false;
+      }
+    });
+
+    return wrap;
+  }
+
+  let currentGeneralNotes = null;
+
   async function loadFirstAid() {
     const listEl = document.getElementById('fa-list');
+    const notesWrap = document.getElementById('fa-general-notes-wrap');
     setError('fa-error', '');
     listEl.innerHTML = '<p class="loading-text">Loading items&hellip;</p>';
+    notesWrap.style.display = 'none';
 
     try {
       const data = await apiFetch('/get-first-aid-supplies');
       const items = data.items || [];
+      currentGeneralNotes = data.generalNotes || null;
 
       const recent = mostRecent(items);
       document.getElementById('fa-last-reviewed').textContent =
@@ -516,13 +580,39 @@
         return;
       }
       items.forEach(function (item) {
-        listEl.appendChild(renderItemRow(item));
+        listEl.appendChild(item.tracksExpiration ? renderDateRow(item) : renderCheckboxRow(item));
       });
+
+      if (currentGeneralNotes) {
+        document.getElementById('fa-general-notes').value = currentGeneralNotes.notes || '';
+        notesWrap.style.display = 'block';
+      }
     } catch (e) {
       listEl.innerHTML = '';
       setError('fa-error', e.message);
     }
   }
+
+  document.getElementById('fa-general-notes-save').addEventListener('click', async function () {
+    if (!currentGeneralNotes) return;
+    const btn = this;
+    const value = document.getElementById('fa-general-notes').value;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      await apiFetch('/update-first-aid-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: currentGeneralNotes.id, notes: value })
+      });
+      btn.textContent = 'Saved';
+      setTimeout(function () { btn.textContent = 'Save Notes'; btn.disabled = false; }, 1200);
+    } catch (e) {
+      setError('fa-error', e.message);
+      btn.textContent = 'Save Notes';
+      btn.disabled = false;
+    }
+  });
 
   document.getElementById('fa-confirm').addEventListener('click', async function () {
     const btn = this;
@@ -536,7 +626,7 @@
       setError('fa-error', e.message);
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Confirm Reviewed Today';
+      btn.textContent = 'Confirm Everything Is Correct';
     }
   });
 

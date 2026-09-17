@@ -58,9 +58,12 @@ don't pick up env var changes until the next deploy.
 ## What's built so far
 
 - Login (email+password -> SMS OTP -> session), admin password provisioning
-- First Aid Supplies screen: view items for your location, edit exp
-  date/notes per item (server re-checks the item's Location against the
-  session before allowing the write), "Confirm Reviewed Today" bulk stamp
+- First Aid Supplies screen: date-tracked items get an editable date field
+  (leave-and-save to confirm, change-and-save to update); everything else
+  is a plain auto-saving checkbox ("Present"); one general notes box at
+  the end (backed by a per-location "General Notes" row in the same
+  database); "Confirm Everything Is Correct" bulk-stamps every row's
+  Last Updated fields without changing values
 - `lib/session.js` — every First Aid function requires and validates the
   session token server-side; nothing trusts client-supplied location data
 

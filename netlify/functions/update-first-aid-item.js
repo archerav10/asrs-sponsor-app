@@ -16,8 +16,9 @@ exports.handler = async function (event) {
     const session = requireSession(event);
     const body = JSON.parse(event.body || '{}');
     const itemId = body.itemId;
-    const currentExpDate = body.currentExpDate; // "YYYY-MM-DD" or ""
-    const notes = body.notes || '';
+    const currentExpDate = body.currentExpDate; // "YYYY-MM-DD", "" to clear, or omitted
+    const present = body.present;               // true/false, or omitted
+    const notes = body.notes;                    // string, or omitted
 
     if (!itemId) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing itemId.' }) };
@@ -32,15 +33,18 @@ exports.handler = async function (event) {
     }
 
     const properties = {
-      'Notes': { rich_text: [{ text: { content: notes } }] },
       'Last Updated By': { rich_text: [{ text: { content: session.name || session.email } }] },
       'Last Updated Date': { date: { start: todayISO() } }
     };
 
-    if (currentExpDate) {
-      properties['Current Exp Date'] = { date: { start: currentExpDate } };
-    } else {
-      properties['Current Exp Date'] = { date: null };
+    if (currentExpDate !== undefined) {
+      properties['Current Exp Date'] = currentExpDate ? { date: { start: currentExpDate } } : { date: null };
+    }
+    if (present !== undefined) {
+      properties['Present'] = { checkbox: !!present };
+    }
+    if (notes !== undefined) {
+      properties['Notes'] = { rich_text: [{ text: { content: notes } }] };
     }
 
     await updatePage(itemId, properties);
