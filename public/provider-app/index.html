@@ -323,6 +323,75 @@
     color: var(--forest-light);
     margin: 4px 0 0;
   }
+  .action-button .mar-label-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.status-red { background: var(--error); animation: dotFlash 1s infinite; }
+  .status-dot.status-yellow { background: #C9A227; animation: dotFlash 1s infinite; }
+  .status-dot.status-green { background: #1B7A3D; }
+  @keyframes dotFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  .allergy-banner {
+    border: 2px solid var(--error);
+    background: #FDEDEC;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+  }
+  .allergy-banner label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--error);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin: 0 0 6px;
+    display: block;
+  }
+  .allergy-banner textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+    font-family: inherit;
+    border: 1px solid var(--error);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  .med-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .med-row .med-name { font-weight: 600; font-size: 16px; margin: 0 0 2px; }
+  .med-row .med-details { font-size: 13px; color: #666; margin: 0 0 10px; }
+  .med-row .med-controls-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .med-row .med-field { flex: 1; min-width: 130px; }
+  .med-row .med-field label { font-size: 12px; font-weight: 600; margin: 0 0 4px; display: block; }
+  .med-row .med-missing-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 10px;
+  }
+  .med-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--forest); }
+  .med-row input.med-disabled { opacity: 0.5; }
   .form-field textarea { resize: vertical; }
   .evac-time-row { display: flex; gap: 12px; }
   .evac-time-row .evac-field { flex: 1; }
@@ -408,6 +477,15 @@
       <button class="action-button" data-action="log-event">
         Log an Event
         <span class="sub">Appointments and community outings</span>
+      </button>
+      <button class="action-button" data-action="mar-review">
+        <span class="mar-label-row">
+          <span id="home-mar-dot" class="status-dot status-green"></span>
+          <span>&#128138; MAR Review</span>
+        </span>
+        <span class="sub">Medication expiration and PRN quantities</span>
+        <span class="sub" id="home-mar-status"></span>
+        <span class="sub" id="home-mar-due"></span>
       </button>
     </div>
 
@@ -575,6 +653,32 @@
     <button id="le-submit">Log Event</button>
   </section>
 
+  <!-- Screen 9: MAR Review -->
+  <section id="screen-mar-review" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">MAR Review</p>
+    <div class="fa-status-card" id="mar-last-reviewed">Loading&hellip;</div>
+    <p class="error-text" id="mar-error"></p>
+
+    <div class="allergy-banner" id="mar-allergy-wrap" style="display:none;">
+      <label for="mar-allergy">Allergies</label>
+      <textarea id="mar-allergy" rows="2"></textarea>
+    </div>
+
+    <div id="mar-list"></div>
+
+    <div id="mar-general-notes-wrap" class="general-notes-wrap" style="display:none;">
+      <label for="mar-general-notes">Notes (optional)</label>
+      <textarea id="mar-general-notes" rows="4" placeholder="Anything to flag about this report&hellip;"></textarea>
+    </div>
+
+    <div class="confirm-bar">
+      <button id="mar-confirm">Confirm Everything Is Correct</button>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -590,7 +694,8 @@
     fireDrill: document.getElementById('screen-fire-drill'),
     emergencySupplies: document.getElementById('screen-emergency-supplies'),
     physicalEnvironment: document.getElementById('screen-physical-environment'),
-    logEvent: document.getElementById('screen-log-event')
+    logEvent: document.getElementById('screen-log-event'),
+    marReview: document.getElementById('screen-mar-review')
   };
 
   function getStoredSession() {
@@ -735,6 +840,7 @@
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
+    loadHomeMarStatus();
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -786,6 +892,39 @@
     }
   }
 
+  // MAR gets a colored status dot in addition to text: red+flashing if
+  // overdue or never done, yellow+flashing if due within 7 days, solid
+  // green otherwise.
+  async function loadHomeMarStatus() {
+    const dotEl = document.getElementById('home-mar-dot');
+    const statusEl = document.getElementById('home-mar-status');
+    const dueEl = document.getElementById('home-mar-due');
+    statusEl.textContent = '';
+    dueEl.textContent = '';
+    try {
+      const data = await apiFetch('/get-mar-review');
+      const meds = data.medications || [];
+      const dates = meds.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      const due = computeDueDate(recent);
+      const dueISO = due.toISOString().slice(0, 10);
+      const daysUntilDue = Math.ceil((due.getTime() - Date.now()) / 86400000);
+
+      let statusClass = 'status-green';
+      if (!recent || daysUntilDue < 0) {
+        statusClass = 'status-red';
+      } else if (daysUntilDue <= 7) {
+        statusClass = 'status-yellow';
+      }
+      dotEl.className = 'status-dot ' + statusClass;
+
+      statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+      dueEl.textContent = 'Next due: ' + formatDate(dueISO);
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
   // Fire-and-forget: pulls just enough from First Aid Supplies to show a
   // "Last reviewed" / "Next due" line under its Home button, before the
   // provider taps in. Fails silently — a broken status line shouldn't
@@ -825,6 +964,9 @@
         resetLogEventForm();
         showScreen('logEvent');
         loadEventsList();
+      } else if (action === 'mar-review') {
+        showScreen('marReview');
+        loadMarReview();
       } else {
         alert('This screen is coming next.');
       }
@@ -1459,6 +1601,140 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Log Event';
+    }
+  });
+
+  // --- Screen 9: MAR Review ---
+  function renderMedRow(med) {
+    const wrap = document.createElement('div');
+    wrap.className = 'med-row';
+    wrap.dataset.itemId = med.id;
+    wrap.dataset.medType = med.medicationType;
+
+    const isMissing = med.missing === true;
+    const detailParts = [];
+    if (med.dosage) detailParts.push(med.dosage);
+    if (med.frequency) detailParts.push(med.frequency);
+    if (med.purpose) detailParts.push(med.purpose);
+
+    const quantityFieldHtml = med.medicationType === 'PRN'
+      ? '<div class="med-field"><label>Quantity</label><input type="text" class="mar-quantity-input" value="' + (med.quantity || '').replace(/"/g, '&quot;') + '"></div>'
+      : '';
+
+    wrap.innerHTML =
+      '<p class="med-name">' + med.itemName + (med.medicationType === 'PRN' ? ' <span style="font-weight:400;color:#888;">(PRN)</span>' : '') + '</p>' +
+      (detailParts.length ? '<p class="med-details">' + detailParts.join(' \u00b7 ') + '</p>' : '') +
+      '<div class="med-controls-row">' +
+        '<div class="med-field">' +
+          '<label>Expiration Date</label>' +
+          '<input type="date" class="mar-exp-input' + (isMissing ? ' med-disabled' : '') + '" value="' + (med.currentExpDate || '') + '"' + (isMissing ? ' disabled' : '') + '>' +
+        '</div>' +
+        quantityFieldHtml +
+        '<div class="med-missing-field">' +
+          '<input type="checkbox" class="mar-missing-input"' + (isMissing ? ' checked' : '') + '>' +
+          '<label style="margin:0;">Missing</label>' +
+        '</div>' +
+      '</div>' +
+      '<p class="item-meta">Last updated ' + formatDate(med.lastUpdatedDate) + (med.lastUpdatedBy ? ' by ' + med.lastUpdatedBy : '') + '</p>';
+
+    const expInput = wrap.querySelector('.mar-exp-input');
+    const missingInput = wrap.querySelector('.mar-missing-input');
+    missingInput.addEventListener('change', function () {
+      if (missingInput.checked) {
+        expInput.value = '';
+        expInput.disabled = true;
+        expInput.classList.add('med-disabled');
+      } else {
+        expInput.disabled = false;
+        expInput.classList.remove('med-disabled');
+      }
+    });
+
+    return wrap;
+  }
+
+  let currentMarAllergy = null;
+  let currentMarGeneralNotes = null;
+
+  async function loadMarReview() {
+    const listEl = document.getElementById('mar-list');
+    const allergyWrap = document.getElementById('mar-allergy-wrap');
+    const notesWrap = document.getElementById('mar-general-notes-wrap');
+    setError('mar-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading medications&hellip;</p>';
+    allergyWrap.style.display = 'none';
+    notesWrap.style.display = 'none';
+
+    try {
+      const data = await apiFetch('/get-mar-review');
+      const meds = data.medications || [];
+      currentMarAllergy = data.allergyInfo || null;
+      currentMarGeneralNotes = data.generalNotes || null;
+
+      const dates = meds.map(function (m) { return m.lastUpdatedDate; }).filter(Boolean).sort();
+      const recent = dates.length ? dates[dates.length - 1] : null;
+      document.getElementById('mar-last-reviewed').textContent =
+        'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
+
+      if (currentMarAllergy) {
+        document.getElementById('mar-allergy').value = currentMarAllergy.notes || '';
+        allergyWrap.style.display = 'block';
+      }
+
+      listEl.innerHTML = '';
+      if (!meds.length) {
+        listEl.innerHTML = '<p class="empty-text">No active medications found.</p>';
+        return;
+      }
+      meds.forEach(function (med) { listEl.appendChild(renderMedRow(med)); });
+
+      if (currentMarGeneralNotes) {
+        document.getElementById('mar-general-notes').value = currentMarGeneralNotes.notes || '';
+        notesWrap.style.display = 'block';
+      }
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('mar-error', e.message);
+    }
+  }
+
+  document.getElementById('mar-confirm').addEventListener('click', async function () {
+    const btn = this;
+    setError('mar-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const items = [];
+    document.querySelectorAll('#mar-list .med-row').forEach(function (row) {
+      const missing = row.querySelector('.mar-missing-input').checked;
+      const entry = {
+        id: row.dataset.itemId,
+        missing: missing,
+        currentExpDate: missing ? '' : row.querySelector('.mar-exp-input').value
+      };
+      const qtyInput = row.querySelector('.mar-quantity-input');
+      if (qtyInput) entry.quantity = qtyInput.value;
+      items.push(entry);
+    });
+
+    const allergyValue = currentMarAllergy ? document.getElementById('mar-allergy').value : undefined;
+    const generalNotesValue = currentMarGeneralNotes ? document.getElementById('mar-general-notes').value : undefined;
+
+    try {
+      await apiFetch('/confirm-mar-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue })
+      });
+      alert('Successfully saved.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
+    } catch (e) {
+      setError('mar-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Confirm Everything Is Correct';
     }
   });
 

@@ -39,6 +39,7 @@ workflow as your other portals.
 | `EMERGENCY_SUPPLIES_DB_ID` | `2512e571-d0fb-4937-8594-646da323a734` |
 | `PHYSICAL_ENV_DB_ID` | `f65e9956-bfe5-4e81-8612-cf533d345796` |
 | `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
+| `MAR_DB_ID` | `7dbf6757-dd9b-4c7c-ad78-168c745ed555` |
 | `ZAPIER_EVENT_WEBHOOK_URL` | The Catch Hook URL from your dedicated "Provider Event Log Attachments" Zap — see setup steps below |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
@@ -95,6 +96,16 @@ don't pick up env var changes until the next deploy.
   form, a scrollable list shows every event in the past 30 and next 30
   days for that location, each with type, resident, notes preview, and
   an attachment indicator; future events are labeled "(Upcoming)."
+- MAR Review screen: per-resident medication list (not per-location —
+  each row is tied to a specific resident's initials). Each medication
+  gets an expiration date OR a "Missing" checkbox (mutually exclusive —
+  checking Missing disables and clears the date field); PRN medications
+  additionally get a free-text Quantity field. A red-bordered Allergies
+  banner sits at the top (editable), sourced from a special "Allergy
+  Info" row, same pattern as the "General Notes" row used elsewhere.
+  The Home button includes a colored status dot: solid green if
+  current, flashing yellow if due within 7 days, flashing red if
+  overdue or never completed.
 
 ## Setting up event attachments (Zapier)
 
