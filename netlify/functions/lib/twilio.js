@@ -4,12 +4,12 @@ function sendSms(to, body) {
   return new Promise(function (resolve, reject) {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+    const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
     const params = new URLSearchParams({
       To: to,
       Body: body,
-      From: fromNumber
+      MessagingServiceSid: messagingServiceSid
     }).toString();
 
     const auth = Buffer.from(accountSid + ':' + authToken).toString('base64');

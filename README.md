@@ -37,7 +37,7 @@ workflow as your other portals.
 | `FIRST_AID_DB_ID` | `13467800-fa4f-420b-9fac-77204750b36c` |
 | `TWILIO_ACCOUNT_SID` | Existing Twilio Account SID |
 | `TWILIO_AUTH_TOKEN` | Existing Twilio Auth Token |
-| `TWILIO_PHONE_NUMBER` | Copy from asrscompliance.com's env vars (the sending number, e.g. +18046265375) |
+| `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
 | `ADMIN_ALLOWED_EMAILS` | Existing comma-separated admin email list |
 | `APP_ENCRYPTION_KEY` | New — a 64-character hex string (32 bytes). Generate with `openssl rand -hex 32`. **Do not reuse a key from another portal.** |
 
