@@ -312,6 +312,12 @@ been granted.
   one. Unchecking every location auto-disables that admin.
 - `/admin/list-admins.html` — read-only: every admin and their granted
   locations, plus which locations currently have a password set.
+- `/admin/manage-medications.html` — look up a resident's medications
+  by Location + Resident Initials (both exact-match, so this avoids the
+  silent-typo risk of editing Notion directly), edit any field inline,
+  toggle Active to deactivate (soft delete, matching the same pattern
+  as First Aid/Emergency Supplies/Physical Environment — history stays
+  in Notion), or add a brand new medication at the bottom.
 
 New env vars for the admin-tools login itself:
 | Variable | Value |
