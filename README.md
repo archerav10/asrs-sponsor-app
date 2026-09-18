@@ -171,6 +171,52 @@ whose Granted Locations includes it (deduplicated by phone number).
 
 Email isn't wired up yet — everything above is SMS-only for now.
 
+## Weekly admin email digest
+
+Separate from the SMS reports above — one email per admin (not
+sponsors), covering every location they're granted, listing anything
+currently expired, missing, or out of range across **First Aid
+Supplies, Emergency Supplies, and Physical Environment** (MAR isn't
+included here since it already gets its own daily SMS alert). A
+location with nothing wrong still gets its own "No issues found" line
+rather than being omitted, so the weekly email always confirms
+coverage for every location an admin has.
+
+Sent via **EmailJS** (server-side), not Resend — reusing the account
+already used elsewhere rather than standing up a new service. Setup
+needed on your end:
+
+1. In EmailJS, go to **Account → Security** and enable "Allow API
+   calls from non-browser applications." Note your **Private Key**
+   from that same page.
+2. Create a new **Template** (separate from any existing OTP template)
+   with these merge fields: `{{to_email}}` (To field), `{{to_name}}`,
+   `{{subject}}` (Subject field), and `{{message}}` (Content — the
+   whole formatted digest gets passed as this one field, so the
+   template itself can stay simple; it doesn't need to know about
+   locations or issues).
+3. Add these env vars in Netlify:
+
+| Variable | Value |
+|---|---|
+| `EMAILJS_SERVICE_ID` | From your EmailJS service |
+| `EMAILJS_TEMPLATE_ID` | The new template's ID |
+| `EMAILJS_PUBLIC_KEY` | Account → General |
+| `EMAILJS_PRIVATE_KEY` | Account → Security |
+
+EmailJS rate-limits to 1 request/second — `lib/admin-digest-check.js`
+paces real sends accordingly, so this only matters if you have enough
+admins that it becomes noticeable (it won't, at any realistic scale
+here).
+
+**Schedule:** Fridays at 8:00am US/Eastern (`0 12 * * 5`, pinned to
+EDT — drifts to 7:00am local during EST Nov-Mar).
+
+**Testing:** `test-check-admin-digest.js` follows the same pattern as
+the other test endpoints — not scheduled, gated by
+`NOTIFICATION_TEST_SECRET`, defaults to dry-run, supports `&asOf=` to
+preview a different date, `&send=true` to actually send.
+
 **Important Netlify behavior:** functions with a `schedule` set can
 only be triggered by Netlify's own scheduler — visiting their URL
 directly returns a 403 *before it ever reaches the function*, with
