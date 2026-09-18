@@ -6,3 +6,9 @@
   from = "/"
   to = "/provider-app/"
   status = 302
+
+[functions."check-report-status"]
+  schedule = "@daily"
+
+[functions."check-mar-medication-alerts"]
+  schedule = "@daily"

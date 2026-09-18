@@ -146,7 +146,30 @@ don't pick up env var changes until the next deploy.
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
 
-## Admin multi-location login
+## Notifications (SMS)
+
+Two scheduled functions (`@daily` in netlify.toml — they run every day
+and self-gate on whether today is actually a trigger day, since "7
+days before month-end" lands on a different date each month):
+
+- **`check-report-status.js`** — fires on 3 checkpoints per month
+  (7 days before calendar month-end, 2 days before, and the 1st of the
+  month). For each location, checks First Aid Supplies, Fire Drill,
+  Emergency Supplies, Physical Environment, and each resident's MAR
+  Review against their existing due-date logic, and — only if at least
+  one is due-soon or overdue — sends **one combined text** naming just
+  those (a location where everything's current gets no text at all).
+- **`check-mar-medication-alerts.js`** — runs every day (not just the
+  3 checkpoints, since an expired or missing medication is urgent the
+  day it happens). Standalone message per location, separate from the
+  combined one, listing any medication currently expired or marked
+  Missing, by resident.
+
+Both use `lib/notification-recipients.js` to resolve who gets texted
+for a location: every enabled sponsor there, plus every enabled admin
+whose Granted Locations includes it (deduplicated by phone number).
+
+Email isn't wired up yet — everything above is SMS-only for now.
 
 In addition to a sponsor's personal email+password (tied to one
 location), an admin can be granted access to multiple locations, each
