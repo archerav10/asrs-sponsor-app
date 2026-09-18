@@ -77,9 +77,8 @@ async function marStatusLine(location, resident) {
   const periodPage = (periodResult.results || [])[0];
   const lastFinalizedPeriod = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
 
-  const { target, dueDate } = computeMarTarget(lastFinalizedPeriod);
-  const targetStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
-  const isFinalized = lastFinalizedPeriod === targetStr;
+  const { targetPeriod, dueDate } = computeMarTarget(lastFinalizedPeriod);
+  const isFinalized = lastFinalizedPeriod === targetPeriod;
   if (isFinalized) return null;
 
   const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
