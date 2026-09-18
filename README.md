@@ -173,15 +173,27 @@ been granted.
   the existing resident-picker UI (already built for Log an Event /
   MAR Review) just works without changes.
 
-**Provisioning tools:**
+**Provisioning tools (now behind a real login):**
+- `/admin/login.html` — email + password + SMS OTP, same pattern as the
+  rest of the app, but a completely separate credential (env vars
+  below) that only gates these tools — not tied to Sponsors or Admin
+  Accounts.
+- `/admin/set-provider-password.html` — set a provider's password.
 - `/admin/set-location-password.html` — set or reset a location's
   shared password (also flips it to Active).
-- `/admin/manage-admin.html` — create or update an admin's name,
-  email, phone, and which locations they're granted. Re-submitting the
-  same email updates their existing record instead of duplicating it.
+- `/admin/manage-admin.html` — look up an existing admin by email
+  (pre-fills their current granted locations so removing just one is a
+  single unchecked box, not retyping the whole list), or create a new
+  one. Unchecking every location auto-disables that admin.
+- `/admin/list-admins.html` — read-only: every admin and their granted
+  locations, plus which locations currently have a password set.
 
-Both are gated by `ADMIN_ALLOWED_EMAILS`, same as the provider
-password-provisioning tool.
+New env vars for the admin-tools login itself:
+| Variable | Value |
+|---|---|
+| `SUPER_ADMIN_EMAIL` | `archera@archsupportres.com` |
+| `SUPER_ADMIN_PASSWORD_HASH` | `82f6ed9a8e9a21b3d8ba37fbef89adaf90f469fd8924925dd29d8edcc5494d64` |
+| `SUPER_ADMIN_PHONE` | Phone number the OTP should text — confirm/set this |
 
 ## Setting up event attachments (Zapier)
 

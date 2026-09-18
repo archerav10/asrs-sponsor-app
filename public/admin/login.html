@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Tools Login — ASRS</title>
+<style>
+  :root { --forest: #16332B; --cream: #F6F3EC; --ink: #1C1C1A; --border: #D8D2C2; --error: #B3261E; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--cream); color: var(--ink); }
+  header { background: var(--forest); color: var(--cream); padding: 18px 24px; }
+  header h1 { margin: 0; font-size: 18px; }
+  main { max-width: 420px; margin: 0 auto; padding: 28px 24px 60px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
+  input { width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  button { width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none; border-radius: 6px; background: var(--forest); color: var(--cream); margin-top: 20px; cursor: pointer; }
+  button:disabled { opacity: 0.55; }
+  .error-text { font-size: 14px; color: var(--error); margin-top: 14px; display: none; }
+  .help { font-size: 13px; color: #555; margin-top: 4px; }
+  ul.tool-links { list-style: none; padding: 0; margin: 20px 0 0; }
+  ul.tool-links li a {
+    display: block; padding: 14px 16px; margin-bottom: 10px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fff;
+    color: var(--forest); text-decoration: none; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+<header><h1>ASRS Admin Tools</h1></header>
+<main>
+
+  <section id="screen-login" class="screen active">
+    <label for="email">Email</label>
+    <input type="email" id="email" autocomplete="username">
+    <label for="password">Password</label>
+    <input type="password" id="password" autocomplete="current-password">
+    <p class="error-text" id="login-error"></p>
+    <button id="login-submit">Log In</button>
+  </section>
+
+  <section id="screen-otp" class="screen">
+    <label for="code">Enter the 6-digit code</label>
+    <input type="text" id="code" inputmode="numeric" maxlength="6">
+    <p class="help" id="otp-help"></p>
+    <p class="error-text" id="otp-error"></p>
+    <button id="otp-submit">Verify Code</button>
+  </section>
+
+  <section id="screen-menu" class="screen">
+    <p>Logged in. Choose a tool:</p>
+    <ul class="tool-links">
+      <li><a href="/admin/set-provider-password.html">Set Provider Password</a></li>
+      <li><a href="/admin/set-location-password.html">Set Location Password</a></li>
+      <li><a href="/admin/manage-admin.html">Manage Admin Access</a></li>
+      <li><a href="/admin/list-admins.html">View Admin Access &amp; Location Status</a></li>
+    </ul>
+    <button id="logout" style="background:transparent;color:#666;border:1px solid #ccc;">Log Out</button>
+  </section>
+
+</main>
+<script>
+(function () {
+  const SESSION_KEY = 'asrs_super_admin_session';
+  const screens = {
+    login: document.getElementById('screen-login'),
+    otp: document.getElementById('screen-otp'),
+    menu: document.getElementById('screen-menu')
+  };
+  function showScreen(name) {
+    Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
+    screens[name].classList.add('active');
+  }
+  function setError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+
+  let pendingOtpToken = null;
+
+  document.getElementById('login-submit').addEventListener('click', async function () {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    setError('login-error', '');
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/.netlify/functions/super-admin-login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      const data = await res.json();
+      if (!res.ok) { setError('login-error', data.error || 'Something went wrong.'); return; }
+      pendingOtpToken = data.otpToken;
+      document.getElementById('otp-help').textContent = 'We sent a code to ' + data.maskedPhone + '.';
+      showScreen('otp');
+    } catch (e) {
+      setError('login-error', 'Could not reach the server.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('otp-submit').addEventListener('click', async function () {
+    const code = document.getElementById('code').value.trim();
+    setError('otp-error', '');
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/.netlify/functions/super-admin-verify-otp', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otpToken: pendingOtpToken, code: code })
+      });
+      const data = await res.json();
+      if (!res.ok) { setError('otp-error', data.error || 'Something went wrong.'); return; }
+      localStorage.setItem(SESSION_KEY, data.sessionToken);
+      showScreen('menu');
+    } catch (e) {
+      setError('otp-error', 'Could not reach the server.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('logout').addEventListener('click', function () {
+    localStorage.removeItem(SESSION_KEY);
+    showScreen('login');
+  });
+
+  if (localStorage.getItem(SESSION_KEY)) {
+    showScreen('menu');
+  }
+})();
+</script>
+</body>
+</html>

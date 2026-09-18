@@ -1,13 +1,7 @@
 const { queryDatabase, updatePage, createPage, getPlainText } = require('./lib/notion');
+const { requireSuperAdmin } = require('./lib/super-admin-session');
 
 const ADMIN_ACCOUNTS_DB_ID = process.env.ADMIN_ACCOUNTS_DB_ID;
-
-function isAdmin(email) {
-  const allowed = (process.env.ADMIN_ALLOWED_EMAILS || '').split(',').map(function (e) {
-    return e.trim().toLowerCase();
-  });
-  return allowed.indexOf((email || '').trim().toLowerCase()) !== -1;
-}
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
@@ -15,18 +9,16 @@ exports.handler = async function (event) {
   }
 
   try {
+    requireSuperAdmin(event);
+
     const body = JSON.parse(event.body || '{}');
-    const adminEmail = body.adminEmail;
     const name = body.name;
     const newAdminEmail = body.newAdminEmail;
     const phoneNumber = body.phoneNumber;
-    const grantedLocations = body.grantedLocations || []; // array of location names
+    const grantedLocations = body.grantedLocations || []; // full replacement list
 
-    if (!isAdmin(adminEmail)) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized.' }) };
-    }
-    if (!name || !newAdminEmail || !phoneNumber || !grantedLocations.length) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Name, email, phone number, and at least one granted location are required.' }) };
+    if (!name || !newAdminEmail || !phoneNumber) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Name, email, and phone number are required.' }) };
     }
 
     const normalizedEmail = newAdminEmail.trim().toLowerCase();
@@ -44,7 +36,7 @@ exports.handler = async function (event) {
       'Email': { rich_text: [{ text: { content: normalizedEmail } }] },
       'Phone Number': { phone_number: phoneNumber },
       'Granted Locations': { rich_text: [{ text: { content: locationsText } }] },
-      'Admin App Enabled': { checkbox: true }
+      'Admin App Enabled': { checkbox: grantedLocations.length > 0 }
     };
 
     if (existing) {
@@ -56,6 +48,6 @@ exports.handler = async function (event) {
     return { statusCode: 200, body: JSON.stringify({ success: true, updated: !!existing }) };
   } catch (err) {
     console.error(err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Something went wrong.' }) };
+    return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message || 'Something went wrong.' }) };
   }
 };

@@ -8,37 +8,40 @@
   :root { --forest: #16332B; --cream: #F6F3EC; --ink: #1C1C1A; --border: #D8D2C2; --error: #B3261E; --ok: #1B5E20; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--cream); color: var(--ink); }
-  header { background: var(--forest); color: var(--cream); padding: 18px 24px; }
+  header { background: var(--forest); color: var(--cream); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
   header h1 { margin: 0; font-size: 18px; }
+  header a { color: var(--cream); font-size: 13px; text-decoration: underline; }
   main { max-width: 460px; margin: 0 auto; padding: 28px 24px 60px; }
   label { display: block; font-size: 14px; font-weight: 600; margin: 16px 0 6px; }
   input { width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
   button { width: 100%; padding: 13px; font-size: 16px; font-weight: 600; border: none; border-radius: 6px; background: var(--forest); color: var(--cream); margin-top: 20px; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--forest); border: 1px solid var(--forest); }
   button:disabled { opacity: 0.55; }
   .msg { font-size: 14px; margin-top: 14px; display: none; }
   .msg.error { color: var(--error); }
   .msg.ok { color: var(--ok); }
+  .found-banner { font-size: 13px; color: #555; margin-top: 6px; display: none; }
   .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
   .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 15px; }
   .checkbox-row input { width: 20px; height: 20px; accent-color: var(--forest); }
 </style>
 </head>
 <body>
-<header><h1>Manage Admin Access</h1></header>
+<header><h1>Manage Admin Access</h1><a href="/admin/login.html">Admin Tools</a></header>
 <main>
-  <label for="admin-email">Your admin email</label>
-  <input type="email" id="admin-email" autocomplete="username">
+  <label for="lookup-email">Admin's email</label>
+  <input type="email" id="lookup-email" placeholder="Type email, then look up">
+  <button id="lookup-btn" class="secondary">Look Up Current Access</button>
+  <p class="found-banner" id="found-banner"></p>
 
   <label for="name">Admin's name</label>
   <input type="text" id="name">
-
-  <label for="new-admin-email">Admin's email (identifies them, routes their OTP)</label>
-  <input type="email" id="new-admin-email">
 
   <label for="phone">Admin's mobile number</label>
   <input type="tel" id="phone" placeholder="+18045551234">
 
   <label>Granted locations</label>
+  <p class="help" style="font-size:13px;color:#555;margin:4px 0 0;">Uncheck a location to remove access to it. Unchecking everything disables this admin.</p>
   <div class="checkbox-grid" id="location-checks">
     <label class="checkbox-row"><input type="checkbox" value="Longstreet"> Longstreet</label>
     <label class="checkbox-row"><input type="checkbox" value="Mylan"> Mylan</label>
@@ -52,11 +55,48 @@
   <p class="msg" id="msg"></p>
 </main>
 
+<script src="/admin/admin-auth.js"></script>
 <script>
+requireAdminSession();
+
+document.getElementById('lookup-btn').addEventListener('click', async function () {
+  const email = document.getElementById('lookup-email').value.trim();
+  const banner = document.getElementById('found-banner');
+  banner.style.display = 'none';
+  if (!email) return;
+
+  const btn = this;
+  btn.disabled = true;
+  try {
+    const res = await adminFetch('/.netlify/functions/admin-get-admin-account?email=' + encodeURIComponent(email));
+    const data = await res.json();
+    document.querySelectorAll('#location-checks input').forEach(function (cb) { cb.checked = false; });
+    if (data.found) {
+      document.getElementById('name').value = data.name || '';
+      document.getElementById('phone').value = data.phoneNumber || '';
+      (data.grantedLocations || []).forEach(function (loc) {
+        const cb = document.querySelector('#location-checks input[value="' + loc + '"]');
+        if (cb) cb.checked = true;
+      });
+      banner.style.display = 'block';
+      banner.textContent = 'Found existing admin — current access loaded below (' + (data.enabled ? 'enabled' : 'disabled') + ').';
+    } else {
+      document.getElementById('name').value = '';
+      document.getElementById('phone').value = '';
+      banner.style.display = 'block';
+      banner.textContent = 'No existing admin with that email — fill out the fields below to create one.';
+    }
+  } catch (e) {
+    banner.style.display = 'block';
+    banner.textContent = 'Could not look that up.';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('submit').addEventListener('click', async function () {
-  const adminEmail = document.getElementById('admin-email').value.trim();
+  const newAdminEmail = document.getElementById('lookup-email').value.trim();
   const name = document.getElementById('name').value.trim();
-  const newAdminEmail = document.getElementById('new-admin-email').value.trim();
   const phoneNumber = document.getElementById('phone').value.trim();
   const grantedLocations = Array.from(document.querySelectorAll('#location-checks input:checked')).map(function (el) { return el.value; });
   const msg = document.getElementById('msg');
@@ -66,10 +106,10 @@ document.getElementById('submit').addEventListener('click', async function () {
   const btn = this;
   btn.disabled = true;
   try {
-    const res = await fetch('/.netlify/functions/admin-manage-admin-account', {
+    const res = await adminFetch('/.netlify/functions/admin-manage-admin-account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adminEmail, name, newAdminEmail, phoneNumber, grantedLocations })
+      body: JSON.stringify({ name, newAdminEmail, phoneNumber, grantedLocations })
     });
     const data = await res.json();
     msg.style.display = 'block';
@@ -78,7 +118,7 @@ document.getElementById('submit').addEventListener('click', async function () {
       msg.textContent = data.error || 'Something went wrong.';
     } else {
       msg.classList.add('ok');
-      msg.textContent = (data.updated ? 'Updated ' : 'Created ') + newAdminEmail + ' with access to: ' + grantedLocations.join(', ');
+      msg.textContent = (data.updated ? 'Updated ' : 'Created ') + newAdminEmail + ' — access now: ' + (grantedLocations.join(', ') || '(none — disabled)');
     }
   } catch (e) {
     msg.style.display = 'block';
