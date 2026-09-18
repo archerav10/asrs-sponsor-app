@@ -19,16 +19,17 @@ function isSameCalendarDay(a, b) {
 
 // Checkpoints are anchored to the actual end of the current calendar
 // month: 7 days out, 2 days out, and the 1st of the (next) month.
-function isTriggerDay() {
-  const now = new Date();
+function isTriggerDay(now) {
+  now = now || new Date();
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const day7 = new Date(endOfMonth); day7.setDate(day7.getDate() - 7);
   const day2 = new Date(endOfMonth); day2.setDate(day2.getDate() - 2);
   return now.getDate() === 1 || isSameCalendarDay(now, day7) || isSameCalendarDay(now, day2);
 }
 
-function formatDueInfo(dueDate) {
-  const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+function formatDueInfo(dueDate, now) {
+  now = now || new Date();
+  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
   const dateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   if (daysUntilDue < 0) {
     return 'OVERDUE since ' + dateStr;
@@ -75,7 +76,7 @@ async function marResidentsForLocation(location) {
   return Array.from(set);
 }
 
-async function marStatusLine(location, resident) {
+async function marStatusLine(location, resident, now) {
   const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
     and: [
       { property: 'Location', select: { equals: location } },
@@ -86,23 +87,30 @@ async function marStatusLine(location, resident) {
   const periodPage = (periodResult.results || [])[0];
   const lastFinalizedPeriod = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
 
-  const { targetPeriod, dueDate } = computeMarTarget(lastFinalizedPeriod);
+  const { targetPeriod, dueDate } = computeMarTarget(lastFinalizedPeriod, now);
   const isFinalized = lastFinalizedPeriod === targetPeriod;
   if (isFinalized) return null;
 
-  const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
   if (daysUntilDue > 7) return null;
-  return 'MAR Review (' + resident + '): ' + formatDueInfo(dueDate);
+  return 'MAR Review (' + resident + '): ' + formatDueInfo(dueDate, now);
 }
 
-// options: { dryRun: boolean, ignoreTriggerDay: boolean }
+// options: { dryRun: boolean, ignoreTriggerDay: boolean, asOf: "YYYY-MM-DD" }
 // dryRun -> compose everything but never call sendSms; messages are
 // returned instead so a caller can display "what would have gone out."
 // ignoreTriggerDay -> skip the "is today a checkpoint" gate (used by the
 // manual test endpoint; the real scheduled function never sets this).
+// asOf -> simulate running this on a different calendar day, so you can
+// preview a "due soon" or "overdue" state without waiting for it or
+// needing data that's actually impossible to construct for today (due
+// dates always land on a month-end, so "due soon" only exists in the
+// ~8 days around an actual month boundary).
 async function runReportStatusCheck(options) {
   options = options || {};
-  if (!options.ignoreTriggerDay && !isTriggerDay()) {
+  const now = options.asOf ? new Date(options.asOf + 'T00:00:00') : new Date();
+
+  if (!options.ignoreTriggerDay && !isTriggerDay(now)) {
     return { triggered: false, reason: 'Not a trigger day.', results: [] };
   }
 
@@ -112,28 +120,28 @@ async function runReportStatusCheck(options) {
     const lines = [];
 
     const faLast = await mostRecentUpdate(FIRST_AID_DB_ID, location);
-    const faDue = computeDueDate(faLast);
-    const faStatus = statusForDueDate(faLast, faDue);
-    if (faStatus !== 'green') lines.push('First Aid Supplies: ' + formatDueInfo(faDue));
+    const faDue = computeDueDate(faLast, now);
+    const faStatus = statusForDueDate(faLast, faDue, now);
+    if (faStatus !== 'green') lines.push('First Aid Supplies: ' + formatDueInfo(faDue, now));
 
     const fdLast = await mostRecentDrill(location);
-    const fdDue = computeDueDate(fdLast);
-    const fdStatus = statusForDueDate(fdLast, fdDue);
-    if (fdStatus !== 'green') lines.push('Fire Drill: ' + formatDueInfo(fdDue));
+    const fdDue = computeDueDate(fdLast, now);
+    const fdStatus = statusForDueDate(fdLast, fdDue, now);
+    if (fdStatus !== 'green') lines.push('Fire Drill: ' + formatDueInfo(fdDue, now));
 
     const esLast = await mostRecentUpdate(EMERGENCY_SUPPLIES_DB_ID, location);
-    const esDue = computeDueDate(esLast);
-    const esStatus = statusForDueDate(esLast, esDue);
-    if (esStatus !== 'green') lines.push('Emergency Supplies: ' + formatDueInfo(esDue));
+    const esDue = computeDueDate(esLast, now);
+    const esStatus = statusForDueDate(esLast, esDue, now);
+    if (esStatus !== 'green') lines.push('Emergency Supplies: ' + formatDueInfo(esDue, now));
 
     const peLast = await mostRecentUpdate(PHYSICAL_ENV_DB_ID, location);
-    const peDue = computeDueDate(peLast);
-    const peStatus = statusForDueDate(peLast, peDue);
-    if (peStatus !== 'green') lines.push('Physical Environment: ' + formatDueInfo(peDue));
+    const peDue = computeDueDate(peLast, now);
+    const peStatus = statusForDueDate(peLast, peDue, now);
+    if (peStatus !== 'green') lines.push('Physical Environment: ' + formatDueInfo(peDue, now));
 
     const residents = await marResidentsForLocation(location);
     for (const resident of residents) {
-      const line = await marStatusLine(location, resident);
+      const line = await marStatusLine(location, resident, now);
       if (line) lines.push(line);
     }
 
@@ -152,7 +160,7 @@ async function runReportStatusCheck(options) {
     }
   }
 
-  return { triggered: true, dryRun: !!options.dryRun, results: results };
+  return { triggered: true, dryRun: !!options.dryRun, simulatedAsOf: options.asOf || null, results: results };
 }
 
 module.exports = { runReportStatusCheck, isTriggerDay };

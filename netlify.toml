@@ -8,7 +8,11 @@
   status = 302
 
 [functions."check-report-status"]
-  schedule = "@daily"
+  # 9:30am US/Eastern. Netlify cron runs in UTC with no DST awareness,
+  # so this is pinned to EDT (UTC-4); during EST (Nov-Mar) it'll fire at
+  # 8:30am local instead of 9:30 — still comfortably non-disruptive,
+  # just a heads-up rather than a bug.
+  schedule = "30 13 * * *"
 
 [functions."check-mar-medication-alerts"]
-  schedule = "@daily"
+  schedule = "30 13 * * *"

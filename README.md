@@ -193,6 +193,19 @@ send for real. `test-check-report-status` also bypasses the
 checkpoint-day gate (so you can test any day), while
 `test-check-mar-medication-alerts` never had a gate to begin with.
 
+`test-check-report-status` also takes `&asOf=YYYY-MM-DD` to simulate
+running the check on a different calendar day — useful since due dates
+always land on a month-end, so "due soon" only exists in the ~8 days
+around an actual month boundary and can't be faked with any Notion
+data on a day outside that window. e.g.
+`&asOf=2026-09-23&secret=...` previews exactly what the 7-days-out
+checkpoint will say, without waiting for it or touching real data.
+
+**Schedule:** both run at 9:30am US/Eastern (`30 13 * * *` — Netlify
+cron has no DST awareness, so this is pinned to EDT; during EST
+Nov-Mar it'll actually fire at 8:30am local, which is still early
+enough to be a non-issue).
+
 In addition to a sponsor's personal email+password (tied to one
 location), an admin can be granted access to multiple locations, each
 unlocked with that **location's own shared password** — not a personal

@@ -6,10 +6,12 @@
 // than silently skipped).
 //
 // lastFinalizedPeriod: "YYYY-MM" string or falsy if never finalized.
+// `now` is optional and defaults to the real current time — only the
+// test/simulation endpoint ever passes something else.
 // Returns { targetPeriod: "YYYY-MM", dueDate: Date (last day of the
 // month before targetPeriod, at local midnight) }.
-function computeMarTarget(lastFinalizedPeriod) {
-  const now = new Date();
+function computeMarTarget(lastFinalizedPeriod, now) {
+  now = now || new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
   let target = currentMonthStart;
