@@ -125,10 +125,11 @@ async function buildAdminDigests(today) {
 }
 
 function digestToText(digest, dateLabel) {
-  const header = 'ASRS Weekly Compliance Check — ' + dateLabel + '\n\n';
+  const header = '<strong>ASRS Weekly Compliance Check — ' + dateLabel + '</strong><br><br>';
   return header + digest.sections.map(function (s) {
-    return s.location + ':\n' + (s.issues.length ? s.issues.map(function (i) { return '- ' + i; }).join('\n') : 'No issues found.');
-  }).join('\n\n');
+    return '<strong>' + s.location + ':</strong><br>' +
+      (s.issues.length ? s.issues.map(function (i) { return '- ' + i; }).join('<br>') : 'No issues found.');
+  }).join('<br><br>');
 }
 
 // options: { dryRun: boolean, asOf: "YYYY-MM-DD" }
