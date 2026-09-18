@@ -171,16 +171,27 @@ whose Granted Locations includes it (deduplicated by phone number).
 
 Email isn't wired up yet — everything above is SMS-only for now.
 
-**Testing before the real trigger dates arrive:** `check-mar-medication-alerts.js`
-has no date gate — visiting its URL directly
-(`https://<your-site>/.netlify/functions/check-mar-medication-alerts`)
-runs it for real, any day. `check-report-status.js` only acts on its 3
-checkpoints unless you add `?force=true&secret=...` matching a new
-`NOTIFICATION_TEST_SECRET` env var you set — without that secret, an
-early hit just reports "not a trigger day" and does nothing. **Both
-send real text messages to real sponsors/admins when they actually
-run** — there's no dry-run mode, so testing does mean live texts go
-out.
+**Important Netlify behavior:** functions with a `schedule` set can
+only be triggered by Netlify's own scheduler — visiting their URL
+directly returns a 403 *before it ever reaches the function*, with
+nothing in the function log. This isn't a firewall rule or anything
+configurable; it's a platform-level restriction on scheduled functions
+specifically. That's why the actual logic for each lives in
+`lib/report-status-check.js` and `lib/mar-alert-check.js`, with the
+scheduled files as thin wrappers.
+
+**Testing:** use the separate, non-scheduled test endpoints instead —
+these are ordinary functions Netlify has no reason to block:
+- `https://<your-site>/.netlify/functions/test-check-report-status?secret=...`
+- `https://<your-site>/.netlify/functions/test-check-mar-medication-alerts?secret=...`
+
+Both require a `secret` matching a `NOTIFICATION_TEST_SECRET` env var
+you set, and **default to dry-run** — they compose the exact messages
+and recipient lists but never call Twilio, returning it all as JSON so
+you can review before anything goes out. Add `&send=true` to actually
+send for real. `test-check-report-status` also bypasses the
+checkpoint-day gate (so you can test any day), while
+`test-check-mar-medication-alerts` never had a gate to begin with.
 
 In addition to a sponsor's personal email+password (tied to one
 location), an admin can be granted access to multiple locations, each
