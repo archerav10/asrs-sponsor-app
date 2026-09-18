@@ -8,7 +8,7 @@ async function recipientsForLocation(location) {
   const seenPhones = new Set();
 
   const sponsorsResult = await queryDatabase(SPONSORS_DB_ID, {
-    property: 'Location', select: { equals: location }
+    property: 'Location', rich_text: { equals: location }
   });
   (sponsorsResult.results || []).forEach(function (page) {
     const enabled = getPlainText(page.properties['Provider App Enabled']);
