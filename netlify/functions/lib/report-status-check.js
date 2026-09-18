@@ -27,6 +27,15 @@ function isTriggerDay() {
   return now.getDate() === 1 || isSameCalendarDay(now, day7) || isSameCalendarDay(now, day2);
 }
 
+function formatDueInfo(dueDate) {
+  const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+  const dateStr = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (daysUntilDue < 0) {
+    return 'OVERDUE since ' + dateStr;
+  }
+  return 'due in ' + daysUntilDue + ' day' + (daysUntilDue === 1 ? '' : 's') + ' (' + dateStr + ')';
+}
+
 async function mostRecentUpdate(dbId, location) {
   const result = await queryDatabase(dbId, {
     and: [
@@ -83,7 +92,7 @@ async function marStatusLine(location, resident) {
 
   const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
   if (daysUntilDue > 7) return null;
-  return 'MAR Review (' + resident + '): ' + (daysUntilDue < 0 ? 'OVERDUE' : 'due soon');
+  return 'MAR Review (' + resident + '): ' + formatDueInfo(dueDate);
 }
 
 // options: { dryRun: boolean, ignoreTriggerDay: boolean }
@@ -103,20 +112,24 @@ async function runReportStatusCheck(options) {
     const lines = [];
 
     const faLast = await mostRecentUpdate(FIRST_AID_DB_ID, location);
-    const faStatus = statusForDueDate(faLast, computeDueDate(faLast));
-    if (faStatus !== 'green') lines.push('First Aid Supplies: ' + (faStatus === 'red' ? 'OVERDUE' : 'due soon'));
+    const faDue = computeDueDate(faLast);
+    const faStatus = statusForDueDate(faLast, faDue);
+    if (faStatus !== 'green') lines.push('First Aid Supplies: ' + formatDueInfo(faDue));
 
     const fdLast = await mostRecentDrill(location);
-    const fdStatus = statusForDueDate(fdLast, computeDueDate(fdLast));
-    if (fdStatus !== 'green') lines.push('Fire Drill: ' + (fdStatus === 'red' ? 'OVERDUE' : 'due soon'));
+    const fdDue = computeDueDate(fdLast);
+    const fdStatus = statusForDueDate(fdLast, fdDue);
+    if (fdStatus !== 'green') lines.push('Fire Drill: ' + formatDueInfo(fdDue));
 
     const esLast = await mostRecentUpdate(EMERGENCY_SUPPLIES_DB_ID, location);
-    const esStatus = statusForDueDate(esLast, computeDueDate(esLast));
-    if (esStatus !== 'green') lines.push('Emergency Supplies: ' + (esStatus === 'red' ? 'OVERDUE' : 'due soon'));
+    const esDue = computeDueDate(esLast);
+    const esStatus = statusForDueDate(esLast, esDue);
+    if (esStatus !== 'green') lines.push('Emergency Supplies: ' + formatDueInfo(esDue));
 
     const peLast = await mostRecentUpdate(PHYSICAL_ENV_DB_ID, location);
-    const peStatus = statusForDueDate(peLast, computeDueDate(peLast));
-    if (peStatus !== 'green') lines.push('Physical Environment: ' + (peStatus === 'red' ? 'OVERDUE' : 'due soon'));
+    const peDue = computeDueDate(peLast);
+    const peStatus = statusForDueDate(peLast, peDue);
+    if (peStatus !== 'green') lines.push('Physical Environment: ' + formatDueInfo(peDue));
 
     const residents = await marResidentsForLocation(location);
     for (const resident of residents) {
