@@ -87,9 +87,12 @@ async function marStatusLine(location, resident) {
   return 'MAR Review (' + resident + '): ' + (daysUntilDue < 0 ? 'OVERDUE' : 'due soon');
 }
 
-exports.handler = async function () {
-  if (!isTriggerDay()) {
-    return { statusCode: 200, body: 'Not a trigger day — no action taken.' };
+exports.handler = async function (event) {
+  const forceRequested = event.queryStringParameters && event.queryStringParameters.force === 'true';
+  const secretOk = forceRequested && event.queryStringParameters.secret === process.env.NOTIFICATION_TEST_SECRET && process.env.NOTIFICATION_TEST_SECRET;
+
+  if (!isTriggerDay() && !secretOk) {
+    return { statusCode: 200, body: 'Not a trigger day — no action taken. Add ?force=true&secret=... to test.' };
   }
 
   const results = [];

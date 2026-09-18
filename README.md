@@ -171,6 +171,17 @@ whose Granted Locations includes it (deduplicated by phone number).
 
 Email isn't wired up yet — everything above is SMS-only for now.
 
+**Testing before the real trigger dates arrive:** `check-mar-medication-alerts.js`
+has no date gate — visiting its URL directly
+(`https://<your-site>/.netlify/functions/check-mar-medication-alerts`)
+runs it for real, any day. `check-report-status.js` only acts on its 3
+checkpoints unless you add `?force=true&secret=...` matching a new
+`NOTIFICATION_TEST_SECRET` env var you set — without that secret, an
+early hit just reports "not a trigger day" and does nothing. **Both
+send real text messages to real sponsors/admins when they actually
+run** — there's no dry-run mode, so testing does mean live texts go
+out.
+
 In addition to a sponsor's personal email+password (tied to one
 location), an admin can be granted access to multiple locations, each
 unlocked with that **location's own shared password** — not a personal
