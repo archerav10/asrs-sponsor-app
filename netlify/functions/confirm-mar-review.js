@@ -1,7 +1,9 @@
-const { queryDatabase, updatePage, getPlainText } = require('./lib/notion');
+const { queryDatabase, updatePage, createPage, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
+const { computeMarTarget } = require('./lib/mar-period');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
+const MAR_PERIODS_DB_ID = process.env.MAR_PERIODS_DB_ID;
 
 // If a medication is marked Missing, it can't have a real expiration date —
 // but we still want SOME date on the row (rather than blank) so it always
@@ -107,6 +109,39 @@ exports.handler = async function (event) {
         'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
         'Last Updated Date': { date: { start: today } }
       });
+    }
+
+    // Record this as activity on whichever period is currently open for
+    // review, so the Home screen can show "In Progress" for it and know
+    // this data belongs to the current cycle (not a stale prior one).
+    const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
+      and: [
+        { property: 'Location', select: { equals: session.location } },
+        { property: 'Resident Initials', rich_text: { equals: targetResident } },
+        { property: 'Active', checkbox: { equals: true } }
+      ]
+    });
+    const periodPage = (periodResult.results || [])[0];
+    const existingLastFinalized = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
+    const { targetPeriod } = computeMarTarget(existingLastFinalized);
+
+    const periodProperties = {
+      'Last Reviewed Period': { rich_text: [{ text: { content: targetPeriod } }] },
+      'Last Reviewed Date': { date: { start: today } }
+    };
+    if (deliveryDate) {
+      periodProperties['Medications Delivered Date'] = { date: { start: deliveryDate } };
+    }
+
+    if (periodPage) {
+      await updatePage(periodPage.id, periodProperties);
+    } else {
+      await createPage(MAR_PERIODS_DB_ID, Object.assign({
+        'Period Title': { title: [{ text: { content: session.location + ' - ' + targetResident } }] },
+        'Location': { select: { name: session.location } },
+        'Resident Initials': { rich_text: [{ text: { content: targetResident } }] },
+        'Active': { checkbox: true }
+      }, periodProperties));
     }
 
     return { statusCode: 200, body: JSON.stringify({ success: true, count: updatedCount, date: today }) };

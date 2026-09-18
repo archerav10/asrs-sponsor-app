@@ -81,7 +81,10 @@ exports.handler = async function (event) {
       period = {
         lastFinalizedPeriod: getPlainText(periodPage.properties['Last Finalized Period']),
         lastFinalizedDate: getPlainText(periodPage.properties['Last Finalized Date']),
-        lastFinalizedBy: getPlainText(periodPage.properties['Last Finalized By'])
+        lastFinalizedBy: getPlainText(periodPage.properties['Last Finalized By']),
+        lastReviewedPeriod: getPlainText(periodPage.properties['Last Reviewed Period']),
+        lastReviewedDate: getPlainText(periodPage.properties['Last Reviewed Date']),
+        medicationsDeliveredDate: getPlainText(periodPage.properties['Medications Delivered Date'])
       };
     }
 

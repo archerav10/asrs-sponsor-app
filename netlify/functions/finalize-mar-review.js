@@ -158,7 +158,10 @@ exports.handler = async function (event) {
     const periodProperties = {
       'Last Finalized Period': { rich_text: [{ text: { content: targetPeriod } }] },
       'Last Finalized Date': { date: { start: today } },
-      'Last Finalized By': { rich_text: [{ text: { content: stampedBy } }] }
+      'Last Finalized By': { rich_text: [{ text: { content: stampedBy } }] },
+      'Last Reviewed Period': { rich_text: [{ text: { content: targetPeriod } }] },
+      'Last Reviewed Date': { date: { start: today } },
+      'Medications Delivered Date': { date: { start: deliveryDate } }
     };
 
     if (periodPage) {
@@ -170,6 +173,21 @@ exports.handler = async function (event) {
         'Resident Initials': { rich_text: [{ text: { content: targetResident } }] },
         'Active': { checkbox: true }
       }, periodProperties));
+    }
+
+    // The period is now locked in as finalized. Wipe every medication
+    // row's working fields so the NEXT period's review starts from a
+    // clean slate — nothing carries over. The historical summary (delivered/
+    // reviewed/finalized dates) lives on the period tracker above, not here.
+    for (const id of Object.keys(authoritative)) {
+      await updatePage(id, {
+        'Missing': { checkbox: false },
+        'Current Exp Date': { date: null },
+        'Quantity': { rich_text: [] }
+      });
+    }
+    if (deliveryDateId) {
+      await updatePage(deliveryDateId, { 'Date Delivered': { date: null } });
     }
 
     return { statusCode: 200, body: JSON.stringify({ success: true, count: updatedCount, finalizedPeriod: targetPeriod, date: today }) };
