@@ -17,6 +17,9 @@
 [functions."check-mar-medication-alerts"]
   schedule = "30 13 * * *"
 
+[functions."check-mar-review-reminders"]
+  schedule = "30 13 * * *"
+
 [functions."check-admin-digest"]
   # 8:00am US/Eastern every Friday. Pinned to EDT (UTC-4) like the
   # others — during EST (Nov-Mar) this fires at 7:00am local instead.

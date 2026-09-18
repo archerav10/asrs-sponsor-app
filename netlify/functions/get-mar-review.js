@@ -1,8 +1,8 @@
 const { queryDatabase, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
+const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
-const MAR_PERIODS_DB_ID = process.env.MAR_PERIODS_DB_ID;
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -68,25 +68,44 @@ exports.handler = async function (event) {
     // Period tracker: one row per Location x Resident set (using the
     // first resident on the account — matches how the rest of this
     // report is scoped for now).
-    let period = null;
-    const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
-      and: [
-        { property: 'Location', select: { equals: session.location } },
-        { property: 'Resident Initials', rich_text: { equals: residents[0] } },
-        { property: 'Active', checkbox: { equals: true } }
-      ]
+    let periodPage = await findPeriodPage(session.location, residents[0]);
+    const lastFinalizedPeriod = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
+    const windowState = computeMarWindow(lastFinalizedPeriod);
+
+    // Lazily blank out stale working data the first time this period's
+    // window is touched on/after it opens — see wipeIfWindowJustOpened
+    // for why this lives here instead of at finalize.
+    const deliveryDateId = deliveryDateRow ? deliveryDateRow.id : null;
+    const wipeResult = await wipeIfWindowJustOpened({
+      location: session.location,
+      resident: residents[0],
+      periodPage: periodPage,
+      medicationIds: medications.map(function (m) { return m.id; }),
+      deliveryDateId: deliveryDateId,
+      windowState: windowState
     });
-    const periodPage = (periodResult.results || [])[0];
-    if (periodPage) {
-      period = {
-        lastFinalizedPeriod: getPlainText(periodPage.properties['Last Finalized Period']),
-        lastFinalizedDate: getPlainText(periodPage.properties['Last Finalized Date']),
-        lastFinalizedBy: getPlainText(periodPage.properties['Last Finalized By']),
-        lastReviewedPeriod: getPlainText(periodPage.properties['Last Reviewed Period']),
-        lastReviewedDate: getPlainText(periodPage.properties['Last Reviewed Date']),
-        medicationsDeliveredDate: getPlainText(periodPage.properties['Medications Delivered Date'])
-      };
+    periodPage = wipeResult.periodPage;
+    if (wipeResult.wiped) {
+      medications.forEach(function (m) {
+        m.missing = false;
+        m.currentExpDate = '';
+        m.quantity = '';
+      });
+      if (deliveryDateRow) deliveryDateRow.dateDelivered = '';
     }
+
+    const period = {
+      lastFinalizedPeriod: periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : '',
+      lastFinalizedDate: periodPage ? getPlainText(periodPage.properties['Last Finalized Date']) : '',
+      lastFinalizedBy: periodPage ? getPlainText(periodPage.properties['Last Finalized By']) : '',
+      lastReviewedPeriod: periodPage ? getPlainText(periodPage.properties['Last Reviewed Period']) : '',
+      lastReviewedDate: periodPage ? getPlainText(periodPage.properties['Last Reviewed Date']) : '',
+      medicationsDeliveredDate: periodPage ? getPlainText(periodPage.properties['Medications Delivered Date']) : '',
+      targetPeriod: windowState.targetPeriod,
+      dueDate: windowState.dueDate.toISOString().slice(0, 10),
+      windowOpenDate: windowState.windowOpenDate.toISOString().slice(0, 10),
+      isWindowOpen: windowState.isWindowOpen
+    };
 
     return {
       statusCode: 200,

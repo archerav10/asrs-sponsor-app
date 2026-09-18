@@ -129,6 +129,27 @@ don't pick up env var changes until the next deploy.
     delivery date) need attention. Passing updates the MAR Review
     Periods tracker (separate from the medication data itself) with the
     finalized period, date, and who finalized it.
+  - **Submission window:** each target period only opens for editing 7
+    days before its due date (`windowOpenDate`, a named constant in
+    `lib/mar-review-state.js`). Before that, the screen shows the last
+    finalized period's data **read-only** (every field disabled, Save/
+    Finalize hidden) with a banner like "November review opens October
+    24, 2026." `confirm-mar-review` and `finalize-mar-review` both
+    reject writes for a period before its window opens (403), not just
+    the UI hiding the form. Once the new period gets finalized, the
+    read-only view is replaced by the normal in-progress/due status for
+    whatever period comes next.
+  - **Data wipe timing:** the medication rows (Missing, Current Exp
+    Date, Quantity) and delivery date get blanked out the first time
+    the *next* period's window opens — not at finalize — since a
+    location can miss finalizing entirely and the next period still
+    needs to start blank. This happens lazily on the first
+    `get-mar-review` or `confirm-mar-review` call on/after the window
+    opens, tracked via a `Last Wiped Period` field on the period tracker
+    so it only happens once (`wipeIfWindowJustOpened` in
+    `lib/mar-review-state.js` — the single place all three MAR
+    functions go through for this, rather than each reimplementing the
+    staleness check).
   - A red-bordered Allergies banner sits at the top (editable), sourced
     from a special "Allergy Info" row, same pattern as the "General
     Notes" row used elsewhere.
@@ -136,13 +157,18 @@ don't pick up env var changes until the next deploy.
     once finalized for the current target period, flashing yellow if
     that period's due date is within 7 days, flashing red if overdue
     (including a period that was never finalized in time — this
-    self-corrects each month rather than getting stuck). Home also
-    shows which month is being reviewed, last-reviewed, latest delivery
-    date, and last-finalized date. **One button per resident** — if an
-    account has more than one resident, each gets its own MAR Review
-    button, own status dot, own screen instance (pass `?resident=XX` to
-    `get-mar-review`, or `resident` in the POST body for
-    confirm/finalize, to scope to one specific resident).
+    self-corrects each month rather than getting stuck). Below it, two
+    status lines: a permanent **history** line for the period right
+    before the current one (`October: finalized Sep 18`, or a flagged
+    `October: not finalized` if its window closed without it), and a
+    **current** line for the in-flight period (`November opens Oct 24`
+    while locked, `November: In progress` once a draft's been saved,
+    or `November: Not started` once the window's open but untouched).
+    **One button per resident** — if an account has more than one
+    resident, each gets its own MAR Review button, own status dot, own
+    screen instance (pass `?resident=XX` to `get-mar-review`, or
+    `resident` in the POST body for confirm/finalize, to scope to one
+    specific resident).
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
@@ -169,7 +195,7 @@ don't pick up env var changes until the next deploy.
 
 ## Notifications (SMS)
 
-Two scheduled functions (`@daily` in netlify.toml — they run every day
+Three scheduled functions (`@daily` in netlify.toml — they run every day
 and self-gate on whether today is actually a trigger day, since "7
 days before month-end" lands on a different date each month):
 
@@ -185,12 +211,33 @@ days before month-end" lands on a different date each month):
   day it happens). Standalone message per location, separate from the
   combined one, listing any medication currently expired or marked
   Missing, by resident.
+- **`check-mar-review-reminders.js`** — a dedicated MAR-only escalation,
+  admins only (same "who gets texted" pattern as Serious Incident, not
+  the combined sponsors+admins list above). Per resident/location, three
+  checkpoints against that resident's own MAR Review window: 7 days
+  before due (the moment the submission window opens), 2 days before
+  due, and the 1st of the new month if the period that just closed is
+  still not finalized. Each checkpoint is anchored to an exact calendar
+  date (not a live day-count) and guarded by its own dedupe flag on the
+  MAR Review Periods tracker (`Reminder 7 Day Sent Period` / `Reminder 2
+  Day Sent Period` / `Reminder Overdue Sent Period`, each holding the
+  period string it fired for) so a same-day retry never double-sends —
+  and since the flags are period-scoped, they reset naturally once the
+  target period advances. Already-finalized periods are skipped
+  entirely. See `lib/mar-reminder-check.js`.
 
 Both use `lib/notification-recipients.js` to resolve who gets texted
 for a location: every enabled sponsor there, plus every enabled admin
-whose Granted Locations includes it (deduplicated by phone number).
+whose Granted Locations includes it (deduplicated by phone number) —
+except `check-mar-review-reminders.js`, which filters that same list
+down to admins only.
 
 Email isn't wired up yet — everything above is SMS-only for now.
+
+**New Notion properties needed on MAR Review Periods** (rich text,
+added manually — this app never creates database schema, only rows):
+`Last Wiped Period`, `Reminder 7 Day Sent Period`, `Reminder 2 Day Sent
+Period`, `Reminder Overdue Sent Period`.
 
 ## Weekly admin email digest
 
@@ -244,32 +291,33 @@ directly returns a 403 *before it ever reaches the function*, with
 nothing in the function log. This isn't a firewall rule or anything
 configurable; it's a platform-level restriction on scheduled functions
 specifically. That's why the actual logic for each lives in
-`lib/report-status-check.js` and `lib/mar-alert-check.js`, with the
-scheduled files as thin wrappers.
+`lib/report-status-check.js`, `lib/mar-alert-check.js`, and
+`lib/mar-reminder-check.js`, with the scheduled files as thin wrappers.
 
 **Testing:** use the separate, non-scheduled test endpoints instead —
 these are ordinary functions Netlify has no reason to block:
 - `https://<your-site>/.netlify/functions/test-check-report-status?secret=...`
 - `https://<your-site>/.netlify/functions/test-check-mar-medication-alerts?secret=...`
+- `https://<your-site>/.netlify/functions/test-check-mar-review-reminders?secret=...`
 
-Both require a `secret` matching a `NOTIFICATION_TEST_SECRET` env var
-you set, and **default to dry-run** — they compose the exact messages
-and recipient lists but never call Twilio, returning it all as JSON so
-you can review before anything goes out. Add `&send=true` to actually
-send for real. `test-check-report-status` also bypasses the
+All three require a `secret` matching a `NOTIFICATION_TEST_SECRET` env
+var you set, and **default to dry-run** — they compose the exact
+messages and recipient lists but never call Twilio, returning it all as
+JSON so you can review before anything goes out. Add `&send=true` to
+actually send for real. `test-check-report-status` also bypasses the
 checkpoint-day gate (so you can test any day), while
 `test-check-mar-medication-alerts` never had a gate to begin with.
 
-`test-check-report-status` also takes `&asOf=YYYY-MM-DD` to simulate
-running the check on a different calendar day — useful since due dates
-always land on a month-end, so "due soon" only exists in the ~8 days
-around an actual month boundary and can't be faked with any Notion
-data on a day outside that window. e.g.
-`&asOf=2026-09-23&secret=...` previews exactly what the 7-days-out
+`test-check-report-status` and `test-check-mar-review-reminders` also
+take `&asOf=YYYY-MM-DD` to simulate running the check on a different
+calendar day — useful since due dates always land on a month-end, so
+"due soon" only exists in the ~8 days around an actual month boundary
+and can't be faked with any Notion data on a day outside that window.
+e.g. `&asOf=2026-09-23&secret=...` previews exactly what the 7-days-out
 checkpoint will say, without waiting for it or touching real data.
 
-**Schedule:** both run at 9:30am US/Eastern (`30 13 * * *` — Netlify
-cron has no DST awareness, so this is pinned to EDT; during EST
+**Schedule:** all three run at 9:30am US/Eastern (`30 13 * * *` —
+Netlify cron has no DST awareness, so this is pinned to EDT; during EST
 Nov-Mar it'll actually fire at 8:30am local, which is still early
 enough to be a non-issue).
 

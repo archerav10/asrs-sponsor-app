@@ -1,9 +1,8 @@
-const { queryDatabase, updatePage, createPage, getPlainText } = require('./lib/notion');
+const { queryDatabase, updatePage, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { computeMarTarget } = require('./lib/mar-period');
+const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
-const MAR_PERIODS_DB_ID = process.env.MAR_PERIODS_DB_ID;
 
 const EARLIEST_DATE = '1900-01-01';
 
@@ -59,6 +58,38 @@ exports.handler = async function (event) {
         };
       }
     });
+
+    let periodPage = await findPeriodPage(session.location, targetResident);
+    const existingLastFinalized = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
+    const windowState = computeMarWindow(existingLastFinalized);
+    const targetPeriod = windowState.targetPeriod;
+
+    // Same server-side gate as confirm-mar-review — the UI shouldn't even
+    // offer a Finalize button before the window opens, but don't rely on
+    // that alone.
+    if (!windowState.isWindowOpen) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          error: 'The ' + targetPeriod + ' review isn\'t open yet. It opens ' + windowState.windowOpenDate.toISOString().slice(0, 10) + '.',
+          windowOpenDate: windowState.windowOpenDate.toISOString().slice(0, 10),
+          targetPeriod: targetPeriod
+        })
+      };
+    }
+
+    // Defensive: normally get-mar-review/confirm-mar-review already did
+    // this the first time the window was touched, but finalize can in
+    // principle be the very first request of a new period.
+    const wipeResult = await wipeIfWindowJustOpened({
+      location: session.location,
+      resident: targetResident,
+      periodPage: periodPage,
+      medicationIds: Object.keys(authoritative),
+      deliveryDateId: deliveryDateId,
+      windowState: windowState
+    });
+    periodPage = wipeResult.periodPage;
 
     const submittedById = {};
     submittedItems.forEach(function (s) { submittedById[s.id] = s; });
@@ -143,18 +174,10 @@ exports.handler = async function (event) {
       });
     }
 
-    // Update the period tracker so the rolling target advances.
-    const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
-      and: [
-        { property: 'Location', select: { equals: session.location } },
-        { property: 'Resident Initials', rich_text: { equals: targetResident } },
-        { property: 'Active', checkbox: { equals: true } }
-      ]
-    });
-    const periodPage = (periodResult.results || [])[0];
-    const existingLastFinalized = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
-    const { targetPeriod } = computeMarTarget(existingLastFinalized);
-
+    // Update the period tracker so the rolling target advances. This is
+    // the permanent historical record (finalized period/date/by) — it no
+    // longer owns wiping the working medication data; that happens when
+    // the NEXT period's window opens (see lib/mar-review-state.js).
     const periodProperties = {
       'Last Finalized Period': { rich_text: [{ text: { content: targetPeriod } }] },
       'Last Finalized Date': { date: { start: today } },
@@ -163,32 +186,7 @@ exports.handler = async function (event) {
       'Last Reviewed Date': { date: { start: today } },
       'Medications Delivered Date': { date: { start: deliveryDate } }
     };
-
-    if (periodPage) {
-      await updatePage(periodPage.id, periodProperties);
-    } else {
-      await createPage(MAR_PERIODS_DB_ID, Object.assign({
-        'Period Title': { title: [{ text: { content: session.location + ' - ' + targetResident } }] },
-        'Location': { select: { name: session.location } },
-        'Resident Initials': { rich_text: [{ text: { content: targetResident } }] },
-        'Active': { checkbox: true }
-      }, periodProperties));
-    }
-
-    // The period is now locked in as finalized. Wipe every medication
-    // row's working fields so the NEXT period's review starts from a
-    // clean slate — nothing carries over. The historical summary (delivered/
-    // reviewed/finalized dates) lives on the period tracker above, not here.
-    for (const id of Object.keys(authoritative)) {
-      await updatePage(id, {
-        'Missing': { checkbox: false },
-        'Current Exp Date': { date: null },
-        'Quantity': { rich_text: [] }
-      });
-    }
-    if (deliveryDateId) {
-      await updatePage(deliveryDateId, { 'Date Delivered': { date: null } });
-    }
+    await updatePage(periodPage.id, periodProperties);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, count: updatedCount, finalizedPeriod: targetPeriod, date: today }) };
   } catch (err) {

@@ -1016,25 +1016,19 @@
     }
   }
 
-  // MAR reviews are forward-looking (this month, review NEXT month's
-  // meds) — mirrors netlify/functions/lib/mar-period.js server-side.
-  function computeMarTarget(lastFinalizedPeriod) {
-    const now = new Date();
-    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    let target = currentMonthStart;
-    if (lastFinalizedPeriod) {
-      const parts = lastFinalizedPeriod.split('-');
-      const lfYear = parseInt(parts[0], 10);
-      const lfMonth = parseInt(parts[1], 10) - 1;
-      const afterFinalized = new Date(lfYear, lfMonth + 1, 1);
-      target = afterFinalized > currentMonthStart ? afterFinalized : currentMonthStart;
-    }
-    const dueDate = new Date(target.getFullYear(), target.getMonth(), 0);
-    return { target: target, dueDate: dueDate };
-  }
-
+  // The window/due-date math itself (lib/mar-review-state.js server-side)
+  // is NOT duplicated here — get-mar-review always returns targetPeriod,
+  // dueDate, windowOpenDate, and isWindowOpen directly, so the client
+  // just displays what the server computed rather than re-deriving it.
   function monthLabel(date) {
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  function previousPeriodStr(periodStr) {
+    const parts = periodStr.split('-');
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+    d.setMonth(d.getMonth() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
   // Builds one MAR Review button per resident on the account — matches
@@ -1071,6 +1065,37 @@
     return monthLabel(d);
   }
 
+  // The permanent record: whichever period's window closed right before
+  // the current target opened. Once its due date has passed, it's either
+  // finalized (with when) or it's flagged — that verdict never changes
+  // again, unlike the Current line below.
+  function marHistoryLine(period) {
+    const historyPeriod = previousPeriodStr(period.targetPeriod);
+    const label = periodStrToLabel(historyPeriod);
+    if (period.lastFinalizedPeriod === historyPeriod) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    return { text: label + ': not finalized', flagged: true };
+  }
+
+  // The in-flight period: locked (window hasn't opened), in progress
+  // (drafted but not finalized), or not started (window open, untouched).
+  function marCurrentLine(period) {
+    const label = periodStrToLabel(period.targetPeriod);
+    if (!period.isWindowOpen) {
+      return { text: label + ' opens ' + formatDate(period.windowOpenDate), flagged: false };
+    }
+    const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+    const isInProgress = !isFinalizedForTarget && period.lastReviewedPeriod === period.targetPeriod && !!period.lastReviewedDate;
+    if (isFinalizedForTarget) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    if (isInProgress) {
+      return { text: label + ': In progress', flagged: false };
+    }
+    return { text: label + ': Not started', flagged: false };
+  }
+
   async function loadHomeMarStatus(initials) {
     const dotEl = document.getElementById('home-mar-dot-' + initials);
     const summaryEl = document.getElementById('home-mar-summary-' + initials);
@@ -1083,33 +1108,17 @@
       const data = await apiFetch('/get-mar-review?resident=' + encodeURIComponent(initials));
       const period = data.period || {};
 
-      const { target, dueDate } = computeMarTarget(period.lastFinalizedPeriod);
-      const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
-      const isFinalizedForTarget = period.lastFinalizedPeriod === targetPeriodStr;
+      const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+      const dueDate = new Date(period.dueDate + 'T00:00:00');
       const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
 
-      // What to show is whichever period was most recently touched (draft
-      // save or finalize) — that's the meaningful "here's where things
-      // stand" summary. Once a new period's review gets its first save,
-      // this naturally flips over since the backend wipes the previous
-      // period's data at finalize time (nothing carries over).
-      const displayPeriod = period.lastReviewedPeriod || targetPeriodStr;
-      const isFinalizedForDisplay = period.lastFinalizedPeriod && period.lastFinalizedPeriod === displayPeriod;
-      const isInProgress = !isFinalizedForDisplay && period.lastReviewedPeriod === displayPeriod && !!period.lastReviewedDate;
+      const history = marHistoryLine(period);
+      summaryEl.textContent = history.text;
+      summaryEl.style.color = history.flagged ? '#D9480F' : '';
+      summaryEl.style.fontWeight = history.flagged ? '700' : '';
 
-      const parts = [periodStrToLabel(displayPeriod)];
-      if (period.medicationsDeliveredDate) {
-        parts.push('meds delivered ' + formatDate(period.medicationsDeliveredDate));
-      }
-      if (period.lastReviewedDate) {
-        parts.push('last reviewed ' + formatDate(period.lastReviewedDate));
-      }
-      if (isFinalizedForDisplay) {
-        parts.push('finalized ' + formatDate(period.lastFinalizedDate));
-      } else if (isInProgress) {
-        parts.push('In Progress');
-      }
-      summaryEl.textContent = parts.length > 1 ? parts.join(' \u00b7 ') : 'Not yet started';
+      const current = marCurrentLine(period);
+      dueEl.textContent = current.text;
 
       let statusClass = 'status-green';
       if (!isFinalizedForTarget) {
@@ -1120,7 +1129,6 @@
         }
       }
       dotEl.className = 'status-dot ' + statusClass;
-      dueEl.textContent = 'Next due: ' + formatDate(dueDate.toISOString().slice(0, 10));
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
     }
@@ -1818,7 +1826,7 @@
   });
 
   // --- Screen 9: MAR Review ---
-  function renderMedRow(med) {
+  function renderMedRow(med, readOnly) {
     const wrap = document.createElement('div');
     wrap.className = 'med-row';
     wrap.dataset.itemId = med.id;
@@ -1830,8 +1838,9 @@
     if (med.frequency) detailParts.push(med.frequency);
     if (med.purpose) detailParts.push(med.purpose);
 
+    const disabledAttr = readOnly ? ' disabled' : '';
     const quantityFieldHtml = med.medicationType === 'PRN'
-      ? '<div class="med-field"><label>Quantity</label><input type="text" class="mar-quantity-input" value="' + (med.quantity || '').replace(/"/g, '&quot;') + '"></div>'
+      ? '<div class="med-field"><label>Quantity</label><input type="text" class="mar-quantity-input" value="' + (med.quantity || '').replace(/"/g, '&quot;') + '"' + disabledAttr + '></div>'
       : '';
 
     wrap.innerHTML =
@@ -1840,11 +1849,11 @@
       '<div class="med-controls-row">' +
         '<div class="med-field">' +
           '<label>Expiration Date *</label>' +
-          '<input type="date" class="mar-exp-input' + (isMissing ? ' med-disabled' : '') + '" value="' + (med.currentExpDate || '') + '"' + (isMissing ? ' disabled' : '') + '>' +
+          '<input type="date" class="mar-exp-input' + (isMissing ? ' med-disabled' : '') + '" value="' + (med.currentExpDate || '') + '"' + (isMissing || readOnly ? ' disabled' : '') + '>' +
         '</div>' +
         quantityFieldHtml +
         '<div class="med-missing-field">' +
-          '<input type="checkbox" class="mar-missing-input"' + (isMissing ? ' checked' : '') + '>' +
+          '<input type="checkbox" class="mar-missing-input"' + (isMissing ? ' checked' : '') + disabledAttr + '>' +
           '<label style="margin:0;">Missing</label>' +
         '</div>' +
       '</div>' +
@@ -1877,6 +1886,7 @@
     const allergyWrap = document.getElementById('mar-allergy-wrap');
     const notesWrap = document.getElementById('mar-general-notes-wrap');
     const deliveryWrap = document.getElementById('mar-delivery-date-wrap');
+    const saveFinalizeBar = document.querySelector('#screen-mar-review .save-finalize-bar');
     setError('mar-error', '');
     listEl.innerHTML = '<p class="loading-text">Loading medications&hellip;</p>';
     allergyWrap.style.display = 'none';
@@ -1894,44 +1904,56 @@
       document.querySelector('#screen-mar-review .screen-title').textContent =
         'MAR Review \u2014 ' + (currentMarResidentInitials || '');
 
-      if (currentMarDeliveryDate) {
-        document.getElementById('mar-delivery-date').value = currentMarDeliveryDate.date || '';
-        deliveryWrap.style.display = 'block';
+      // Before the submission window opens, the form stays read-only and
+      // shows whatever's still on the medication rows (the last finalized
+      // period's data, per how wipeIfWindowJustOpened is timed server-side)
+      // rather than an editable blank form for a period that isn't open yet.
+      const isWindowOpen = !!currentMarPeriod.isWindowOpen;
+      const targetLabel = periodStrToLabel(currentMarPeriod.targetPeriod);
+      const isFinalizedForTarget = currentMarPeriod.lastFinalizedPeriod === currentMarPeriod.targetPeriod;
+      const isInProgressForTarget = !isFinalizedForTarget && currentMarPeriod.lastReviewedPeriod === currentMarPeriod.targetPeriod;
+
+      if (!isWindowOpen) {
+        document.getElementById('mar-period-banner').innerHTML =
+          '<strong>' + targetLabel + '</strong> review opens <strong>' + formatDate(currentMarPeriod.windowOpenDate) + '</strong>. Showing the last finalized period below (read-only).';
+      } else {
+        document.getElementById('mar-period-banner').innerHTML = isFinalizedForTarget
+          ? '<strong>' + targetLabel + '</strong> medications — already finalized.'
+          : 'Reviewing medications for <strong>' + targetLabel + '</strong> — due by ' + formatDate(currentMarPeriod.dueDate) + '.' +
+            (isInProgressForTarget ? ' <strong>In Progress.</strong>' : '');
       }
 
-      const { target, dueDate } = computeMarTarget(currentMarPeriod.lastFinalizedPeriod);
-      const targetPeriodStr = target.getFullYear() + '-' + String(target.getMonth() + 1).padStart(2, '0');
-      const isFinalizedForTarget = currentMarPeriod.lastFinalizedPeriod === targetPeriodStr;
-      const isInProgressForTarget = !isFinalizedForTarget && currentMarPeriod.lastReviewedPeriod === targetPeriodStr;
-      document.getElementById('mar-period-banner').innerHTML = isFinalizedForTarget
-        ? '<strong>' + monthLabel(target) + '</strong> medications — already finalized.'
-        : 'Reviewing medications for <strong>' + monthLabel(target) + '</strong> — due by ' + formatDate(dueDate.toISOString().slice(0, 10)) + '.' +
-          (isInProgressForTarget ? ' <strong>In Progress.</strong>' : '');
-
-      // The backend clears every field the moment a period gets finalized,
-      // so whatever is on these rows already belongs to the CURRENT
-      // target period — nothing here is carried over from a prior review.
-      const reviewedForTarget = currentMarPeriod.lastReviewedPeriod === targetPeriodStr ? currentMarPeriod.lastReviewedDate : null;
+      const reviewedForTarget = currentMarPeriod.lastReviewedPeriod === currentMarPeriod.targetPeriod ? currentMarPeriod.lastReviewedDate : null;
       document.getElementById('mar-last-reviewed').textContent =
         'Last reviewed: ' + (reviewedForTarget ? formatDate(reviewedForTarget) : 'Not started yet') +
         (isFinalizedForTarget && currentMarPeriod.lastFinalizedDate ? ' \u00b7 Finalized: ' + formatDate(currentMarPeriod.lastFinalizedDate) : '');
 
+      if (currentMarDeliveryDate) {
+        document.getElementById('mar-delivery-date').value = currentMarDeliveryDate.date || '';
+        document.getElementById('mar-delivery-date').disabled = !isWindowOpen;
+        deliveryWrap.style.display = 'block';
+      }
+
       if (currentMarAllergy) {
         document.getElementById('mar-allergy').value = currentMarAllergy.notes || '';
+        document.getElementById('mar-allergy').disabled = !isWindowOpen;
         allergyWrap.style.display = 'block';
       }
 
       listEl.innerHTML = '';
       if (!meds.length) {
         listEl.innerHTML = '<p class="empty-text">No active medications found.</p>';
-        return;
+      } else {
+        meds.forEach(function (med) { listEl.appendChild(renderMedRow(med, !isWindowOpen)); });
       }
-      meds.forEach(function (med) { listEl.appendChild(renderMedRow(med)); });
 
       if (currentMarGeneralNotes) {
         document.getElementById('mar-general-notes').value = currentMarGeneralNotes.notes || '';
+        document.getElementById('mar-general-notes').disabled = !isWindowOpen;
         notesWrap.style.display = 'block';
       }
+
+      if (saveFinalizeBar) saveFinalizeBar.style.display = isWindowOpen ? '' : 'none';
     } catch (e) {
       listEl.innerHTML = '';
       setError('mar-error', e.message);

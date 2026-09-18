@@ -1,9 +1,8 @@
-const { queryDatabase, updatePage, createPage, getPlainText } = require('./lib/notion');
+const { queryDatabase, updatePage, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { computeMarTarget } = require('./lib/mar-period');
+const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
-const MAR_PERIODS_DB_ID = process.env.MAR_PERIODS_DB_ID;
 
 // If a medication is marked Missing, it can't have a real expiration date —
 // but we still want SOME date on the row (rather than blank) so it always
@@ -63,6 +62,38 @@ exports.handler = async function (event) {
       }
     });
 
+    let periodPage = await findPeriodPage(session.location, targetResident);
+    const existingLastFinalized = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
+    const windowState = computeMarWindow(existingLastFinalized);
+    const targetPeriod = windowState.targetPeriod;
+
+    // Enforce the submission window server-side too — the UI hides the
+    // editable form before this date, but that's not something a client
+    // request can be trusted to have honored.
+    if (!windowState.isWindowOpen) {
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          error: 'The ' + targetPeriod + ' review isn\'t open yet. It opens ' + windowState.windowOpenDate.toISOString().slice(0, 10) + '.',
+          windowOpenDate: windowState.windowOpenDate.toISOString().slice(0, 10),
+          targetPeriod: targetPeriod
+        })
+      };
+    }
+
+    // If this is the first touch of this period since its window opened,
+    // blank out whatever the prior period left behind before applying
+    // whatever's actually being submitted below.
+    const wipeResult = await wipeIfWindowJustOpened({
+      location: session.location,
+      resident: targetResident,
+      periodPage: periodPage,
+      medicationIds: Object.keys(authoritative),
+      deliveryDateId: deliveryDateId,
+      windowState: windowState
+    });
+    periodPage = wipeResult.periodPage;
+
     const stampedBy = session.name || session.email;
     const today = todayISO();
     let updatedCount = 0;
@@ -111,20 +142,10 @@ exports.handler = async function (event) {
       });
     }
 
-    // Record this as activity on whichever period is currently open for
-    // review, so the Home screen can show "In Progress" for it and know
-    // this data belongs to the current cycle (not a stale prior one).
-    const periodResult = await queryDatabase(MAR_PERIODS_DB_ID, {
-      and: [
-        { property: 'Location', select: { equals: session.location } },
-        { property: 'Resident Initials', rich_text: { equals: targetResident } },
-        { property: 'Active', checkbox: { equals: true } }
-      ]
-    });
-    const periodPage = (periodResult.results || [])[0];
-    const existingLastFinalized = periodPage ? getPlainText(periodPage.properties['Last Finalized Period']) : null;
-    const { targetPeriod } = computeMarTarget(existingLastFinalized);
-
+    // Record this as activity on the period tracker (created above by
+    // wipeIfWindowJustOpened if it didn't already exist), so the Home
+    // screen can show "In Progress" for it and know this data belongs to
+    // the current cycle (not a stale prior one).
     const periodProperties = {
       'Last Reviewed Period': { rich_text: [{ text: { content: targetPeriod } }] },
       'Last Reviewed Date': { date: { start: today } }
@@ -132,17 +153,7 @@ exports.handler = async function (event) {
     if (deliveryDate) {
       periodProperties['Medications Delivered Date'] = { date: { start: deliveryDate } };
     }
-
-    if (periodPage) {
-      await updatePage(periodPage.id, periodProperties);
-    } else {
-      await createPage(MAR_PERIODS_DB_ID, Object.assign({
-        'Period Title': { title: [{ text: { content: session.location + ' - ' + targetResident } }] },
-        'Location': { select: { name: session.location } },
-        'Resident Initials': { rich_text: [{ text: { content: targetResident } }] },
-        'Active': { checkbox: true }
-      }, periodProperties));
-    }
+    await updatePage(periodPage.id, periodProperties);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, count: updatedCount, date: today }) };
   } catch (err) {
