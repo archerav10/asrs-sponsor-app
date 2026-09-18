@@ -390,6 +390,46 @@
   }
   .med-row input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--forest); }
   .med-row input.med-disabled { opacity: 0.5; }
+  .incident-button {
+    background: #D9480F;
+    color: #ffffff;
+    border: none;
+    font-weight: 700;
+    font-size: 17px;
+    text-align: center;
+    padding: 18px;
+  }
+  .incident-button .sub { color: #ffffff; opacity: 0.9; }
+  .incident-list-box {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    margin-bottom: 8px;
+  }
+  .incident-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .incident-row:last-child { border-bottom: none; }
+  .incident-row .incident-main { flex: 1; min-width: 0; }
+  .incident-row .incident-name { font-weight: 600; font-size: 14px; margin: 0; }
+  .incident-row .incident-date { font-size: 12px; color: #666; margin: 2px 0 0; }
+  .status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 10px;
+    white-space: nowrap;
+    background: #FDEDE3;
+    color: #D9480F;
+  }
   .period-banner {
     border: 1px solid var(--border);
     background: #fff;
@@ -466,6 +506,10 @@
     </div>
 
     <div class="action-list">
+      <button class="action-button incident-button" data-action="serious-incident">
+        &#128680; Serious Incident Report
+        <span class="sub">Immediately notifies administration</span>
+      </button>
       <button class="action-button" data-action="first-aid">
         <span class="mar-label-row">
           <span id="home-fa-dot" class="status-dot status-green"></span>
@@ -706,6 +750,49 @@
     </div>
   </section>
 
+  <!-- Screen 10: Serious Incident Report -->
+  <section id="screen-serious-incident" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Serious Incident Report</p>
+    <p class="error-text" id="si-error"></p>
+
+    <p class="item-section-title" style="margin-top:0;">Reported Incidents</p>
+    <div id="si-list" class="incident-list-box">
+      <p class="loading-text">Loading&hellip;</p>
+    </div>
+
+    <p class="item-section-title">Report a New Incident</p>
+
+    <div class="form-field">
+      <label for="si-resident">Resident</label>
+      <input type="text" id="si-resident" placeholder="Initials">
+    </div>
+
+    <div class="form-field">
+      <label for="si-datetime">Date and Time of Incident</label>
+      <input type="datetime-local" id="si-datetime">
+    </div>
+
+    <div class="form-field">
+      <label for="si-location">Location of Incident</label>
+      <input type="text" id="si-location" placeholder="e.g. Kitchen, Bedroom 2">
+    </div>
+
+    <div class="form-field">
+      <label for="si-name">Name the Incident</label>
+      <input type="text" id="si-name" placeholder="One sentence, for referencing">
+    </div>
+
+    <div class="form-field">
+      <label for="si-details">Provide Details of Incident</label>
+      <textarea id="si-details" rows="7" placeholder="Who witnessed it, what occurred, and what happened after"></textarea>
+    </div>
+
+    <button id="si-submit" class="incident-button" style="border-radius:6px;">Submit Incident Report</button>
+  </section>
+
 </main>
 
 <script>
@@ -722,7 +809,8 @@
     emergencySupplies: document.getElementById('screen-emergency-supplies'),
     physicalEnvironment: document.getElementById('screen-physical-environment'),
     logEvent: document.getElementById('screen-log-event'),
-    marReview: document.getElementById('screen-mar-review')
+    marReview: document.getElementById('screen-mar-review'),
+    seriousIncident: document.getElementById('screen-serious-incident')
   };
 
   function getStoredSession() {
@@ -1082,6 +1170,10 @@
         resetLogEventForm();
         showScreen('logEvent');
         loadEventsList();
+      } else if (action === 'serious-incident') {
+        resetSeriousIncidentForm();
+        showScreen('seriousIncident');
+        loadSeriousIncidents();
       } else {
         alert('This screen is coming next.');
       }
@@ -1905,6 +1997,86 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Finalize Report';
+    }
+  });
+
+  // --- Screen 10: Serious Incident Report ---
+  function formatIncidentDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) +
+      ' \u2022 ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderIncidentRow(incident) {
+    const wrap = document.createElement('div');
+    wrap.className = 'incident-row';
+    wrap.innerHTML =
+      '<div class="incident-main">' +
+        '<p class="incident-name">' + incident.name + '</p>' +
+        '<p class="incident-date">' + formatIncidentDate(incident.dateOfIncident) + '</p>' +
+      '</div>' +
+      '<span class="status-badge">' + (incident.status || 'Submitted') + '</span>';
+    return wrap;
+  }
+
+  async function loadSeriousIncidents() {
+    const listEl = document.getElementById('si-list');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-serious-incidents');
+      const incidents = data.incidents || [];
+      listEl.innerHTML = '';
+      if (!incidents.length) {
+        listEl.innerHTML = '<p class="empty-text">No incidents reported.</p>';
+        return;
+      }
+      incidents.forEach(function (incident) { listEl.appendChild(renderIncidentRow(incident)); });
+    } catch (e) {
+      listEl.innerHTML = '<p class="empty-text">' + e.message + '</p>';
+    }
+  }
+
+  function resetSeriousIncidentForm() {
+    setError('si-error', '');
+    document.getElementById('si-resident').value = '';
+    document.getElementById('si-datetime').value = '';
+    document.getElementById('si-location').value = '';
+    document.getElementById('si-name').value = '';
+    document.getElementById('si-details').value = '';
+  }
+
+  document.getElementById('si-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('si-error', '');
+
+    const residentInvolved = document.getElementById('si-resident').value;
+    const incidentDateTime = document.getElementById('si-datetime').value;
+    const incidentLocation = document.getElementById('si-location').value;
+    const incidentName = document.getElementById('si-name').value.trim();
+    const details = document.getElementById('si-details').value;
+
+    if (!incidentDateTime || !incidentName) {
+      setError('si-error', 'Date/time and a name for the incident are required.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      await apiFetch('/create-serious-incident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ residentInvolved: residentInvolved, incidentDateTime: incidentDateTime, incidentLocation: incidentLocation, incidentName: incidentName, details: details })
+      });
+      alert('Incident report submitted. Administration has been notified.');
+      resetSeriousIncidentForm();
+      showScreen('home');
+    } catch (e) {
+      setError('si-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit Incident Report';
     }
   });
 

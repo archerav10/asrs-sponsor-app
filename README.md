@@ -41,6 +41,7 @@ workflow as your other portals.
 | `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
 | `MAR_DB_ID` | `7dbf6757-dd9b-4c7c-ad78-168c745ed555` |
 | `MAR_PERIODS_DB_ID` | `9b81d8e5-141b-4ffc-8616-bc2743d0f1e8` |
+| `SERIOUS_INCIDENT_DB_ID` | `3a0ff13f-62f9-8032-b076-000b0cec3fbb` |
 | `LOCATION_CODES_DB_ID` | `4bf686f3-056b-49c3-925c-a321a2c78591` |
 | `ADMIN_ACCOUNTS_DB_ID` | `725e633a-e593-4352-8a66-29954e9d7b71` |
 | `ZAPIER_EVENT_WEBHOOK_URL` | The Catch Hook URL from your dedicated "Provider Event Log Attachments" Zap — see setup steps below |
@@ -145,6 +146,26 @@ don't pick up env var changes until the next deploy.
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
+- Serious Incident Report: a solid-orange button at the very top of
+  Home (distinct from everything else, deliberately not color-coded by
+  due date since it's not a recurring compliance report). Writes into
+  the **existing** Serious Incident Report database shared with your
+  other staff-facing systems, not a new one — this app only fills in
+  Name, Location, Resident Involved, Date of Incident, Location of
+  Incident (added — the specific spot within the home, distinct from
+  the facility-level Location field), Description of Incident, Status
+  (added — set to "Submitted" here; staff update it from Notion
+  directly as it moves through review), and Submitted By. The other
+  existing fields (Type of Incident, Staff Involved, Immediate Actions
+  Taken, Notifications Made, Follow-up Required/Description) are left
+  for staff to fill in during formal review — this app only captures
+  the initial in-the-moment report. Submitting shows a confirmation and
+  returns to Home; the screen also lists every incident reported for
+  that location (date, name, status — no date-range limit, since these
+  should be rare enough that full history is more useful than a
+  recent-only window). **Immediately texts every admin granted that
+  location** (not sponsors) the moment it's submitted — this is a
+  real-time send, not part of any scheduled check.
 
 ## Notifications (SMS)
 
