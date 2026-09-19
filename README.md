@@ -245,6 +245,50 @@ added manually — this app never creates database schema, only rows):
 `Last Wiped Period`, `Reminder 7 Day Sent Period`, `Reminder 2 Day Sent
 Period`, `Reminder Overdue Sent Period`.
 
+## Admin Dashboard
+
+A new, separate surface from both the provider app and the Super Admin
+provisioning tools (`/admin/*.html`) — `public/admin-dashboard/`. First
+(and so far only) capability: **MAR Review oversight**, a read-only
+status board across every location an admin is granted, not just the
+one they logged into a report with.
+
+- **Auth:** its own login/OTP pair (`admin-dashboard-login.js` /
+  `admin-dashboard-verify-otp.js`), separate from `provider-login.js` so
+  the existing provider-app session shape and flow are untouched. Same
+  bar as everywhere else — email + any one of your granted locations'
+  passwords + SMS OTP — but the resulting session carries the admin's
+  **full** `grantedLocations` list instead of locking to the one
+  location whose password was used. Its own session key/token
+  (`asrs_admin_dashboard_session`), 12-hour TTL, same AES-256-CBC
+  pattern as every other session in this app.
+- **Data:** `get-mar-review-oversight.js` loops every granted location
+  and every active resident there, computing each one's MAR Review
+  window state with the exact same `lib/mar-review-state.js` used by
+  the provider app's `get-mar-review`/`confirm-mar-review`/
+  `finalize-mar-review` — so the status shown here can never drift from
+  what those functions would actually enforce. All lookups run in
+  parallel (`Promise.all`), since this is a synchronous page load, not
+  a scheduled background job with a longer time budget.
+- **View-only, deliberately.** No save/finalize action lives on this
+  page — an admin who needs to actually update a review still logs into
+  the provider app with that specific location's password, same as
+  today. Keeping writes confined to the one place that already enforces
+  the submission window and validation rules avoids a second,
+  easy-to-drift code path for the same mutation.
+- Each resident card shows the same two-line History/Current convention
+  as the provider app's Home screen (see `marHistoryLine`/
+  `marCurrentLine` there) — duplicated in this page's own script rather
+  than shared, since there's no build step/bundler in this project and
+  every other small formatting helper here is already duplicated
+  per-page the same way.
+
+**Adding a second process to this dashboard** later means: a new
+read-only `get-*-oversight.js` function following the same
+loop-over-`session.grantedLocations` shape, and a new section on this
+same page (reusing its existing login/session) — the auth and session
+plumbing above don't need to change.
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not

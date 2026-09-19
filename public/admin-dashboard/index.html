@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASRS Admin Dashboard</title>
+<meta name="theme-color" content="#16332B">
+<style>
+  :root {
+    --forest: #16332B;
+    --forest-light: #2F5D45;
+    --cream: #F6F3EC;
+    --ink: #1C1C1A;
+    --border: #D8D2C2;
+    --error: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--forest);
+    color: var(--cream);
+    padding: 20px 24px 18px;
+  }
+  header .wordmark { font-size: 15px; letter-spacing: 0.02em; opacity: 0.85; margin: 0 0 2px; }
+  header h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  main { max-width: 520px; margin: 0 auto; padding: 28px 24px 60px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+  input[type="email"], input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+  }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background: var(--forest);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  button.secondary { background: transparent; color: var(--forest); border: 1px solid var(--forest); margin-top: 10px; }
+  .help-text { font-size: 13px; color: #666; margin: 8px 0 0; }
+  .error-text { color: var(--error); font-size: 14px; margin: 10px 0 0; display: none; }
+  .loading-text, .empty-text { color: #666; font-size: 14px; }
+  .home-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    background: #fff;
+  }
+  .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .home-card .meta { font-size: 14px; color: #555; margin: 0; }
+  .location-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #777;
+    margin: 26px 0 10px;
+  }
+  .location-title:first-of-type { margin-top: 0; }
+  .resident-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .resident-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .resident-row .initials { font-size: 16px; font-weight: 600; }
+  .status-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.status-red { background: var(--error); animation: dotFlash 1s infinite; }
+  .status-dot.status-yellow { background: #C9A227; animation: dotFlash 1s infinite; }
+  .status-dot.status-green { background: #1B7A3D; }
+  @keyframes dotFlash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .resident-line { font-size: 14px; color: #444; margin: 2px 0; }
+  .resident-line.flagged { color: #D9480F; font-weight: 700; }
+  .logout-link {
+    display: block;
+    text-align: center;
+    margin-top: 28px;
+    font-size: 14px;
+    color: #777;
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: auto;
+    padding: 0;
+    font-weight: 400;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="wordmark">ASRS</p>
+  <h1>Admin Dashboard</h1>
+</header>
+
+<main>
+  <!-- Screen 1: email + password -->
+  <section id="screen-login" class="screen active">
+    <label for="login-email">Email</label>
+    <input type="email" id="login-email" autocomplete="username" inputmode="email">
+
+    <label for="login-password">Password</label>
+    <input type="password" id="login-password" autocomplete="current-password">
+
+    <p class="help-text">Use your admin email and any one of your granted locations' passwords.</p>
+    <p class="error-text" id="login-error"></p>
+
+    <button id="login-submit">Log In</button>
+  </section>
+
+  <!-- Screen 2: SMS Code -->
+  <section id="screen-otp" class="screen">
+    <label for="otp-code">Enter the 6-digit code</label>
+    <input type="text" id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <p class="help-text" id="otp-help">We sent a code by text message.</p>
+    <p class="error-text" id="otp-error"></p>
+
+    <button id="otp-submit">Verify Code</button>
+    <button id="otp-back" class="secondary">Back</button>
+  </section>
+
+  <!-- Screen 3: MAR Review oversight -->
+  <section id="screen-dashboard" class="screen">
+    <div class="home-card">
+      <p class="name" id="home-name"></p>
+      <p class="meta" id="home-meta">MAR Review — every resident, every granted location. View-only: save or finalize a review from the provider app, logged in with that location's password.</p>
+    </div>
+    <p class="error-text" id="dashboard-error"></p>
+    <div id="dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    <button class="logout-link" id="logout-link">Log out</button>
+  </section>
+</main>
+
+<script>
+(function () {
+  const FN_BASE = '/.netlify/functions';
+  const SESSION_KEY = 'asrs_admin_dashboard_session';
+
+  const screens = {
+    login: document.getElementById('screen-login'),
+    otp: document.getElementById('screen-otp'),
+    dashboard: document.getElementById('screen-dashboard')
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
+    screens[name].classList.add('active');
+  }
+
+  function setError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+  }
+
+  function getStoredSession() {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
+    try { return JSON.parse(stored); } catch (e) { return null; }
+  }
+
+  async function apiFetch(path, options) {
+    options = options || {};
+    const stored = getStoredSession();
+    const headers = Object.assign({}, options.headers || {});
+    if (stored) headers['Authorization'] = 'Bearer ' + stored.sessionToken;
+
+    const res = await fetch(FN_BASE + path, Object.assign({}, options, { headers: headers }));
+
+    if (res.status === 401) {
+      localStorage.removeItem(SESSION_KEY);
+      showScreen('login');
+      throw new Error('Your session expired. Please log in again.');
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Something went wrong.');
+    }
+    return data;
+  }
+
+  let pendingOtpToken = null;
+
+  // --- Screen 1: email + password ---
+  document.getElementById('login-submit').addEventListener('click', async function () {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    setError('login-error', '');
+
+    if (!email || !password) {
+      setError('login-error', 'Enter your email and password.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/admin-dashboard-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('login-error', data.error || 'Something went wrong.');
+        return;
+      }
+      pendingOtpToken = data.otpToken;
+      document.getElementById('otp-help').textContent = 'We sent a code to ' + data.maskedPhone + '.';
+      document.getElementById('otp-code').value = '';
+      showScreen('otp');
+    } catch (e) {
+      setError('login-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Screen 2: OTP ---
+  document.getElementById('otp-back').addEventListener('click', function () {
+    setError('otp-error', '');
+    showScreen('login');
+  });
+
+  document.getElementById('otp-submit').addEventListener('click', async function () {
+    const code = document.getElementById('otp-code').value.trim();
+    setError('otp-error', '');
+
+    if (!code) {
+      setError('otp-error', 'Enter the code we texted you.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/admin-dashboard-verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otpToken: pendingOtpToken, code: code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('otp-error', data.error || 'Something went wrong.');
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        sessionToken: data.sessionToken,
+        session: data.session
+      }));
+      renderDashboard(data.session);
+      showScreen('dashboard');
+    } catch (e) {
+      setError('otp-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('logout-link').addEventListener('click', function () {
+    localStorage.removeItem(SESSION_KEY);
+    showScreen('login');
+  });
+
+  // --- Screen 3: Dashboard ---
+  function formatDate(iso) {
+    if (!iso) return 'Never';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function periodStrToLabel(periodStr) {
+    const parts = periodStr.split('-');
+    return MONTH_ABBR[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+  }
+
+  function previousPeriodStr(periodStr) {
+    const parts = periodStr.split('-');
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+    d.setMonth(d.getMonth() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  // Same two-line convention as the provider app's Home screen (see
+  // marHistoryLine/marCurrentLine in provider-app/index.html) — kept as
+  // a separate copy here since this is its own standalone page, not a
+  // shared module.
+  function historyLine(period) {
+    const historyPeriod = previousPeriodStr(period.targetPeriod);
+    const label = periodStrToLabel(historyPeriod);
+    if (period.lastFinalizedPeriod === historyPeriod) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    return { text: label + ': not finalized', flagged: true };
+  }
+
+  function currentLine(period) {
+    const label = periodStrToLabel(period.targetPeriod);
+    if (!period.isWindowOpen) {
+      return { text: label + ' review opens ' + formatDate(period.windowOpenDate), flagged: false };
+    }
+    const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+    const isInProgress = !isFinalizedForTarget && period.lastReviewedPeriod === period.targetPeriod && !!period.lastReviewedDate;
+    if (isFinalizedForTarget) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    if (isInProgress) {
+      return { text: label + ': In progress', flagged: false };
+    }
+    return { text: label + ': Not started', flagged: false };
+  }
+
+  function statusDotClass(period) {
+    const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+    if (isFinalizedForTarget) return 'status-green';
+    const dueDate = new Date(period.dueDate + 'T00:00:00');
+    const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+    if (daysUntilDue < 0) return 'status-red';
+    if (daysUntilDue <= 7) return 'status-yellow';
+    return 'status-green';
+  }
+
+  // Built with createElement/textContent rather than innerHTML — resident
+  // initials and the status text both trace back to Notion data, and
+  // this page's session token is worth more than most (cross-location
+  // admin access), so it's not worth trusting that data stays clean.
+  function renderResidentCard(row) {
+    const wrap = document.createElement('div');
+    wrap.className = 'resident-card';
+
+    const history = historyLine(row);
+    const current = currentLine(row);
+
+    const residentRow = document.createElement('div');
+    residentRow.className = 'resident-row';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot ' + statusDotClass(row);
+    const initials = document.createElement('span');
+    initials.className = 'initials';
+    initials.textContent = row.resident;
+    residentRow.appendChild(dot);
+    residentRow.appendChild(initials);
+
+    const historyP = document.createElement('p');
+    historyP.className = 'resident-line' + (history.flagged ? ' flagged' : '');
+    historyP.textContent = history.text;
+
+    const currentP = document.createElement('p');
+    currentP.className = 'resident-line';
+    currentP.textContent = current.text;
+
+    wrap.appendChild(residentRow);
+    wrap.appendChild(historyP);
+    wrap.appendChild(currentP);
+
+    return wrap;
+  }
+
+  async function loadDashboard() {
+    const listEl = document.getElementById('dashboard-list');
+    setError('dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-mar-review-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active residents found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (row) { listEl.appendChild(renderResidentCard(row)); });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('dashboard-error', e.message);
+    }
+  }
+
+  function renderDashboard(session) {
+    document.getElementById('home-name').textContent = session.name || session.email;
+    loadDashboard();
+  }
+
+  // --- Boot ---
+  const stored = getStoredSession();
+  if (stored) {
+    renderDashboard(stored.session);
+    showScreen('dashboard');
+  } else {
+    showScreen('login');
+  }
+})();
+</script>
+</body>
+</html>
