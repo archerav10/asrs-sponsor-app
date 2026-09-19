@@ -41,6 +41,7 @@ workflow as your other portals.
 | `EVENT_LOG_DB_ID` | `45e5d57d-b6bc-48e4-9283-5fbc4b2426de` |
 | `MAR_DB_ID` | `7dbf6757-dd9b-4c7c-ad78-168c745ed555` |
 | `MAR_PERIODS_DB_ID` | `9b81d8e5-141b-4ffc-8616-bc2743d0f1e8` |
+| `MAR_DUE_DATE_OFFSET_DAYS` | Optional — days before end-of-month the MAR Review due date lands. Unset or `0` = end of month (current default). |
 | `SERIOUS_INCIDENT_DB_ID` | `3a0ff13f-62f9-8032-b076-000b0cec3fbb` |
 | `LOCATION_CODES_DB_ID` | `4bf686f3-056b-49c3-925c-a321a2c78591` |
 | `ADMIN_ACCOUNTS_DB_ID` | `725e633a-e593-4352-8a66-29954e9d7b71` |
@@ -104,8 +105,13 @@ don't pick up env var changes until the next deploy.
   each row is tied to a specific resident's initials). This report is
   forward-looking on a rolling monthly cycle: during any given month,
   staff review and finalize NEXT month's medications (delivered near
-  month-end), so the "due date" is always the last day of the current
-  month — see `netlify/functions/lib/mar-period.js` for the rolling
+  month-end), so the "due date" defaults to the last day of the current
+  month — configurable via the `MAR_DUE_DATE_OFFSET_DAYS` env var (unset
+  or `0` = end of month; `2` = two days before end of month, etc.), the
+  same rule for every location/resident. Changing it shifts the 7-day
+  submission window and the SMS reminder cascade along with it, since
+  both are computed relative to the due date. See
+  `netlify/functions/lib/mar-period.js` for the rolling
   target-period calculation (it snaps back to catch up if even the
   current month was never finalized, rather than silently skipping
   ahead).

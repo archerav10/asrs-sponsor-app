@@ -1024,6 +1024,14 @@
     return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
+  // Abbreviated month for the Home screen's two status lines specifically —
+  // those live inside a fixed-width button, and "November 2026 review
+  // opens Oct 24, 2026" is long enough to wrap on a phone. The review
+  // screen's own banner has more room and keeps the full month name.
+  function monthLabelShort(date) {
+    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+  }
+
   function previousPeriodStr(periodStr) {
     const parts = periodStr.split('-');
     const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
@@ -1065,13 +1073,19 @@
     return monthLabel(d);
   }
 
+  function periodStrToLabelShort(periodStr) {
+    const parts = periodStr.split('-');
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+    return monthLabelShort(d);
+  }
+
   // The permanent record: whichever period's window closed right before
   // the current target opened. Once its due date has passed, it's either
   // finalized (with when) or it's flagged — that verdict never changes
   // again, unlike the Current line below.
   function marHistoryLine(period) {
     const historyPeriod = previousPeriodStr(period.targetPeriod);
-    const label = periodStrToLabel(historyPeriod);
+    const label = periodStrToLabelShort(historyPeriod);
     if (period.lastFinalizedPeriod === historyPeriod) {
       return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
     }
@@ -1081,9 +1095,9 @@
   // The in-flight period: locked (window hasn't opened), in progress
   // (drafted but not finalized), or not started (window open, untouched).
   function marCurrentLine(period) {
-    const label = periodStrToLabel(period.targetPeriod);
+    const label = periodStrToLabelShort(period.targetPeriod);
     if (!period.isWindowOpen) {
-      return { text: label + ' opens ' + formatDate(period.windowOpenDate), flagged: false };
+      return { text: label + ' review opens ' + formatDate(period.windowOpenDate), flagged: false };
     }
     const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
     const isInProgress = !isFinalizedForTarget && period.lastReviewedPeriod === period.targetPeriod && !!period.lastReviewedDate;
