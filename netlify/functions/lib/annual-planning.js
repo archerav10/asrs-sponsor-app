@@ -2,6 +2,17 @@ const { queryDatabase, updatePage, createPage, getPlainText } = require('./notio
 
 const ANNUAL_PLANNING_DB_ID = process.env.ANNUAL_PLANNING_DB_ID;
 
+// A resident can be enrolled in more than one service at once (e.g.
+// Congregate Residential AND Non-Center-Based Day Support), each with
+// its own entirely separate Drive folder and its own independent annual
+// cycle. Congregate Residential is the default every resident gets a
+// button for automatically (residents are scoped by physical Location
+// everywhere else in this app, which is how that service's folders are
+// organized); the others only show up once an admin explicitly adds one
+// for a resident who needs it.
+const SERVICES = ['Congregate Residential', 'Non-Center-Based Day Support', 'Positive Behavior Support'];
+const DEFAULT_SERVICE = SERVICES[0];
+
 // How many weeks before the due date a resident's card unlocks (puzzle
 // turns yellow + starts rotating, steps become clickable). A named
 // constant, not inlined, since this is exactly the kind of number that's
@@ -59,7 +70,32 @@ function oneYearLater(dateStr) {
   return isoDate(new Date(d.getFullYear() + 1, d.getMonth(), d.getDate()));
 }
 
-async function findRecord(location, resident) {
+async function findRecord(location, resident, service) {
+  // An unset Service (empty select — e.g. a row created by hand, or
+  // before this field existed) is treated as the default service, same
+  // as recordFromPage's own `|| DEFAULT_SERVICE` fallback below. Notion's
+  // select-equals filter does not match an empty value, so this needs
+  // its own branch rather than just filtering on equals(service).
+  const serviceFilter = service === DEFAULT_SERVICE
+    ? { or: [{ property: 'Service', select: { equals: service } }, { property: 'Service', select: { is_empty: true } }] }
+    : { property: 'Service', select: { equals: service } };
+
+  const result = await queryDatabase(ANNUAL_PLANNING_DB_ID, {
+    and: [
+      { property: 'Location', select: { equals: location } },
+      { property: 'Resident Initials', rich_text: { equals: resident } },
+      serviceFilter,
+      { property: 'Active', checkbox: { equals: true } }
+    ]
+  });
+  return (result.results || [])[0] || null;
+}
+
+// Every active record for this resident at this location, regardless of
+// service — used by the oversight board to work out which non-default
+// services (if any) already have a cycle tracked, without having to
+// query each of SERVICES individually.
+async function findRecordsForResident(location, resident) {
   const result = await queryDatabase(ANNUAL_PLANNING_DB_ID, {
     and: [
       { property: 'Location', select: { equals: location } },
@@ -67,13 +103,14 @@ async function findRecord(location, resident) {
       { property: 'Active', checkbox: { equals: true } }
     ]
   });
-  return (result.results || [])[0] || null;
+  return (result.results || []).map(recordFromPage);
 }
 
 function recordFromPage(page) {
   if (!page) return null;
   const record = {
     id: page.id,
+    service: getPlainText(page.properties['Service']) || DEFAULT_SERVICE,
     folderUrl: getPlainText(page.properties['Annual Planning Folder URL']),
     effectiveDate: getPlainText(page.properties['Effective Date']),
     finalized: !!page.properties['Finalized'].checkbox,
@@ -166,8 +203,8 @@ async function rollToNextCycleIfWindowJustOpened(options) {
 // call, so no endpoint can act on a stale finalized record just because
 // it skipped the roll step (which previously only get-annual-planning.js
 // performed).
-async function loadCurrentRecord(location, resident, now) {
-  const page = await findRecord(location, resident);
+async function loadCurrentRecord(location, resident, service, now) {
+  const page = await findRecord(location, resident, service);
   let record = recordFromPage(page);
   let windowState = computeAnnualPlanningWindow(record, now);
 
@@ -182,11 +219,12 @@ async function loadCurrentRecord(location, resident, now) {
   return { record: record, windowState: windowState };
 }
 
-async function createRecord(location, resident, effectiveDate, folderUrl) {
+async function createRecord(location, resident, service, effectiveDate, folderUrl) {
   const props = {
-    'Record Title': { title: [{ text: { content: location + ' - ' + resident } }] },
+    'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + service } }] },
     'Location': { select: { name: location } },
     'Resident Initials': { rich_text: [{ text: { content: resident } }] },
+    'Service': { select: { name: service } },
     'Active': { checkbox: true },
     'Effective Date': { date: { start: effectiveDate } }
   };
@@ -197,12 +235,15 @@ async function createRecord(location, resident, effectiveDate, folderUrl) {
 
 module.exports = {
   STEPS,
+  SERVICES,
+  DEFAULT_SERVICE,
   WINDOW_WEEKS_BEFORE_DUE,
   ANNUAL_PLANNING_DB_ID,
   computeDueDate,
   computeWindowOpenDate,
   computeFolderName,
   findRecord,
+  findRecordsForResident,
   recordFromPage,
   computeAnnualPlanningWindow,
   rollToNextCycleIfWindowJustOpened,

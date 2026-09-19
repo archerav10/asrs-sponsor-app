@@ -1,6 +1,6 @@
 const { updatePage } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { STEPS, loadCurrentRecord } = require('./lib/annual-planning');
+const { STEPS, SERVICES, DEFAULT_SERVICE, loadCurrentRecord } = require('./lib/annual-planning');
 
 // Step 12 — locks the cycle. Once finalized, save-annual-planning-step.js
 // refuses further changes and the resident's card in the dashboard shows
@@ -20,15 +20,19 @@ exports.handler = async function (event) {
     const body = JSON.parse(event.body || '{}');
     const location = body.location;
     const resident = body.resident;
+    const service = body.service || DEFAULT_SERVICE;
 
     if (!location || !resident) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Location and resident are required.' }) };
+    }
+    if (SERVICES.indexOf(service) === -1) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown service.' }) };
     }
     if ((session.grantedLocations || []).indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
 
-    const { record, windowState } = await loadCurrentRecord(location, resident);
+    const { record, windowState } = await loadCurrentRecord(location, resident, service);
     if (!record) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Set up this resident\'s annual planning cycle first (Step 1).' }) };
     }

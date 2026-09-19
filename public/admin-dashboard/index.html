@@ -590,8 +590,22 @@
     return { spinning: true, label: 'Due ' + formatDate(row.dueDate), disabled: false };
   }
 
-  function renderAnnualResidentButton(location, row) {
-    const state = annualPuzzleState(row);
+  // Sourced from the oversight response (lib/annual-planning.js's own
+  // DEFAULT_SERVICE) rather than duplicated here, so the two can't drift
+  // if the org's primary service ever changes. This fallback only covers
+  // the brief window before that first fetch completes.
+  let DEFAULT_SERVICE = 'Congregate Residential';
+
+  function openAnnualDetail(location, resident, service) {
+    currentAnnualLocation = location;
+    currentAnnualResident = resident;
+    currentAnnualService = service;
+    showScreen('annualDetail');
+    loadAnnualDetail();
+  }
+
+  function renderAnnualServiceButton(location, resident, entry) {
+    const state = annualPuzzleState(entry);
 
     const btn = document.createElement('button');
     btn.className = 'ap-resident-button';
@@ -605,7 +619,9 @@
     puzzle.textContent = '\u{1F9E9}';
     const initials = document.createElement('span');
     initials.className = 'ap-resident-initials';
-    initials.textContent = row.resident;
+    // Only spell out the service when it's not the default — keeps the
+    // common one-service case reading as plain initials, same as before.
+    initials.textContent = entry.service === DEFAULT_SERVICE ? resident : (resident + ' — ' + entry.service);
     left.appendChild(puzzle);
     left.appendChild(initials);
 
@@ -617,13 +633,23 @@
     btn.appendChild(status);
 
     btn.addEventListener('click', function () {
-      currentAnnualLocation = location;
-      currentAnnualResident = row.resident;
-      showScreen('annualDetail');
-      loadAnnualDetail();
+      openAnnualDetail(location, resident, entry.service);
     });
 
     return btn;
+  }
+
+  function renderAddServiceLink(location, resident, service) {
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'logout-link';
+    link.style.margin = '0 0 10px';
+    link.style.textAlign = 'left';
+    link.textContent = '+ Add ' + service + ' cycle for ' + resident;
+    link.addEventListener('click', function () {
+      openAnnualDetail(location, resident, service);
+    });
+    return link;
   }
 
   async function loadAnnualDashboard() {
@@ -634,6 +660,7 @@
     try {
       const data = await apiFetch('/get-annual-planning-oversight');
       const locations = data.locations || [];
+      if (data.defaultService) DEFAULT_SERVICE = data.defaultService;
       listEl.innerHTML = '';
 
       if (!locations.length) {
@@ -655,7 +682,14 @@
           return;
         }
 
-        loc.residents.forEach(function (row) { listEl.appendChild(renderAnnualResidentButton(loc.location, row)); });
+        loc.residents.forEach(function (residentEntry) {
+          (residentEntry.services || []).forEach(function (entry) {
+            listEl.appendChild(renderAnnualServiceButton(loc.location, residentEntry.resident, entry));
+          });
+          (residentEntry.availableToAdd || []).forEach(function (service) {
+            listEl.appendChild(renderAddServiceLink(loc.location, residentEntry.resident, service));
+          });
+        });
       });
     } catch (e) {
       listEl.innerHTML = '';
@@ -666,6 +700,7 @@
   // --- Screen 4: Annual Planning detail ---
   let currentAnnualLocation = null;
   let currentAnnualResident = null;
+  let currentAnnualService = DEFAULT_SERVICE;
 
   document.getElementById('annual-detail-back').addEventListener('click', function () {
     showScreen('dashboard');
@@ -736,7 +771,7 @@
         await apiFetch('/save-annual-planning-setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, effectiveDate: effectiveDate, folderUrl: folderUrl })
+          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, effectiveDate: effectiveDate, folderUrl: folderUrl })
         });
         loadAnnualDetail();
       } catch (e) {
@@ -785,7 +820,7 @@
       if (!file) return;
       setError('annual-detail-error', '');
       try {
-        const config = await apiFetch('/get-annual-planning-upload-config?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident));
+        const config = await apiFetch('/get-annual-planning-upload-config?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
         const filename =
           sanitizeForFilename(currentAnnualLocation) + '_Resident_' +
           sanitizeForFilename(currentAnnualResident) + '_' +
@@ -805,7 +840,7 @@
         await apiFetch('/save-annual-planning-step', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, stepKey: stepDef.key, filename: filename, done: true })
+          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, filename: filename, done: true })
         });
 
         loadAnnualDetail();
@@ -830,14 +865,14 @@
 
   async function loadAnnualDetail() {
     document.getElementById('annual-detail-title').textContent = currentAnnualResident;
-    document.getElementById('annual-detail-meta').textContent = currentAnnualLocation + ' — Annual Planning';
+    document.getElementById('annual-detail-meta').textContent = currentAnnualLocation + ' — ' + currentAnnualService;
     document.getElementById('annual-detail-banner').textContent = 'Loading…';
     setError('annual-detail-error', '');
     const bodyEl = document.getElementById('annual-detail-body');
     bodyEl.innerHTML = '';
 
     try {
-      const data = await apiFetch('/get-annual-planning?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident));
+      const data = await apiFetch('/get-annual-planning?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
       const record = data.record;
       const windowState = data.window;
       const steps = data.steps || [];
@@ -902,7 +937,7 @@
           await apiFetch('/finalize-annual-planning', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident })
+            body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService })
           });
           loadAnnualDetail();
         } catch (e) {

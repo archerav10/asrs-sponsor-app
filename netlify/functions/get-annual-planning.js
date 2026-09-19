@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { STEPS, loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
+const { STEPS, SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
 
 // Per-resident checklist detail. Read-only — lazily rolls a finalized
 // record into the next cycle if that cycle's window just opened, same
@@ -20,21 +20,26 @@ exports.handler = async function (event) {
     const params = event.queryStringParameters || {};
     const location = params.location;
     const resident = params.resident;
+    const service = params.service || DEFAULT_SERVICE;
 
     if (!location || !resident) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Location and resident are required.' }) };
+    }
+    if (SERVICES.indexOf(service) === -1) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown service.' }) };
     }
     if ((session.grantedLocations || []).indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
 
-    const { record, windowState } = await loadCurrentRecord(location, resident);
+    const { record, windowState } = await loadCurrentRecord(location, resident, service);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         location: location,
         resident: resident,
+        service: service,
         record: record,
         window: {
           hasCycle: windowState.hasCycle,

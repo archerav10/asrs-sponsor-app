@@ -1,6 +1,6 @@
 const { updatePage } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { loadCurrentRecord, createRecord } = require('./lib/annual-planning');
+const { SERVICES, DEFAULT_SERVICE, loadCurrentRecord, createRecord } = require('./lib/annual-planning');
 
 // Step 1: set (first time) or confirm (later cycles) the effective date,
 // and record the resident's permanent Annual Planning Drive folder link
@@ -21,17 +21,21 @@ exports.handler = async function (event) {
     const body = JSON.parse(event.body || '{}');
     const location = body.location;
     const resident = body.resident;
+    const service = body.service || DEFAULT_SERVICE;
     const effectiveDate = body.effectiveDate;
     const folderUrl = body.folderUrl;
 
     if (!location || !resident || !effectiveDate) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Location, resident, and effective date are required.' }) };
     }
+    if (SERVICES.indexOf(service) === -1) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown service.' }) };
+    }
     if ((session.grantedLocations || []).indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
 
-    const { record, windowState } = await loadCurrentRecord(location, resident);
+    const { record, windowState } = await loadCurrentRecord(location, resident, service);
 
     if (!windowState.isWindowOpen) {
       return {
@@ -47,7 +51,7 @@ exports.handler = async function (event) {
       if (!folderUrl) {
         return { statusCode: 400, body: JSON.stringify({ error: 'The Annual Planning Drive folder link is required the first time.' }) };
       }
-      await createRecord(location, resident, effectiveDate, folderUrl);
+      await createRecord(location, resident, service, effectiveDate, folderUrl);
     } else {
       const props = { 'Effective Date': { date: { start: effectiveDate } } };
       // The folder link is permanent once set — only accept it here if

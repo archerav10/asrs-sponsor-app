@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
+const { SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
 
 function driveFolderIdFromUrl(url) {
   const match = (url || '').match(/folders\/([a-zA-Z0-9_-]+)/);
@@ -26,8 +26,12 @@ exports.handler = async function (event) {
     const params = event.queryStringParameters || {};
     const location = params.location;
     const resident = params.resident;
+    const service = params.service || DEFAULT_SERVICE;
     if (!location || !resident) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Location and resident are required.' }) };
+    }
+    if (SERVICES.indexOf(service) === -1) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown service.' }) };
     }
     if ((session.grantedLocations || []).indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
@@ -38,7 +42,7 @@ exports.handler = async function (event) {
       return { statusCode: 500, body: JSON.stringify({ error: 'Document uploads are not configured yet.' }) };
     }
 
-    const { record, windowState } = await loadCurrentRecord(location, resident);
+    const { record, windowState } = await loadCurrentRecord(location, resident, service);
 
     if (!record || !record.folderUrl) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Set up this resident\'s Annual Planning folder first.' }) };

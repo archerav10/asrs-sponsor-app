@@ -300,10 +300,26 @@ either an upload or (for now, only Authorization for Release —
 see `STEPS` in that file) a preconfigured JotForm.
 
 - **Notion:** new "Resident Annual Planning" database (`ANNUAL_PLANNING_DB_ID`),
-  one active row per Location + Resident, reused across cycles the same
-  way MAR Review Periods is — never one row per year. Holds the Drive
-  folder link (permanent, set once), Effective Date, a Done checkbox +
-  filename per document, and the finalize flag/date/by.
+  one active row per Location + Resident + Service, reused across cycles
+  the same way MAR Review Periods is — never one row per year. Holds the
+  Service, the Drive folder link (permanent, set once), Effective Date, a
+  Done checkbox + filename per document, and the finalize flag/date/by.
+- **Multiple services per resident:** a resident can be enrolled in more
+  than one service at once (e.g. Congregate Residential AND Non-Center-Based
+  Day Support), each with its own Drive folder and its own independent
+  cycle — same resident, unrelated rows in the database, distinguished by
+  the `Service` select field (`SERVICES` in `lib/annual-planning.js`:
+  Congregate Residential, Non-Center-Based Day Support, Positive Behavior
+  Support). Congregate Residential (`DEFAULT_SERVICE`) is the one every
+  resident always gets a button for, since residents are otherwise scoped
+  by physical Location everywhere in this app; the other services only
+  appear once a record for them exists. `findRecordsForResident` (used only
+  by the oversight board) returns every service a resident has on file, so
+  the dashboard can show "add a service" for whichever of `SERVICES` isn't
+  in use yet without guessing. An unset/legacy `Service` value (a row from
+  before this field existed) is treated as the default service —
+  `findRecord`'s filter matches it via an explicit `is_empty` branch, since
+  Notion's `select.equals` won't match an empty value on its own.
 - **The lock:** a resident's card is locked (gray puzzle) until 6 weeks
   before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (yellow, slowly
   rotating puzzle, CSS `@keyframes puzzleSpin`). A brand new resident
