@@ -1,6 +1,5 @@
-const { updatePage } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { STEPS, SERVICES, DEFAULT_SERVICE, loadCurrentRecord } = require('./lib/annual-planning');
+const { STEPS, SERVICES, DEFAULT_SERVICE, markStepDone } = require('./lib/annual-planning');
 
 const STEP_KEYS = STEPS.map(function (s) { return s.key; });
 
@@ -40,22 +39,8 @@ exports.handler = async function (event) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
 
-    const { record, windowState } = await loadCurrentRecord(location, resident, service);
-    if (!record) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Set up this resident\'s annual planning cycle first (Step 1).' }) };
-    }
-
-    if (!windowState.isWindowOpen || windowState.isFinalizedForTarget) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'This cycle is not open for changes.' }) };
-    }
-
     const stampedBy = session.name || session.email;
-    await updatePage(record.id, {
-      [stepKey + ' Done']: { checkbox: done },
-      [stepKey + ' Filename']: { rich_text: filename ? [{ text: { content: filename } }] : [] },
-      'Last Updated By': { rich_text: [{ text: { content: stampedBy } }] },
-      'Last Updated Date': { date: { start: new Date().toISOString().slice(0, 10) } }
-    });
+    await markStepDone(location, resident, service, stepKey, filename, done, stampedBy);
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (err) {

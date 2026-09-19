@@ -234,6 +234,33 @@ async function loadCurrentRecord(location, resident, service, now) {
   return { record: record, windowState: windowState };
 }
 
+// Marks one step Done (or explicitly un-marks it) and stamps who/when.
+// Used by both save-annual-planning-step.js (a logged-in admin, after a
+// browser upload) and the JotForm-completion webhook (Zapier, after a
+// form submission lands in Drive) — same record-state checks either way,
+// so a step can't be marked done on a stale, locked, or missing record
+// regardless of which path produced the document.
+async function markStepDone(location, resident, service, stepKey, filename, done, updatedBy) {
+  const { record, windowState } = await loadCurrentRecord(location, resident, service);
+  if (!record) {
+    const err = new Error('Set up this resident\'s annual planning cycle first (Step 1).');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!windowState.isWindowOpen || windowState.isFinalizedForTarget) {
+    const err = new Error('This cycle is not open for changes.');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  await updatePage(record.id, {
+    [stepKey + ' Done']: { checkbox: done },
+    [stepKey + ' Filename']: { rich_text: filename ? [{ text: { content: filename } }] : [] },
+    'Last Updated By': { rich_text: [{ text: { content: updatedBy } }] },
+    'Last Updated Date': { date: { start: new Date().toISOString().slice(0, 10) } }
+  });
+}
+
 async function createRecord(location, resident, service, effectiveDate, folderUrl) {
   const props = {
     'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + service } }] },
@@ -263,5 +290,6 @@ module.exports = {
   computeAnnualPlanningWindow,
   rollToNextCycleIfWindowJustOpened,
   loadCurrentRecord,
+  markStepDone,
   createRecord
 };

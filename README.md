@@ -364,11 +364,31 @@ never `computeDueDate` — to build it.
   which sidesteps needing a synchronous response from an
   otherwise-fire-and-forget webhook.
 - **New env vars:** `ANNUAL_PLANNING_DB_ID`, `ZAPIER_ANNUAL_PLANNING_WEBHOOK_URL`,
-  and `ANNUAL_PLANNING_AUTH_RELEASE_FORM_URL` (the JotForm for
+  `ANNUAL_PLANNING_AUTH_RELEASE_FORM_URL` (the JotForm for
   Authorization for Release — the only step with a form today; add a
   `formUrl` to any other entry in `STEPS` in `lib/annual-planning.js`
   to light up a form option for it too, upload always still works
-  regardless).
+  regardless), and `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET` (below).
+- **Completing a form marks the step done the same way an upload does.**
+  A bare `formUrl` link has no idea which resident's record it's for, so
+  clicking "Complete Form" first fetches the same folder info the upload
+  path uses, then opens the form with 7 hidden fields prefilled via URL
+  query params (`app_location`, `app_resident`, `app_service`,
+  `app_step_key`, `app_parent_folder_id`, `app_folder_name`,
+  `app_filename` — same filename convention as an upload, computed once
+  and shared between both paths). A second Zap
+  (`ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, its URL is not stored — it's
+  Jotform's own trigger) picks up the submission: JotForm New Submission
+  → Google Drive Find/Create Folder + Upload File (same pattern as the
+  upload Zap, but sourcing the file from the submission's generated PDF
+  and reading the parent folder/name from the hidden fields) → POST to
+  `annual-planning-form-submitted.js` with the shared secret plus
+  location/resident/service/stepKey/filename. That endpoint is
+  Zapier-facing, not browser-facing — no session, just the secret, same
+  pattern as the `test-check-*.js` cron-adjacent endpoints — and calls
+  the same `markStepDone` helper `save-annual-planning-step.js` uses, so
+  a step ends up in the identical state regardless of which path produced
+  the document.
 
 ## Weekly admin email digest
 

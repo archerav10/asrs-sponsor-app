@@ -787,6 +787,13 @@
 
   function renderStepSection(container, stepDef, record, effectiveDate) {
     const stepState = record ? record.steps[stepDef.key] : { done: false, filename: '' };
+    // Shared by both the direct upload and the "Complete Form" path below
+    // so the filename Notion ends up with always matches what's actually
+    // in Drive, whichever path produced it.
+    const filename =
+      sanitizeForFilename(currentAnnualLocation) + '_Resident_' +
+      sanitizeForFilename(currentAnnualResident) + '_' +
+      stepDef.key + '_' + effectiveDate;
 
     const wrap = document.createElement('div');
     wrap.className = 'ap-step';
@@ -821,10 +828,6 @@
       setError('annual-detail-error', '');
       try {
         const config = await apiFetch('/get-annual-planning-upload-config?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
-        const filename =
-          sanitizeForFilename(currentAnnualLocation) + '_Resident_' +
-          sanitizeForFilename(currentAnnualResident) + '_' +
-          stepDef.key + '_' + effectiveDate;
 
         const formData = new FormData();
         formData.append('file', file, filename);
@@ -858,10 +861,34 @@
     if (stepDef.formUrl) {
       const formLink = document.createElement('a');
       formLink.className = 'form-link';
-      formLink.href = stepDef.formUrl;
+      formLink.href = stepDef.formUrl; // fallback if the click handler below can't run
       formLink.target = '_blank';
       formLink.rel = 'noopener';
       formLink.textContent = 'Complete Form';
+      // The plain formUrl has no idea which resident/record this is for.
+      // Fetch the same folder info the direct-upload path uses and carry
+      // it (plus the resident/service/step) into the form as prefilled
+      // hidden fields, so the JotForm-completion Zap can route the
+      // finished submission to the right Drive folder and Notion record
+      // — same destination as an upload, just a different starting point.
+      formLink.addEventListener('click', async function (e) {
+        e.preventDefault();
+        setError('annual-detail-error', '');
+        try {
+          const config = await apiFetch('/get-annual-planning-upload-config?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
+          const url = new URL(stepDef.formUrl);
+          url.searchParams.set('app_location', currentAnnualLocation);
+          url.searchParams.set('app_resident', currentAnnualResident);
+          url.searchParams.set('app_service', currentAnnualService);
+          url.searchParams.set('app_step_key', stepDef.key);
+          url.searchParams.set('app_parent_folder_id', config.parentFolderId);
+          url.searchParams.set('app_folder_name', config.folderName);
+          url.searchParams.set('app_filename', filename);
+          window.open(url.toString(), '_blank', 'noopener');
+        } catch (err) {
+          setError('annual-detail-error', err.message);
+        }
+      });
       actions.appendChild(formLink);
     }
 
