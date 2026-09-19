@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ASRS Admin Dashboard</title>
+<meta name="theme-color" content="#16332B">
+<style>
+  :root {
+    --forest: #16332B;
+    --forest-light: #2F5D45;
+    --cream: #F6F3EC;
+    --ink: #1C1C1A;
+    --border: #D8D2C2;
+    --error: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--forest);
+    color: var(--cream);
+    padding: 20px 24px 18px;
+  }
+  header .wordmark { font-size: 15px; letter-spacing: 0.02em; opacity: 0.85; margin: 0 0 2px; }
+  header h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  main { max-width: 520px; margin: 0 auto; padding: 28px 24px 60px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 18px 0 6px; }
+  input[type="email"], input[type="password"], input[type="text"] {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+  }
+  button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background: var(--forest);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  button.secondary { background: transparent; color: var(--forest); border: 1px solid var(--forest); margin-top: 10px; }
+  .help-text { font-size: 13px; color: #666; margin: 8px 0 0; }
+  .error-text { color: var(--error); font-size: 14px; margin: 10px 0 0; display: none; }
+  .loading-text, .empty-text { color: #666; font-size: 14px; }
+  .home-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 20px;
+    background: #fff;
+  }
+  .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .home-card .meta { font-size: 14px; color: #555; margin: 0; }
+  .location-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #777;
+    margin: 26px 0 10px;
+  }
+  .location-title:first-of-type { margin-top: 0; }
+  .resident-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .resident-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .resident-row .initials { font-size: 16px; font-weight: 600; }
+  .status-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.status-red { background: var(--error); animation: dotFlash 1s infinite; }
+  .status-dot.status-yellow { background: #C9A227; animation: dotFlash 1s infinite; }
+  .status-dot.status-green { background: #1B7A3D; }
+  @keyframes dotFlash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .resident-line { font-size: 14px; color: #444; margin: 2px 0; }
+  .resident-line.flagged { color: #D9480F; font-weight: 700; }
+  .logout-link {
+    display: block;
+    text-align: center;
+    margin-top: 28px;
+    font-size: 14px;
+    color: #777;
+    text-decoration: underline;
+    cursor: pointer;
+    background: none;
+    border: none;
+    width: auto;
+    padding: 0;
+    font-weight: 400;
+  }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .tab-button {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+    margin-top: 0;
+  }
+  .tab-button.active { background: var(--forest); color: #fff; border-color: var(--forest); }
+  .back-button {
+    background: none;
+    border: none;
+    color: var(--forest);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 0;
+    margin: 0 0 16px;
+    width: auto;
+    text-align: left;
+    cursor: pointer;
+  }
+  .puzzle-icon { display: inline-block; font-size: 17px; line-height: 1; flex-shrink: 0; }
+  .puzzle-icon.due-soon { animation: puzzleSpin 3s linear infinite; }
+  @keyframes puzzleSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .ap-resident-button {
+    width: 100%;
+    text-align: left;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    margin-top: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 400;
+    gap: 10px;
+  }
+  .ap-resident-left { display: flex; align-items: center; gap: 10px; }
+  .ap-resident-initials { font-size: 16px; font-weight: 600; }
+  .ap-resident-status { font-size: 13px; color: #666; text-align: right; }
+  .ap-banner {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: #444;
+  }
+  .ap-step {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .ap-step-title { font-weight: 600; font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .ap-step-status { font-size: 13px; color: #666; margin: 0 0 10px; }
+  .ap-step-status.done { color: #1B7A3D; font-weight: 600; }
+  .checkmark { color: #1B7A3D; font-weight: 700; margin-left: 4px; }
+  .ap-step-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .ap-step-actions input[type="file"] { flex: 1; font-size: 13px; min-width: 160px; }
+  .ap-step-actions a.form-link {
+    display: inline-block;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+    border-radius: 6px;
+    text-decoration: none;
+  }
+  .ap-setup-row { display: flex; flex-direction: column; gap: 4px; }
+  input[type="date"], input[type="url"] {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="wordmark">ASRS</p>
+  <h1>Admin Dashboard</h1>
+</header>
+
+<main>
+  <!-- Screen 1: email + password -->
+  <section id="screen-login" class="screen active">
+    <label for="login-email">Email</label>
+    <input type="email" id="login-email" autocomplete="username" inputmode="email">
+
+    <label for="login-password">Password</label>
+    <input type="password" id="login-password" autocomplete="current-password">
+
+    <p class="help-text">Use your admin email and any one of your granted locations' passwords.</p>
+    <p class="error-text" id="login-error"></p>
+
+    <button id="login-submit">Log In</button>
+  </section>
+
+  <!-- Screen 2: SMS Code -->
+  <section id="screen-otp" class="screen">
+    <label for="otp-code">Enter the 6-digit code</label>
+    <input type="text" id="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6">
+    <p class="help-text" id="otp-help">We sent a code by text message.</p>
+    <p class="error-text" id="otp-error"></p>
+
+    <button id="otp-submit">Verify Code</button>
+    <button id="otp-back" class="secondary">Back</button>
+  </section>
+
+  <!-- Screen 3: Dashboard (tabbed — MAR Review, Annual Planning) -->
+  <section id="screen-dashboard" class="screen">
+    <div class="home-card">
+      <p class="name" id="home-name"></p>
+      <p class="meta" id="home-meta">Every resident, every location you're granted.</p>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab-button active" id="tab-mar" type="button">MAR Review</button>
+      <button class="tab-button" id="tab-annual" type="button">Annual Planning</button>
+    </div>
+
+    <div id="mar-tab-content">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">View-only — save or finalize a review from the provider app, logged in with that location's password.</p>
+      <p class="error-text" id="dashboard-error"></p>
+      <div id="dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="annual-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Locked until 6 weeks before due. Once unlocked, tap a resident to upload documents and finalize.</p>
+      <p class="error-text" id="annual-dashboard-error"></p>
+      <div id="annual-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <button class="logout-link" id="logout-link">Log out</button>
+  </section>
+
+  <!-- Screen 4: Annual Planning — per-resident checklist -->
+  <section id="screen-annual-detail" class="screen">
+    <button class="back-button" id="annual-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="annual-detail-title"></p>
+      <p class="meta" id="annual-detail-meta"></p>
+    </div>
+    <div class="ap-banner" id="annual-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="annual-detail-error"></p>
+    <div id="annual-detail-body"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const FN_BASE = '/.netlify/functions';
+  const SESSION_KEY = 'asrs_admin_dashboard_session';
+
+  const screens = {
+    login: document.getElementById('screen-login'),
+    otp: document.getElementById('screen-otp'),
+    dashboard: document.getElementById('screen-dashboard'),
+    annualDetail: document.getElementById('screen-annual-detail')
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
+    screens[name].classList.add('active');
+  }
+
+  function setError(id, message) {
+    const el = document.getElementById(id);
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+  }
+
+  function getStoredSession() {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (!stored) return null;
+    try { return JSON.parse(stored); } catch (e) { return null; }
+  }
+
+  async function apiFetch(path, options) {
+    options = options || {};
+    const stored = getStoredSession();
+    const headers = Object.assign({}, options.headers || {});
+    if (stored) headers['Authorization'] = 'Bearer ' + stored.sessionToken;
+
+    const res = await fetch(FN_BASE + path, Object.assign({}, options, { headers: headers }));
+
+    if (res.status === 401) {
+      localStorage.removeItem(SESSION_KEY);
+      showScreen('login');
+      throw new Error('Your session expired. Please log in again.');
+    }
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Something went wrong.');
+    }
+    return data;
+  }
+
+  let pendingOtpToken = null;
+
+  // --- Screen 1: email + password ---
+  document.getElementById('login-submit').addEventListener('click', async function () {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    setError('login-error', '');
+
+    if (!email || !password) {
+      setError('login-error', 'Enter your email and password.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/admin-dashboard-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('login-error', data.error || 'Something went wrong.');
+        return;
+      }
+      pendingOtpToken = data.otpToken;
+      document.getElementById('otp-help').textContent = 'We sent a code to ' + data.maskedPhone + '.';
+      document.getElementById('otp-code').value = '';
+      showScreen('otp');
+    } catch (e) {
+      setError('login-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Screen 2: OTP ---
+  document.getElementById('otp-back').addEventListener('click', function () {
+    setError('otp-error', '');
+    showScreen('login');
+  });
+
+  document.getElementById('otp-submit').addEventListener('click', async function () {
+    const code = document.getElementById('otp-code').value.trim();
+    setError('otp-error', '');
+
+    if (!code) {
+      setError('otp-error', 'Enter the code we texted you.');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    try {
+      const res = await fetch(FN_BASE + '/admin-dashboard-verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otpToken: pendingOtpToken, code: code })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError('otp-error', data.error || 'Something went wrong.');
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        sessionToken: data.sessionToken,
+        session: data.session
+      }));
+      renderDashboard(data.session);
+      showScreen('dashboard');
+    } catch (e) {
+      setError('otp-error', 'Could not reach the server. Check your connection and try again.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('logout-link').addEventListener('click', function () {
+    localStorage.removeItem(SESSION_KEY);
+    showScreen('login');
+  });
+
+  // --- Screen 3: Dashboard ---
+  function formatDate(iso) {
+    if (!iso) return 'Never';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function periodStrToLabel(periodStr) {
+    const parts = periodStr.split('-');
+    return MONTH_ABBR[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+  }
+
+  function previousPeriodStr(periodStr) {
+    const parts = periodStr.split('-');
+    const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+    d.setMonth(d.getMonth() - 1);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  // Same two-line convention as the provider app's Home screen (see
+  // marHistoryLine/marCurrentLine in provider-app/index.html) — kept as
+  // a separate copy here since this is its own standalone page, not a
+  // shared module.
+  function historyLine(period) {
+    const historyPeriod = previousPeriodStr(period.targetPeriod);
+    const label = periodStrToLabel(historyPeriod);
+    if (period.lastFinalizedPeriod === historyPeriod) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    return { text: label + ': not finalized', flagged: true };
+  }
+
+  function currentLine(period) {
+    const label = periodStrToLabel(period.targetPeriod);
+    if (!period.isWindowOpen) {
+      return { text: label + ' review opens ' + formatDate(period.windowOpenDate), flagged: false };
+    }
+    const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+    const isInProgress = !isFinalizedForTarget && period.lastReviewedPeriod === period.targetPeriod && !!period.lastReviewedDate;
+    if (isFinalizedForTarget) {
+      return { text: label + ': finalized ' + formatDate(period.lastFinalizedDate), flagged: false };
+    }
+    if (isInProgress) {
+      return { text: label + ': In progress', flagged: false };
+    }
+    return { text: label + ': Not started', flagged: false };
+  }
+
+  function statusDotClass(period) {
+    const isFinalizedForTarget = period.lastFinalizedPeriod === period.targetPeriod;
+    if (isFinalizedForTarget) return 'status-green';
+    const dueDate = new Date(period.dueDate + 'T00:00:00');
+    const daysUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / 86400000);
+    if (daysUntilDue < 0) return 'status-red';
+    if (daysUntilDue <= 7) return 'status-yellow';
+    return 'status-green';
+  }
+
+  // Built with createElement/textContent rather than innerHTML — resident
+  // initials and the status text both trace back to Notion data, and
+  // this page's session token is worth more than most (cross-location
+  // admin access), so it's not worth trusting that data stays clean.
+  function renderResidentCard(row) {
+    const wrap = document.createElement('div');
+    wrap.className = 'resident-card';
+
+    const history = historyLine(row);
+    const current = currentLine(row);
+
+    const residentRow = document.createElement('div');
+    residentRow.className = 'resident-row';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot ' + statusDotClass(row);
+    const initials = document.createElement('span');
+    initials.className = 'initials';
+    initials.textContent = row.resident;
+    residentRow.appendChild(dot);
+    residentRow.appendChild(initials);
+
+    const historyP = document.createElement('p');
+    historyP.className = 'resident-line' + (history.flagged ? ' flagged' : '');
+    historyP.textContent = history.text;
+
+    const currentP = document.createElement('p');
+    currentP.className = 'resident-line';
+    currentP.textContent = current.text;
+
+    wrap.appendChild(residentRow);
+    wrap.appendChild(historyP);
+    wrap.appendChild(currentP);
+
+    return wrap;
+  }
+
+  async function loadDashboard() {
+    const listEl = document.getElementById('dashboard-list');
+    setError('dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-mar-review-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active residents found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (row) { listEl.appendChild(renderResidentCard(row)); });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('dashboard-error', e.message);
+    }
+  }
+
+  function renderDashboard(session) {
+    document.getElementById('home-name').textContent = session.name || session.email;
+    loadDashboard();
+  }
+
+  // --- Tabs ---
+  let annualLoaded = false;
+  document.getElementById('tab-mar').addEventListener('click', function () {
+    document.getElementById('tab-mar').classList.add('active');
+    document.getElementById('tab-annual').classList.remove('active');
+    document.getElementById('mar-tab-content').style.display = '';
+    document.getElementById('annual-tab-content').style.display = 'none';
+  });
+  document.getElementById('tab-annual').addEventListener('click', function () {
+    document.getElementById('tab-annual').classList.add('active');
+    document.getElementById('tab-mar').classList.remove('active');
+    document.getElementById('annual-tab-content').style.display = '';
+    document.getElementById('mar-tab-content').style.display = 'none';
+    if (!annualLoaded) {
+      annualLoaded = true;
+      loadAnnualDashboard();
+    }
+  });
+
+  function sanitizeForFilename(s) {
+    return (s || '').replace(/[^a-zA-Z0-9]+/g, '');
+  }
+
+  // --- Screen 3b: Annual Planning oversight ---
+  function annualPuzzleState(row) {
+    if (row.isFinalizedForTarget) {
+      return { spinning: false, label: 'Finalized ' + formatDate(row.finalizedDate), disabled: false };
+    }
+    if (!row.hasCycle) {
+      return { spinning: false, label: 'Not started', disabled: false };
+    }
+    if (!row.isWindowOpen) {
+      return { spinning: false, label: 'Opens ' + formatDate(row.windowOpenDate), disabled: true };
+    }
+    return { spinning: true, label: 'Due ' + formatDate(row.dueDate), disabled: false };
+  }
+
+  // Sourced from the oversight response (lib/annual-planning.js's own
+  // DEFAULT_SERVICE) rather than duplicated here, so the two can't drift
+  // if the org's primary service ever changes. This fallback only covers
+  // the brief window before that first fetch completes.
+  let DEFAULT_SERVICE = 'Congregate Residential';
+
+  function openAnnualDetail(location, resident, service) {
+    currentAnnualLocation = location;
+    currentAnnualResident = resident;
+    currentAnnualService = service;
+    showScreen('annualDetail');
+    loadAnnualDetail();
+  }
+
+  function renderAnnualServiceButton(location, resident, entry) {
+    const state = annualPuzzleState(entry);
+
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+    btn.disabled = state.disabled;
+
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    const puzzle = document.createElement('span');
+    puzzle.className = 'puzzle-icon' + (state.spinning ? ' due-soon' : '');
+    puzzle.textContent = '\u{1F9E9}';
+    const initials = document.createElement('span');
+    initials.className = 'ap-resident-initials';
+    // Only spell out the service when it's not the default — keeps the
+    // common one-service case reading as plain initials, same as before.
+    initials.textContent = entry.service === DEFAULT_SERVICE ? resident : (resident + ' — ' + entry.service);
+    left.appendChild(puzzle);
+    left.appendChild(initials);
+
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    status.textContent = state.label;
+
+    btn.appendChild(left);
+    btn.appendChild(status);
+
+    btn.addEventListener('click', function () {
+      openAnnualDetail(location, resident, entry.service);
+    });
+
+    return btn;
+  }
+
+  function renderAddServiceLink(location, resident, service) {
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'logout-link';
+    link.style.margin = '0 0 10px';
+    link.style.textAlign = 'left';
+    link.textContent = '+ Add ' + service + ' cycle for ' + resident;
+    link.addEventListener('click', function () {
+      openAnnualDetail(location, resident, service);
+    });
+    return link;
+  }
+
+  async function loadAnnualDashboard() {
+    const listEl = document.getElementById('annual-dashboard-list');
+    setError('annual-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-annual-planning-oversight');
+      const locations = data.locations || [];
+      if (data.defaultService) DEFAULT_SERVICE = data.defaultService;
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active residents found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (residentEntry) {
+          (residentEntry.services || []).forEach(function (entry) {
+            listEl.appendChild(renderAnnualServiceButton(loc.location, residentEntry.resident, entry));
+          });
+          (residentEntry.availableToAdd || []).forEach(function (service) {
+            listEl.appendChild(renderAddServiceLink(loc.location, residentEntry.resident, service));
+          });
+        });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('annual-dashboard-error', e.message);
+    }
+  }
+
+  // --- Screen 4: Annual Planning detail ---
+  let currentAnnualLocation = null;
+  let currentAnnualResident = null;
+  let currentAnnualService = DEFAULT_SERVICE;
+
+  document.getElementById('annual-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadAnnualDashboard();
+  });
+
+  function renderSetupSection(container, record, windowState) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = 'Step 1 — Effective Date & Drive Folder';
+    wrap.appendChild(title);
+
+    const setupRow = document.createElement('div');
+    setupRow.className = 'ap-setup-row';
+
+    const dateLabel = document.createElement('label');
+    dateLabel.textContent = 'Effective Date';
+    dateLabel.style.margin = '0 0 4px';
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.id = 'annual-effective-date';
+    dateInput.value = (record && record.effectiveDate) || windowState.targetEffectiveDate || '';
+
+    setupRow.appendChild(dateLabel);
+    setupRow.appendChild(dateInput);
+
+    let folderInput = null;
+    if (!record || !record.folderUrl) {
+      const folderLabel = document.createElement('label');
+      folderLabel.textContent = 'Annual Planning Drive Folder Link (one time only)';
+      folderLabel.style.margin = '14px 0 4px';
+      folderInput = document.createElement('input');
+      folderInput.type = 'url';
+      folderInput.id = 'annual-folder-url';
+      folderInput.placeholder = 'https://drive.google.com/drive/folders/...';
+      setupRow.appendChild(folderLabel);
+      setupRow.appendChild(folderInput);
+    } else {
+      const folderP = document.createElement('p');
+      folderP.className = 'help-text';
+      folderP.style.margin = '10px 0 0';
+      const link = document.createElement('a');
+      link.href = record.folderUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Annual Planning folder (Drive)';
+      folderP.appendChild(link);
+      setupRow.appendChild(folderP);
+    }
+
+    wrap.appendChild(setupRow);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = record ? 'Update Effective Date' : 'Start This Cycle';
+    saveBtn.addEventListener('click', async function () {
+      setError('annual-detail-error', '');
+      const effectiveDate = dateInput.value;
+      if (!effectiveDate) {
+        setError('annual-detail-error', 'Enter an effective date.');
+        return;
+      }
+      const folderUrl = folderInput ? folderInput.value.trim() : undefined;
+      saveBtn.disabled = true;
+      try {
+        await apiFetch('/save-annual-planning-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, effectiveDate: effectiveDate, folderUrl: folderUrl })
+        });
+        loadAnnualDetail();
+      } catch (e) {
+        setError('annual-detail-error', e.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+    wrap.appendChild(saveBtn);
+
+    container.appendChild(wrap);
+  }
+
+  function renderStepSection(container, stepDef, record, effectiveDate) {
+    const stepState = record ? record.steps[stepDef.key] : { done: false, filename: '' };
+
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = stepDef.label + (stepState.done ? ' ' : '');
+    if (stepState.done) {
+      const check = document.createElement('span');
+      check.className = 'checkmark';
+      check.textContent = '✓';
+      title.appendChild(check);
+    }
+    wrap.appendChild(title);
+
+    const status = document.createElement('p');
+    status.className = 'ap-step-status' + (stepState.done ? ' done' : '');
+    status.textContent = stepState.done ? ('Uploaded: ' + (stepState.filename || 'document')) : 'Not yet uploaded';
+    wrap.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.className = 'ap-step-actions';
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*,application/pdf';
+    actions.appendChild(fileInput);
+
+    fileInput.addEventListener('change', async function () {
+      const file = fileInput.files[0];
+      if (!file) return;
+      setError('annual-detail-error', '');
+      try {
+        const config = await apiFetch('/get-annual-planning-upload-config?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
+        const filename =
+          sanitizeForFilename(currentAnnualLocation) + '_Resident_' +
+          sanitizeForFilename(currentAnnualResident) + '_' +
+          stepDef.key + '_' + effectiveDate;
+
+        const formData = new FormData();
+        formData.append('file', file, filename);
+        formData.append('parent_folder_id', config.parentFolderId);
+        formData.append('folder_name', config.folderName);
+        formData.append('filename', filename);
+
+        const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) {
+          throw new Error('The document failed to upload. Try again.');
+        }
+
+        await apiFetch('/save-annual-planning-step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, filename: filename, done: true })
+        });
+
+        loadAnnualDetail();
+      } catch (e) {
+        setError('annual-detail-error', e.message);
+      }
+    });
+
+    if (stepDef.formUrl) {
+      const formLink = document.createElement('a');
+      formLink.className = 'form-link';
+      formLink.href = stepDef.formUrl;
+      formLink.target = '_blank';
+      formLink.rel = 'noopener';
+      formLink.textContent = 'Complete Form';
+      actions.appendChild(formLink);
+    }
+
+    wrap.appendChild(actions);
+    container.appendChild(wrap);
+  }
+
+  async function loadAnnualDetail() {
+    document.getElementById('annual-detail-title').textContent = currentAnnualResident;
+    document.getElementById('annual-detail-meta').textContent = currentAnnualLocation + ' — ' + currentAnnualService;
+    document.getElementById('annual-detail-banner').textContent = 'Loading…';
+    setError('annual-detail-error', '');
+    const bodyEl = document.getElementById('annual-detail-body');
+    bodyEl.innerHTML = '';
+
+    try {
+      const data = await apiFetch('/get-annual-planning?location=' + encodeURIComponent(currentAnnualLocation) + '&resident=' + encodeURIComponent(currentAnnualResident) + '&service=' + encodeURIComponent(currentAnnualService));
+      const record = data.record;
+      const windowState = data.window;
+      const steps = data.steps || [];
+      const bannerEl = document.getElementById('annual-detail-banner');
+
+      // Finalized is checked first — a finalized cycle reports
+      // isWindowOpen: false (there's no open editable window for it),
+      // so this must be checked before the "not open yet" banner or a
+      // finalized resident would wrongly show a locked/opens-on banner.
+      if (windowState.isFinalizedForTarget) {
+        bannerEl.innerHTML = '';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Finalized';
+        bannerEl.appendChild(strong);
+        // record.finalizedBy is Notion-derived free text — built with
+        // textContent, not string-concatenated into innerHTML, same
+        // reasoning as renderResidentCard above.
+        bannerEl.appendChild(document.createTextNode(' ' + formatDate(record.finalizedDate) + ' by ' + (record.finalizedBy || 'unknown') + '.'));
+        if (record.folderUrl) {
+          const link = document.createElement('a');
+          link.href = record.folderUrl;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = 'View Annual Planning folder (Drive)';
+          link.style.display = 'block';
+          link.style.marginTop = '8px';
+          bannerEl.appendChild(link);
+        }
+        return;
+      }
+
+      if (!windowState.isWindowOpen) {
+        bannerEl.innerHTML = '';
+        bannerEl.appendChild(document.createTextNode('This cycle opens '));
+        const strong = document.createElement('strong');
+        strong.textContent = formatDate(windowState.windowOpenDate);
+        bannerEl.appendChild(strong);
+        bannerEl.appendChild(document.createTextNode('.'));
+        return;
+      }
+
+      bannerEl.innerHTML = windowState.hasCycle
+        ? 'Due <strong>' + formatDate(windowState.dueDate) + '</strong>. Complete every document below, then finalize.'
+        : 'No cycle started yet — set an effective date below to begin.';
+
+      renderSetupSection(bodyEl, record, windowState);
+
+      if (!record || !record.folderUrl) {
+        return; // Steps need the folder set up first.
+      }
+
+      steps.forEach(function (stepDef) { renderStepSection(bodyEl, stepDef, record, windowState.targetEffectiveDate); });
+
+      const allDone = steps.every(function (s) { return record.steps[s.key].done; });
+      const finalizeBtn = document.createElement('button');
+      finalizeBtn.textContent = 'Finalize';
+      finalizeBtn.disabled = !allDone;
+      finalizeBtn.addEventListener('click', async function () {
+        setError('annual-detail-error', '');
+        finalizeBtn.disabled = true;
+        try {
+          await apiFetch('/finalize-annual-planning', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService })
+          });
+          loadAnnualDetail();
+        } catch (e) {
+          setError('annual-detail-error', e.message);
+          finalizeBtn.disabled = false;
+        }
+      });
+      bodyEl.appendChild(finalizeBtn);
+    } catch (e) {
+      document.getElementById('annual-detail-banner').textContent = '';
+      setError('annual-detail-error', e.message);
+    }
+  }
+
+  // --- Boot ---
+  const stored = getStoredSession();
+  if (stored) {
+    renderDashboard(stored.session);
+    showScreen('dashboard');
+  } else {
+    showScreen('login');
+  }
+})();
+</script>
+</body>
+</html>
