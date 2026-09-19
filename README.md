@@ -248,10 +248,10 @@ Period`, `Reminder Overdue Sent Period`.
 ## Admin Dashboard
 
 A new, separate surface from both the provider app and the Super Admin
-provisioning tools (`/admin/*.html`) — `public/admin-dashboard/`. First
-(and so far only) capability: **MAR Review oversight**, a read-only
-status board across every location an admin is granted, not just the
-one they logged into a report with.
+provisioning tools (`/admin/*.html`) — `public/admin-dashboard/`, tabbed
+between processes. First capability: **MAR Review oversight**, a
+read-only status board across every location an admin is granted, not
+just the one they logged into a report with.
 
 - **Auth:** its own login/OTP pair (`admin-dashboard-login.js` /
   `admin-dashboard-verify-otp.js`), separate from `provider-login.js` so
@@ -283,11 +283,66 @@ one they logged into a report with.
   every other small formatting helper here is already duplicated
   per-page the same way.
 
-**Adding a second process to this dashboard** later means: a new
-read-only `get-*-oversight.js` function following the same
-loop-over-`session.grantedLocations` shape, and a new section on this
-same page (reusing its existing login/session) — the auth and session
-plumbing above don't need to change.
+**Adding a process to this dashboard** means: a new read-only
+`get-*-oversight.js` function following the same
+loop-over-`session.grantedLocations` shape, and a new tab on this same
+page (reusing its existing login/session) — the auth and session
+plumbing above doesn't need to change.
+
+### Annual Planning (second process — unlike MAR, this one writes)
+
+One resident-annual, not calendar-anchored: each resident has their own
+Effective Date, and their cycle runs exactly one year from it
+(`lib/annual-planning.js` — `computeAnnualPlanningWindow`, the same
+rolling-window shape as `lib/mar-review-state.js`, just resident-anchored
+instead of month-anchored). 10 required documents, each satisfied by
+either an upload or (for now, only Authorization for Release —
+see `STEPS` in that file) a preconfigured JotForm.
+
+- **Notion:** new "Resident Annual Planning" database (`ANNUAL_PLANNING_DB_ID`),
+  one active row per Location + Resident, reused across cycles the same
+  way MAR Review Periods is — never one row per year. Holds the Drive
+  folder link (permanent, set once), Effective Date, a Done checkbox +
+  filename per document, and the finalize flag/date/by.
+- **The lock:** a resident's card is locked (gray puzzle) until 6 weeks
+  before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (yellow, slowly
+  rotating puzzle, CSS `@keyframes puzzleSpin`). A brand new resident
+  with no cycle on file yet is always unlocked, so Step 1 is reachable
+  to bootstrap it. Server-enforced the same way MAR's window is — every
+  write endpoint checks `isWindowOpen` before touching anything.
+- **Finalize stays "finalized" for the full year**, not just until the
+  target rolls forward — unlike MAR's `isFinalizedForTarget` (which
+  becomes true only very briefly, since MAR's target always advances the
+  instant something's finalized), a finalized Annual Planning cycle
+  needs to read as locked/link-only for ~11 months. The record only
+  rolls into the next cycle (wiping all 10 steps, same lazy timing as
+  MAR's `wipeIfWindowJustOpened`) once the *next* cycle's own window
+  opens — see `rollToNextCycleIfWindowJustOpened`, called from every
+  endpoint via the single `loadCurrentRecord` entry point, not just the
+  read one, so a stale finalized record can never be acted on directly.
+- **The one manual step:** the app has no way to discover a resident's
+  Drive folder on its own (it only knows initials, not full names, and
+  Drive folders are named by full name). The first time a resident goes
+  through this in the app, an admin pastes the link to their existing
+  `.../Residents/<Full Name>/Annual Planning` folder; the Drive folder
+  ID is parsed out of that URL and remembered on the record permanently
+  (`Annual Planning Folder URL`) — never asked for again.
+- **Uploads** reuse the direct-browser-to-Zapier pattern from Log an
+  Event attachments (`get-annual-planning-upload-config.js` hands back
+  the webhook URL + the resident's parent folder ID + this cycle's
+  folder name, e.g. `20260201-20270131`), but the Zap itself is new
+  (`ZAPIER_ANNUAL_PLANNING_WEBHOOK_URL`): Catch Hook → Google Drive
+  "Find a Folder (or Create it)" → Upload File. Because "Find or Create"
+  is idempotent, every document for the same cycle lands in the same
+  folder without this app ever learning a folder ID back from Zapier —
+  which sidesteps needing a synchronous response from an
+  otherwise-fire-and-forget webhook.
+- **New env vars:** `ANNUAL_PLANNING_DB_ID`, `ZAPIER_ANNUAL_PLANNING_WEBHOOK_URL`,
+  and `ANNUAL_PLANNING_AUTH_RELEASE_FORM_URL` (the JotForm for
+  Authorization for Release — the only step with a form today; add a
+  `formUrl` to any other entry in `STEPS` in `lib/annual-planning.js`
+  to light up a form option for it too, upload always still works
+  regardless).
 
 ## Weekly admin email digest
 

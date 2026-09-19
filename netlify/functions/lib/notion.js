@@ -65,6 +65,8 @@ function getPlainText(prop) {
       return prop.select ? prop.select.name : '';
     case 'date':
       return prop.date ? prop.date.start : '';
+    case 'url':
+      return prop.url || '';
     default:
       return '';
   }
