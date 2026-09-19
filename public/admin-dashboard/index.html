@@ -843,7 +843,13 @@
           body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, filename: filename, done: true })
         });
 
-        loadAnnualDetail();
+        // loadAnnualDetail rebuilds the whole step list from scratch,
+        // which drops focus (the file input that was just used gets torn
+        // down and recreated) and otherwise leaves the browser to scroll
+        // back to the top of the page. Restore where the admin was.
+        const scrollY = window.scrollY;
+        await loadAnnualDetail();
+        window.scrollTo(0, scrollY);
       } catch (e) {
         setError('annual-detail-error', e.message);
       }
@@ -939,7 +945,9 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService })
           });
-          loadAnnualDetail();
+          alert('Annual Planning finalized for ' + currentAnnualResident + '.');
+          showScreen('dashboard');
+          loadAnnualDashboard();
         } catch (e) {
           setError('annual-detail-error', e.message);
           finalizeBtn.disabled = false;
