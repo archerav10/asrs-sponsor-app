@@ -299,6 +299,16 @@ instead of month-anchored). 10 required documents, each satisfied by
 either an upload or (for now, only Authorization for Release —
 see `STEPS` in that file) a preconfigured JotForm.
 
+**Due date vs. period end — two different dates, both derived from
+Effective Date:** annual planning for an upcoming period has to be
+finished *before* that period starts, so `computeDueDate` returns the day
+*before* the effective date (e.g. effective 2026-02-01 is due 2026-01-31)
+— that's the deadline shown to admins and what the lock window counts
+down to. The Drive folder name instead needs the full year the packet
+covers (e.g. `20260201-20270131`), so `computeFolderName` uses a
+separate `computePeriodEndDate` (effective date + 1 year − 1 day) —
+never `computeDueDate` — to build it.
+
 - **Notion:** new "Resident Annual Planning" database (`ANNUAL_PLANNING_DB_ID`),
   one active row per Location + Resident + Service, reused across cycles
   the same way MAR Review Periods is — never one row per year. Holds the

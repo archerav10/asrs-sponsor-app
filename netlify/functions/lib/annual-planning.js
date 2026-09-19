@@ -39,15 +39,27 @@ const STEPS = [
 function pad2(n) { return String(n).padStart(2, '0'); }
 function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 
-// Due date is one year after the effective date, minus a day (the same
-// "remains in effect for one year from the date above" language as the
-// Authorization for Release template itself) — e.g. 2026-02-01 through
-// 2027-01-31.
+// The period a cycle's paperwork covers runs one year from the effective
+// date, minus a day (the same "remains in effect for one year from the
+// date above" language as the Authorization for Release template itself)
+// — e.g. effective 2026-02-01 covers through 2027-01-31. Used only for
+// the Drive folder name below; this is NOT the admin-facing due date —
+// see computeDueDate for why those two dates are deliberately different.
+function computePeriodEndDate(effectiveDateStr) {
+  const d = new Date(effectiveDateStr + 'T00:00:00');
+  const end = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
+  end.setDate(end.getDate() - 1);
+  return end;
+}
+
+// Annual planning for an upcoming period has to be finished BEFORE that
+// period starts (the whole point is the resident's plan is ready when
+// the new year begins), so the deadline is the day before the effective
+// date — e.g. a packet effective 2026-02-01 is due 2026-01-31.
 function computeDueDate(effectiveDateStr) {
   const d = new Date(effectiveDateStr + 'T00:00:00');
-  const due = new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
-  due.setDate(due.getDate() - 1);
-  return due;
+  d.setDate(d.getDate() - 1);
+  return d;
 }
 
 function computeWindowOpenDate(dueDate) {
@@ -58,11 +70,12 @@ function computeWindowOpenDate(dueDate) {
 
 // The Drive folder name for a cycle, e.g. "20260201-20270131" — matches
 // the convention already in use in Drive (Annual Planning/<this>/...).
+// Spans the effective date through computePeriodEndDate, not the due date.
 function computeFolderName(effectiveDateStr) {
   const start = new Date(effectiveDateStr + 'T00:00:00');
-  const due = computeDueDate(effectiveDateStr);
+  const end = computePeriodEndDate(effectiveDateStr);
   const fmt = function (dt) { return dt.getFullYear() + pad2(dt.getMonth() + 1) + pad2(dt.getDate()); };
-  return fmt(start) + '-' + fmt(due);
+  return fmt(start) + '-' + fmt(end);
 }
 
 function oneYearLater(dateStr) {
@@ -130,6 +143,8 @@ function recordFromPage(page) {
 // Same shape as computeMarWindow in lib/mar-review-state.js: given
 // whatever's on file, works out the cycle currently being targeted, its
 // due date, when its window opens, and whether it's already finalized.
+// "Due date" here means computeDueDate's deadline-to-complete (the day
+// before the effective date), not the folder's own covered period.
 // With no record yet (a resident who's never been through this process
 // in the app), there's no due date to gate on, so the window is always
 // open — Step 1 has to be reachable to bootstrap the very first cycle.
