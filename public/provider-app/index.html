@@ -945,6 +945,31 @@
     return new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
 
+  // One week before the earliest expiring item, for First Aid Supplies
+  // and Emergency Supplies specifically — those checklists track actual
+  // expiration dates per item, so "next due" should flag an expiring
+  // supply in time to replace it, not just the periodic re-review date.
+  // Only items with Tracks Expiration checked and a real Current Exp
+  // Date count; returns null when nothing qualifies (falls back to the
+  // review cadence below).
+  function earliestExpirationDueDate(items) {
+    const expDates = (items || [])
+      .filter(function (i) { return i.tracksExpiration && i.currentExpDate; })
+      .map(function (i) { return new Date(i.currentExpDate + 'T00:00:00'); });
+    if (!expDates.length) return null;
+    const earliest = new Date(Math.min.apply(null, expDates));
+    earliest.setDate(earliest.getDate() - 7);
+    return earliest;
+  }
+
+  // Whichever is sooner: the periodic review cadence, or a week before
+  // the next item expires. Never later than the plain cadence date, so
+  // this only ever makes "next due" more urgent, never less.
+  function dueDateWithExpiration(cadenceDue, items) {
+    const expirationDue = earliestExpirationDueDate(items);
+    return expirationDue && expirationDue < cadenceDue ? expirationDue : cadenceDue;
+  }
+
   function renderHome(session) {
     document.getElementById('home-name').textContent = session.name || 'Provider';
     const parts = [session.location];
@@ -986,9 +1011,10 @@
     dueEl.textContent = '';
     try {
       const data = await apiFetch('/get-emergency-supplies');
-      const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const items = data.items || [];
+      const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      const due = computeDueDate(recent);
+      const due = dueDateWithExpiration(computeDueDate(recent), items);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
       dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
       dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
@@ -1168,9 +1194,10 @@
     dueEl.textContent = '';
     try {
       const data = await apiFetch('/get-first-aid-supplies');
-      const dates = (data.items || []).map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
+      const items = data.items || [];
+      const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      const due = computeDueDate(recent);
+      const due = dueDateWithExpiration(computeDueDate(recent), items);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
       dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
       dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
