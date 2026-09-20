@@ -1,4 +1,4 @@
-const { queryDatabase, updatePage, createPage, getPlainText } = require('./notion');
+const { queryDatabase, updatePage, createPage, getPlainText, driveFolderIdFromUrl } = require('./notion');
 
 const ANNUAL_PLANNING_DB_ID = process.env.ANNUAL_PLANNING_DB_ID;
 
@@ -38,11 +38,6 @@ const STEPS = [
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-
-function driveFolderIdFromUrl(url) {
-  const match = (url || '').match(/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : '';
-}
 
 function sanitizeForFilename(s) { return (s || '').replace(/[^a-zA-Z0-9]+/g, ''); }
 

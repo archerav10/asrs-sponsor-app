@@ -252,6 +252,7 @@
     <div class="tab-row">
       <button class="tab-button active" id="tab-mar" type="button">MAR Review</button>
       <button class="tab-button" id="tab-annual" type="button">Annual Planning</button>
+      <button class="tab-button" id="tab-staff" type="button">Staff Training</button>
     </div>
 
     <div id="mar-tab-content">
@@ -264,6 +265,12 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Locked until 6 weeks before due. Once unlocked, tap a resident to upload documents and finalize.</p>
       <p class="error-text" id="annual-dashboard-error"></p>
       <div id="annual-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="staff-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Always open — each item renews on its own schedule. Puzzle turns yellow 30 days before the next item expires.</p>
+      <p class="error-text" id="staff-dashboard-error"></p>
+      <div id="staff-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -280,6 +287,18 @@
     <p class="error-text" id="annual-detail-error"></p>
     <div id="annual-detail-body"></div>
   </section>
+
+  <!-- Screen 5: Staff Training — per-staff checklist -->
+  <section id="screen-staff-detail" class="screen">
+    <button class="back-button" id="staff-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="staff-detail-title"></p>
+      <p class="meta" id="staff-detail-meta"></p>
+    </div>
+    <div class="ap-banner" id="staff-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="staff-detail-error"></p>
+    <div id="staff-detail-body"></div>
+  </section>
 </main>
 
 <script>
@@ -291,7 +310,8 @@
     login: document.getElementById('screen-login'),
     otp: document.getElementById('screen-otp'),
     dashboard: document.getElementById('screen-dashboard'),
-    annualDetail: document.getElementById('screen-annual-detail')
+    annualDetail: document.getElementById('screen-annual-detail'),
+    staffDetail: document.getElementById('screen-staff-detail')
   };
 
   function showScreen(name) {
@@ -554,25 +574,26 @@
   }
 
   // --- Tabs ---
-  document.getElementById('tab-mar').addEventListener('click', function () {
-    document.getElementById('tab-mar').classList.add('active');
-    document.getElementById('tab-annual').classList.remove('active');
-    document.getElementById('mar-tab-content').style.display = '';
-    document.getElementById('annual-tab-content').style.display = 'none';
-  });
-  document.getElementById('tab-annual').addEventListener('click', function () {
-    document.getElementById('tab-annual').classList.add('active');
-    document.getElementById('tab-mar').classList.remove('active');
-    document.getElementById('annual-tab-content').style.display = '';
-    document.getElementById('mar-tab-content').style.display = 'none';
-    // Always re-fetch, not just the first time this tab is clicked. A
-    // "load once per page" flag here previously meant that once one
-    // fetch failed (e.g. a token that had expired since the page was
-    // opened), logging out and back in — which doesn't reload the page —
-    // could never trigger a retry: the tab would keep showing that first
-    // failure's stale error message forever, looking like re-login
-    // didn't help even though a fresh session would have worked fine.
-    loadAnnualDashboard();
+  // Always re-fetch on every click, not just the first time a tab is
+  // opened. A "load once per page" flag here previously meant that once
+  // one fetch failed (e.g. a token that had expired since the page was
+  // opened), logging out and back in — which doesn't reload the page —
+  // could never trigger a retry: the tab would keep showing that first
+  // failure's stale error message forever, looking like re-login didn't
+  // help even though a fresh session would have worked fine.
+  const tabs = {
+    mar: { button: document.getElementById('tab-mar'), content: document.getElementById('mar-tab-content') },
+    annual: { button: document.getElementById('tab-annual'), content: document.getElementById('annual-tab-content'), load: loadAnnualDashboard },
+    staff: { button: document.getElementById('tab-staff'), content: document.getElementById('staff-tab-content'), load: loadStaffDashboard }
+  };
+  Object.keys(tabs).forEach(function (key) {
+    tabs[key].button.addEventListener('click', function () {
+      Object.keys(tabs).forEach(function (otherKey) {
+        tabs[otherKey].button.classList.toggle('active', otherKey === key);
+        tabs[otherKey].content.style.display = otherKey === key ? '' : 'none';
+      });
+      if (tabs[key].load) tabs[key].load();
+    });
   });
 
   function sanitizeForFilename(s) {
@@ -987,6 +1008,349 @@
     } catch (e) {
       document.getElementById('annual-detail-banner').textContent = '';
       setError('annual-detail-error', e.message);
+    }
+  }
+
+  // --- Screen 3c: Staff Training oversight ---
+  // Kept in sync with lib/staff-training.js's STEPS.length — there's no
+  // server round trip cheap enough to source this from, and it only
+  // ever appears in display text (never in a computation the server
+  // also does), so a mismatch here would just show a wrong count, not
+  // break anything.
+  const STAFF_TRAINING_STEP_COUNT = 19;
+
+  function staffPuzzleState(row) {
+    if (row.missingCount > 0) {
+      const doneCount = STAFF_TRAINING_STEP_COUNT - row.missingCount;
+      return { spinning: false, label: 'Incomplete (' + doneCount + '/' + STAFF_TRAINING_STEP_COUNT + ')' };
+    }
+    if (row.isOverdue) {
+      return { spinning: false, label: 'Overdue ' + formatDate(row.dueDate) };
+    }
+    return { spinning: row.isDueSoon, label: 'Due ' + formatDate(row.dueDate) };
+  }
+
+  function renderStaffButton(location, member) {
+    const state = staffPuzzleState(member);
+
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    const puzzle = document.createElement('span');
+    puzzle.className = 'puzzle-icon' + (state.spinning ? ' due-soon' : '');
+    puzzle.textContent = '\u{1F9E9}';
+    const name = document.createElement('span');
+    name.className = 'ap-resident-initials';
+    name.textContent = member.name;
+    left.appendChild(puzzle);
+    left.appendChild(name);
+
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    status.textContent = state.label;
+
+    btn.appendChild(left);
+    btn.appendChild(status);
+
+    btn.addEventListener('click', function () {
+      openStaffDetail(location, member.id);
+    });
+
+    return btn;
+  }
+
+  async function loadStaffDashboard() {
+    const listEl = document.getElementById('staff-dashboard-list');
+    setError('staff-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-staff-training-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.staff.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active staff found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.staff.forEach(function (member) {
+          listEl.appendChild(renderStaffButton(loc.location, member));
+        });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('staff-dashboard-error', e.message);
+    }
+  }
+
+  // --- Screen 5: Staff Training detail ---
+  let currentStaffId = null;
+  let currentStaffLocation = null;
+  let currentStaffName = null;
+
+  function openStaffDetail(location, staffId) {
+    currentStaffLocation = location;
+    currentStaffId = staffId;
+    showScreen('staffDetail');
+    loadStaffDetail();
+  }
+
+  document.getElementById('staff-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadStaffDashboard();
+  });
+
+  function renderStaffFolderSection(container, staff) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = 'Drive Folder';
+    wrap.appendChild(title);
+
+    if (staff.folderUrl) {
+      const p = document.createElement('p');
+      p.className = 'help-text';
+      p.style.margin = '0';
+      const link = document.createElement('a');
+      link.href = staff.folderUrl;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.textContent = 'Staff Training folder (Drive)';
+      p.appendChild(link);
+      wrap.appendChild(p);
+      container.appendChild(wrap);
+      return;
+    }
+
+    const folderLabel = document.createElement('label');
+    folderLabel.textContent = 'Staff Training Drive Folder Link (one time only)';
+    folderLabel.style.margin = '0 0 4px';
+    const folderInput = document.createElement('input');
+    folderInput.type = 'url';
+    folderInput.placeholder = 'https://drive.google.com/drive/folders/...';
+    wrap.appendChild(folderLabel);
+    wrap.appendChild(folderInput);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Folder Link';
+    saveBtn.addEventListener('click', async function () {
+      setError('staff-detail-error', '');
+      const folderUrl = folderInput.value.trim();
+      if (!folderUrl) {
+        setError('staff-detail-error', 'Enter a Drive folder link.');
+        return;
+      }
+      saveBtn.disabled = true;
+      try {
+        await apiFetch('/save-staff-training-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffId: currentStaffId, folderUrl: folderUrl })
+        });
+        loadStaffDetail();
+      } catch (e) {
+        setError('staff-detail-error', e.message);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+    wrap.appendChild(saveBtn);
+
+    container.appendChild(wrap);
+  }
+
+  function renderStaffStepSection(container, stepDef) {
+    // Same filename convention lib/staff-training.js's buildFilename
+    // uses server-side: "{location}_Staff_{staffId}_{stepKey}_{expDate}".
+    // The staff member's page ID stands in for their name — unlike
+    // resident initials or Annual Planning's fixed Service enum, a full
+    // name loses information once spaces are stripped, so it can't be
+    // parsed back out of a filename unambiguously; the ID has no such
+    // problem. This is the one channel a form's native "save to Drive"
+    // integration has for telling the reusable form-completion Zap
+    // which staff member/step/expiration a document is for.
+    function buildFilename(expDate) {
+      return sanitizeForFilename(currentStaffLocation) + '_Staff_' +
+        sanitizeForFilename(currentStaffId) + '_' + stepDef.key + '_' + expDate;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = stepDef.label + (stepDef.done ? ' ' : '');
+    if (stepDef.done) {
+      const check = document.createElement('span');
+      check.className = 'checkmark';
+      check.textContent = '✓';
+      title.appendChild(check);
+    }
+    wrap.appendChild(title);
+
+    const status = document.createElement('p');
+    status.className = 'ap-step-status' + (stepDef.done ? ' done' : '');
+    status.textContent = stepDef.done
+      ? ('Expires ' + formatDate(stepDef.expDate) + ' — ' + (stepDef.filename || 'document'))
+      : 'Not yet completed';
+    wrap.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.className = 'ap-step-actions';
+
+    const dateLabel = document.createElement('label');
+    dateLabel.textContent = 'Expiration Date';
+    dateLabel.style.display = 'block';
+    dateLabel.style.fontSize = '12px';
+    dateLabel.style.margin = '0 0 4px';
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.value = stepDef.expDate || '';
+    actions.appendChild(dateLabel);
+    actions.appendChild(dateInput);
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*,application/pdf';
+    fileInput.style.display = 'block';
+    fileInput.style.marginTop = '8px';
+    actions.appendChild(fileInput);
+
+    fileInput.addEventListener('change', async function () {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const expDate = dateInput.value;
+      if (!expDate) {
+        setError('staff-detail-error', 'Enter an expiration date first.');
+        fileInput.value = '';
+        return;
+      }
+      setError('staff-detail-error', '');
+      fileInput.disabled = true;
+      try {
+        const config = await apiFetch('/get-staff-training-upload-config?staffId=' + encodeURIComponent(currentStaffId));
+        const filename = buildFilename(expDate);
+
+        const formData = new FormData();
+        formData.append('file', file, filename);
+        formData.append('parent_folder_id', config.parentFolderId);
+        formData.append('filename', filename);
+
+        const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) {
+          throw new Error('The document failed to upload. Try again.');
+        }
+
+        await apiFetch('/save-staff-training-step', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffId: currentStaffId, stepKey: stepDef.key, filename: filename, expDate: expDate })
+        });
+
+        const scrollY = window.scrollY;
+        await loadStaffDetail();
+        window.scrollTo(0, scrollY);
+      } catch (e) {
+        setError('staff-detail-error', e.message);
+        fileInput.disabled = false;
+        fileInput.value = '';
+      }
+    });
+
+    if (stepDef.formUrl) {
+      const formLink = document.createElement('a');
+      formLink.className = 'form-link';
+      formLink.href = stepDef.formUrl; // fallback if the click handler below can't run
+      formLink.target = '_blank';
+      formLink.rel = 'noopener';
+      formLink.textContent = 'Complete Form';
+      formLink.style.marginLeft = '8px';
+      formLink.addEventListener('click', function (e) {
+        e.preventDefault();
+        const expDate = dateInput.value;
+        if (!expDate) {
+          setError('staff-detail-error', 'Enter an expiration date first.');
+          return;
+        }
+        const url = new URL(stepDef.formUrl);
+        url.searchParams.set('app_filename', buildFilename(expDate));
+        window.open(url.toString(), '_blank', 'noopener');
+      });
+      actions.appendChild(formLink);
+    }
+
+    wrap.appendChild(actions);
+    container.appendChild(wrap);
+  }
+
+  async function loadStaffDetail() {
+    document.getElementById('staff-detail-title').textContent = currentStaffName || 'Loading…';
+    document.getElementById('staff-detail-meta').textContent = currentStaffLocation || '';
+    document.getElementById('staff-detail-banner').textContent = 'Loading…';
+    setError('staff-detail-error', '');
+    const bodyEl = document.getElementById('staff-detail-body');
+    bodyEl.innerHTML = '';
+
+    try {
+      const data = await apiFetch('/get-staff-training?staffId=' + encodeURIComponent(currentStaffId));
+      const staff = data.staff;
+      const windowState = data.window;
+      const steps = data.steps || [];
+      currentStaffName = staff.name;
+      currentStaffLocation = staff.location;
+      document.getElementById('staff-detail-title').textContent = staff.name;
+      document.getElementById('staff-detail-meta').textContent = staff.location;
+
+      const bannerEl = document.getElementById('staff-detail-banner');
+      if (windowState.missingCount > 0) {
+        const doneCount = STAFF_TRAINING_STEP_COUNT - windowState.missingCount;
+        bannerEl.textContent = doneCount + ' of ' + STAFF_TRAINING_STEP_COUNT + ' items complete — finish the rest below. Each item is due whenever it expires.';
+      } else if (windowState.isOverdue) {
+        bannerEl.innerHTML = '';
+        bannerEl.appendChild(document.createTextNode('Overdue since '));
+        const strong = document.createElement('strong');
+        strong.textContent = formatDate(windowState.dueDate);
+        bannerEl.appendChild(strong);
+        bannerEl.appendChild(document.createTextNode(' — update the expiring item below.'));
+      } else {
+        bannerEl.innerHTML = '';
+        bannerEl.appendChild(document.createTextNode('Next due '));
+        const strong = document.createElement('strong');
+        strong.textContent = formatDate(windowState.dueDate);
+        bannerEl.appendChild(strong);
+        bannerEl.appendChild(document.createTextNode(' — all ' + STAFF_TRAINING_STEP_COUNT + ' items are current.'));
+      }
+
+      renderStaffFolderSection(bodyEl, staff);
+
+      if (!staff.folderUrl) {
+        return; // Steps need the folder set up first.
+      }
+
+      steps.forEach(function (stepDef) { renderStaffStepSection(bodyEl, stepDef); });
+    } catch (e) {
+      document.getElementById('staff-detail-banner').textContent = '';
+      setError('staff-detail-error', e.message);
     }
   }
 

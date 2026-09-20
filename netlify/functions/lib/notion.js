@@ -37,6 +37,19 @@ function updatePage(pageId, properties) {
   });
 }
 
+// Accepts a page ID with or without dashes (Notion's API normalizes
+// either form) — used when a page is addressed directly rather than
+// found via queryDatabase, e.g. staff-training.js looking up a staff
+// member by the ID embedded in a filename.
+function getPage(pageId) {
+  return notionFetch('/pages/' + pageId);
+}
+
+function driveFolderIdFromUrl(url) {
+  const match = (url || '').match(/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
 // Same multi-source-database note as queryDatabase above: the parent here
 // must be a Data Source ID, not the older top-level Database ID.
 function createPage(dataSourceId, properties) {
@@ -72,4 +85,4 @@ function getPlainText(prop) {
   }
 }
 
-module.exports = { notionFetch, queryDatabase, updatePage, createPage, getPlainText };
+module.exports = { notionFetch, queryDatabase, updatePage, createPage, getPage, getPlainText, driveFolderIdFromUrl };

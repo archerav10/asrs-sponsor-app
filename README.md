@@ -399,6 +399,81 @@ never `computeDueDate` — to build it.
   just `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, same pattern as the
   `test-check-*.js` cron-adjacent endpoints.
 
+### Staff Training & Development (third process — per-item dates, no cycle)
+
+One button per active staff member/sponsor in each location an admin is
+granted (`get-staff-training-oversight.js`, `staffListForLocation` in
+`lib/staff-training.js`). 19 required items (First Aid/CPR, Behavior
+Management Training, Medication Administration Refresher, Human Rights,
+HCBS, Serious Incident Reporting, Universal Precautions/Infectious
+Controls, Emergency Preparation/Crisis Management, HIPAA Training, DSP
+Competencies Assessment Report, Annual Performance Evaluation & Review,
+ASRS Role and Responsibilities, TB Test/Assessment, Behavior Supports for
+DSPs, Autism Supports for DSPs, Person Centered Thinking Training, Shared
+Planning & Goals, How We Treat Our Residents, Psychological First Aid —
+see `STEPS` in `lib/staff-training.js`), each satisfied by either an
+upload or (once a `formUrl` is set for it) a preconfigured JotForm, same
+two paths as Annual Planning.
+
+**No shared cycle, no finalize — unlike Annual Planning and MAR.** Every
+one of the 19 items has its own independent expiration date, set
+whenever *that specific item* is completed, and just renews on its own
+schedule forever. There's nothing to lock or roll forward, so unlike
+Annual Planning's `isWindowOpen` check on every write, any item can be
+updated at any time.
+
+- **Notion:** new "Staff Training Items" database
+  (`STAFF_TRAINING_DB_ID`), one active row per Location + Staff Name +
+  Step Key (row-per-item, not row-per-cycle like Annual Planning's
+  row-per-service) — closer in shape to First Aid Supplies/Emergency
+  Supplies' per-item expiration than to Annual Planning. Staff/location
+  data itself comes from the existing "ASRS People" database
+  (`ASRS_PEOPLE_DB_ID`, `Type` = Staff), which also gained a permanent
+  `Training Folder URL` column, set once per staff member the same way
+  Annual Planning's folder link is.
+- **Next due date = the literal next expiration, no offset** —
+  `computeStaffDueDate` takes the earliest `Exp Date` across all 19
+  items once every item has been completed at least once; returns `null`
+  (reads as "incomplete") until then. This is deliberately different
+  from MAR/Annual Planning/Supplies, which all subtract a lead time from
+  their due date — here the spec is "next due date will be when the next
+  document expires," full stop.
+- **The puzzle only controls the spin, not a lock:** it turns yellow and
+  starts spinning 30 days before that next expiration
+  (`WINDOW_DAYS_BEFORE_DUE` in `lib/staff-training.js` — the same
+  `puzzleSpin` CSS Annual Planning uses, just a 30-day threshold instead
+  of 6 weeks), and shows the due date on the button. There's no gray
+  "locked" state the way Annual Planning has, since nothing is ever
+  locked here.
+- **The one manual step:** same pattern as Annual Planning's Drive
+  folder — the first time a staff member goes through this, an admin
+  pastes the link to their existing ongoing Training folder in Drive;
+  the folder ID is parsed out and remembered permanently
+  (`Training Folder URL`). One ongoing folder per staff member, not a
+  dated subfolder per cycle, since there's no cycle to date a folder by.
+- **Filename convention uses the staff member's Notion page ID, not
+  their name:** `"{location}_Staff_{staffId}_{stepKey}_{expDate}"`
+  (`buildFilename`/`parseFilename` in `lib/staff-training.js`). Unlike
+  resident initials or Annual Planning's small, fixed `SERVICES` enum, a
+  full name like "Ovetis Cooper" can't be losslessly recovered once
+  `sanitizeForFilename` strips its spaces — there's no closed set to
+  reverse-lookup against. The page ID has no such problem, and
+  `staffInfoById` (backed by a new `getPage` helper in `lib/notion.js`)
+  resolves it back to the real name/location/folder server-side.
+- **Uploads and forms** reuse the exact same two-webhook shape as Annual
+  Planning (`get-staff-training-upload-config.js`,
+  `staff-training-resolve-upload.js`, `staff-training-form-submitted.js`,
+  same `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET` — deliberately not a new
+  env var, since these are just more Zapier-facing endpoints on the same
+  admin dashboard), with one simplification: no "Find/Create dated
+  subfolder" Zap step, since every document goes straight into the one
+  ongoing folder — Move File can target the resolved `parentFolderId`
+  directly. **New env vars:** `STAFF_TRAINING_DB_ID`, and
+  `ZAPIER_STAFF_TRAINING_WEBHOOK_URL` for the direct-upload path (a new
+  Zap, simpler than Annual Planning's for the reason above). No step has
+  a `formUrl` set yet — add one to any entry in `STEPS` to light up its
+  "Complete Form" option, same as Annual Planning.
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not
