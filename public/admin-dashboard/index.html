@@ -554,7 +554,6 @@
   }
 
   // --- Tabs ---
-  let annualLoaded = false;
   document.getElementById('tab-mar').addEventListener('click', function () {
     document.getElementById('tab-mar').classList.add('active');
     document.getElementById('tab-annual').classList.remove('active');
@@ -566,10 +565,14 @@
     document.getElementById('tab-mar').classList.remove('active');
     document.getElementById('annual-tab-content').style.display = '';
     document.getElementById('mar-tab-content').style.display = 'none';
-    if (!annualLoaded) {
-      annualLoaded = true;
-      loadAnnualDashboard();
-    }
+    // Always re-fetch, not just the first time this tab is clicked. A
+    // "load once per page" flag here previously meant that once one
+    // fetch failed (e.g. a token that had expired since the page was
+    // opened), logging out and back in — which doesn't reload the page —
+    // could never trigger a retry: the tab would keep showing that first
+    // failure's stale error message forever, looking like re-login
+    // didn't help even though a fresh session would have worked fine.
+    loadAnnualDashboard();
   });
 
   function sanitizeForFilename(s) {
