@@ -369,26 +369,35 @@ never `computeDueDate` — to build it.
   `formUrl` to any other entry in `STEPS` in `lib/annual-planning.js`
   to light up a form option for it too, upload always still works
   regardless), and `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET` (below).
-- **Completing a form marks the step done the same way an upload does.**
-  A bare `formUrl` link has no idea which resident's record it's for, so
-  clicking "Complete Form" first fetches the same folder info the upload
-  path uses, then opens the form with 7 hidden fields prefilled via URL
-  query params (`app_location`, `app_resident`, `app_service`,
-  `app_step_key`, `app_parent_folder_id`, `app_folder_name`,
-  `app_filename` — same filename convention as an upload, computed once
-  and shared between both paths). A second Zap
-  (`ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, its URL is not stored — it's
-  Jotform's own trigger) picks up the submission: JotForm New Submission
-  → Google Drive Find/Create Folder + Upload File (same pattern as the
-  upload Zap, but sourcing the file from the submission's generated PDF
-  and reading the parent folder/name from the hidden fields) → POST to
-  `annual-planning-form-submitted.js` with the shared secret plus
-  location/resident/service/stepKey/filename. That endpoint is
-  Zapier-facing, not browser-facing — no session, just the secret, same
-  pattern as the `test-check-*.js` cron-adjacent endpoints — and calls
-  the same `markStepDone` helper `save-annual-planning-step.js` uses, so
-  a step ends up in the identical state regardless of which path produced
-  the document.
+- **Completing a form marks the step done the same way an upload does —
+  and this is deliberately form-template-agnostic**, so adding a new
+  JotForm template later needs zero new Zaps. Clicking "Complete Form"
+  opens the form with a prefilled hidden field, `app_filename`, built
+  with the exact same filename convention as a direct upload
+  (`"{location}_Resident_{resident}_{service}_{stepKey}_{effectiveDate}"`,
+  built once in `renderStepSection` and reused by both paths — see
+  `sanitizeForFilename`). Every template just needs its own native
+  JotForm → Google Drive integration (Settings → Integrations, not
+  Zapier) turned on, saving the completed PDF into one shared staging
+  folder using `app_filename` as the saved file's name.
+
+  One reusable Zap then does the rest, for every template, forever:
+  Google Drive "New File in Folder" (watching that one staging folder)
+  → POST the filename to `annual-planning-resolve-upload.js`, which
+  parses it back into location/resident/service/stepKey
+  (`parseFilename` in `lib/annual-planning.js` — lossless for location
+  and resident initials since neither has spaces/hyphens today;
+  service needs a small reverse lookup since `sanitizeForFilename`
+  strips those) and returns the resident's actual Drive parent folder
+  ID + this cycle's folder name → Google Drive Find/Create Folder
+  → Google Drive Move File (out of the staging folder, into the
+  resolved one) → POST to `annual-planning-form-submitted.js` with the
+  shared secret plus what the resolve call returned, which calls the
+  same `markStepDone` helper `save-annual-planning-step.js` uses — same
+  end state regardless of which path produced the document. Both
+  webhook endpoints are Zapier-facing, not browser-facing — no session,
+  just `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, same pattern as the
+  `test-check-*.js` cron-adjacent endpoints.
 
 ## Weekly admin email digest
 

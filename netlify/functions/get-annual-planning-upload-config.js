@@ -1,10 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
-
-function driveFolderIdFromUrl(url) {
-  const match = (url || '').match(/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : '';
-}
+const { SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName, driveFolderIdFromUrl } = require('./lib/annual-planning');
 
 // Everything the browser needs to upload a document straight to Drive via
 // Zapier, same "don't route file bytes through a Netlify function"

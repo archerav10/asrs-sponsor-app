@@ -39,6 +39,40 @@ const STEPS = [
 function pad2(n) { return String(n).padStart(2, '0'); }
 function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 
+function driveFolderIdFromUrl(url) {
+  const match = (url || '').match(/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : '';
+}
+
+function sanitizeForFilename(s) { return (s || '').replace(/[^a-zA-Z0-9]+/g, ''); }
+
+// Service names have spaces/hyphens that sanitizeForFilename strips, so
+// recovering the exact SERVICES string out of a filename needs a small
+// lookup built from the same sanitizer the client uses. Location and
+// resident initials round-trip losslessly without one — every location
+// and resident-initials pair in use today is already plain alphanumeric.
+const SANITIZED_SERVICE_LOOKUP = SERVICES.reduce(function (map, s) {
+  map[sanitizeForFilename(s)] = s;
+  return map;
+}, {});
+
+// Recovers routing info purely from a filename this app itself built
+// (see admin-dashboard's renderStepSection, format
+// "{location}_Resident_{resident}_{service}_{stepKey}_{effectiveDate}")
+// — the only channel available when a document reaches Drive through a
+// form's own native "save submission to Drive" integration rather than
+// a direct browser upload, since that path never talks to this app.
+function parseFilename(filename) {
+  const parts = (filename || '').split('_');
+  if (parts.length !== 6 || parts[1] !== 'Resident') return null;
+
+  const service = SANITIZED_SERVICE_LOOKUP[parts[3]];
+  const stepKey = STEPS.some(function (s) { return s.key === parts[4]; }) ? parts[4] : null;
+  if (!service || !stepKey) return null;
+
+  return { location: parts[0], resident: parts[2], service: service, stepKey: stepKey, effectiveDate: parts[5] };
+}
+
 // The period a cycle's paperwork covers runs one year from the effective
 // date, minus a day (the same "remains in effect for one year from the
 // date above" language as the Authorization for Release template itself)
@@ -284,6 +318,8 @@ module.exports = {
   computeDueDate,
   computeWindowOpenDate,
   computeFolderName,
+  driveFolderIdFromUrl,
+  parseFilename,
   findRecord,
   findRecordsForResident,
   recordFromPage,
