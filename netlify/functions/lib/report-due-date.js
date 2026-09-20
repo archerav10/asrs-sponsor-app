@@ -21,4 +21,33 @@ function statusForDueDate(lastReviewedISO, dueDate, now) {
   return 'green';
 }
 
-module.exports = { computeDueDate, statusForDueDate };
+// First Aid Supplies and Emergency Supplies don't run on the monthly
+// cadence above — they only need attention when something is actually
+// set to expire. Due date is one week before the earliest expiration
+// among items with Tracks Expiration checked and a real Current Exp
+// Date; null means nothing is currently expiring, so no review is due.
+// Mirrored client-side in provider-app/index.html's earliestExpirationDueDate.
+function computeSupplyDueDate(items) {
+  const expDates = (items || [])
+    .filter(function (i) { return i.tracksExpiration && i.currentExpDate; })
+    .map(function (i) { return new Date(i.currentExpDate + 'T00:00:00'); });
+  if (!expDates.length) return null;
+  const earliest = new Date(Math.min.apply(null, expDates));
+  earliest.setDate(earliest.getDate() - 7);
+  return earliest;
+}
+
+// Same thresholds as statusForDueDate, but dueDate may be null (nothing
+// expiring) — that's green as long as it's been reviewed at least once;
+// never-reviewed still reads red regardless of what's expiring.
+function statusForSupplyDueDate(lastReviewedISO, dueDate, now) {
+  if (!lastReviewedISO) return 'red';
+  if (!dueDate) return 'green';
+  now = now || new Date();
+  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
+  if (daysUntilDue < 0) return 'red';
+  if (daysUntilDue <= 7) return 'yellow';
+  return 'green';
+}
+
+module.exports = { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate };

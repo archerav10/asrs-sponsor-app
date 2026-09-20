@@ -1,7 +1,7 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendSms } = require('./twilio');
 const { recipientsForLocation } = require('./notification-recipients');
-const { computeDueDate, statusForDueDate } = require('./report-due-date');
+const { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate } = require('./report-due-date');
 const { computeMarTarget } = require('./mar-period');
 
 const FIRST_AID_DB_ID = process.env.FIRST_AID_DB_ID;
@@ -48,6 +48,29 @@ async function mostRecentUpdate(dbId, location) {
     .map(function (p) { return getPlainText(p.properties['Last Updated Date']); })
     .filter(Boolean).sort();
   return dates.length ? dates[dates.length - 1] : null;
+}
+
+// First Aid Supplies and Emergency Supplies need item-level expiration
+// data, not just the most recent "Last Updated Date" — see
+// computeSupplyDueDate in report-due-date.js.
+async function supplyInfoForLocation(dbId, location) {
+  const result = await queryDatabase(dbId, {
+    and: [
+      { property: 'Location', select: { equals: location } },
+      { property: 'Active', checkbox: { equals: true } }
+    ]
+  });
+  const rows = result.results || [];
+  const dates = rows
+    .map(function (p) { return getPlainText(p.properties['Last Updated Date']); })
+    .filter(Boolean).sort();
+  const items = rows.map(function (p) {
+    return {
+      tracksExpiration: getPlainText(p.properties['Tracks Expiration']),
+      currentExpDate: getPlainText(p.properties['Current Exp Date'])
+    };
+  });
+  return { lastReviewed: dates.length ? dates[dates.length - 1] : null, items: items };
 }
 
 async function mostRecentDrill(location) {
@@ -99,50 +122,63 @@ async function marStatusLine(location, resident, now) {
 // options: { dryRun: boolean, ignoreTriggerDay: boolean, asOf: "YYYY-MM-DD" }
 // dryRun -> compose everything but never call sendSms; messages are
 // returned instead so a caller can display "what would have gone out."
-// ignoreTriggerDay -> skip the "is today a checkpoint" gate (used by the
-// manual test endpoint; the real scheduled function never sets this).
+// ignoreTriggerDay -> skip the "is today a checkpoint" gate for the
+// month-anchored reports below (used by the manual test endpoint; the
+// real scheduled function never sets this).
 // asOf -> simulate running this on a different calendar day, so you can
 // preview a "due soon" or "overdue" state without waiting for it or
 // needing data that's actually impossible to construct for today (due
 // dates always land on a month-end, so "due soon" only exists in the
 // ~8 days around an actual month boundary).
+//
+// First Aid Supplies and Emergency Supplies are NOT gated by
+// isTriggerDay — their due dates now come from item expiration dates
+// (see computeSupplyDueDate), which can fall on any day of the month,
+// not just a month boundary, so they're evaluated on every run of this
+// function (the underlying cron already runs daily). That does mean an
+// admin can get a same-day SMS again tomorrow if a supply is still
+// sitting in the yellow/red window — there's no once-per-stage dedup
+// here the way MAR's reminders have.
 async function runReportStatusCheck(options) {
   options = options || {};
   const now = options.asOf ? new Date(options.asOf + 'T00:00:00') : new Date();
-
-  if (!options.ignoreTriggerDay && !isTriggerDay(now)) {
-    return { triggered: false, reason: 'Not a trigger day.', results: [] };
-  }
+  const monthCheckpoint = options.ignoreTriggerDay || isTriggerDay(now);
 
   const results = [];
 
   for (const location of LOCATIONS) {
     const lines = [];
 
-    const faLast = await mostRecentUpdate(FIRST_AID_DB_ID, location);
-    const faDue = computeDueDate(faLast, now);
-    const faStatus = statusForDueDate(faLast, faDue, now);
-    if (faStatus !== 'green') lines.push('First Aid Supplies: ' + formatDueInfo(faDue, now));
+    const faInfo = await supplyInfoForLocation(FIRST_AID_DB_ID, location);
+    const faDue = computeSupplyDueDate(faInfo.items);
+    const faStatus = statusForSupplyDueDate(faInfo.lastReviewed, faDue, now);
+    if (faStatus !== 'green') {
+      lines.push('First Aid Supplies: ' + (faDue ? formatDueInfo(faDue, now) : 'never reviewed — needs an initial check'));
+    }
 
-    const fdLast = await mostRecentDrill(location);
-    const fdDue = computeDueDate(fdLast, now);
-    const fdStatus = statusForDueDate(fdLast, fdDue, now);
-    if (fdStatus !== 'green') lines.push('Fire Drill: ' + formatDueInfo(fdDue, now));
+    const esInfo = await supplyInfoForLocation(EMERGENCY_SUPPLIES_DB_ID, location);
+    const esDue = computeSupplyDueDate(esInfo.items);
+    const esStatus = statusForSupplyDueDate(esInfo.lastReviewed, esDue, now);
+    if (esStatus !== 'green') {
+      lines.push('Emergency Supplies: ' + (esDue ? formatDueInfo(esDue, now) : 'never reviewed — needs an initial check'));
+    }
 
-    const esLast = await mostRecentUpdate(EMERGENCY_SUPPLIES_DB_ID, location);
-    const esDue = computeDueDate(esLast, now);
-    const esStatus = statusForDueDate(esLast, esDue, now);
-    if (esStatus !== 'green') lines.push('Emergency Supplies: ' + formatDueInfo(esDue, now));
+    if (monthCheckpoint) {
+      const fdLast = await mostRecentDrill(location);
+      const fdDue = computeDueDate(fdLast, now);
+      const fdStatus = statusForDueDate(fdLast, fdDue, now);
+      if (fdStatus !== 'green') lines.push('Fire Drill: ' + formatDueInfo(fdDue, now));
 
-    const peLast = await mostRecentUpdate(PHYSICAL_ENV_DB_ID, location);
-    const peDue = computeDueDate(peLast, now);
-    const peStatus = statusForDueDate(peLast, peDue, now);
-    if (peStatus !== 'green') lines.push('Physical Environment: ' + formatDueInfo(peDue, now));
+      const peLast = await mostRecentUpdate(PHYSICAL_ENV_DB_ID, location);
+      const peDue = computeDueDate(peLast, now);
+      const peStatus = statusForDueDate(peLast, peDue, now);
+      if (peStatus !== 'green') lines.push('Physical Environment: ' + formatDueInfo(peDue, now));
 
-    const residents = await marResidentsForLocation(location);
-    for (const resident of residents) {
-      const line = await marStatusLine(location, resident, now);
-      if (line) lines.push(line);
+      const residents = await marResidentsForLocation(location);
+      for (const resident of residents) {
+        const line = await marStatusLine(location, resident, now);
+        if (line) lines.push(line);
+      }
     }
 
     if (!lines.length) continue;
@@ -160,7 +196,7 @@ async function runReportStatusCheck(options) {
     }
   }
 
-  return { triggered: true, dryRun: !!options.dryRun, simulatedAsOf: options.asOf || null, results: results };
+  return { triggered: true, monthCheckpoint: monthCheckpoint, dryRun: !!options.dryRun, simulatedAsOf: options.asOf || null, results: results };
 }
 
 module.exports = { runReportStatusCheck, isTriggerDay };

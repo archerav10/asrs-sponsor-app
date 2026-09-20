@@ -945,13 +945,12 @@
     return new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
 
-  // One week before the earliest expiring item, for First Aid Supplies
-  // and Emergency Supplies specifically — those checklists track actual
-  // expiration dates per item, so "next due" should flag an expiring
-  // supply in time to replace it, not just the periodic re-review date.
-  // Only items with Tracks Expiration checked and a real Current Exp
-  // Date count; returns null when nothing qualifies (falls back to the
-  // review cadence below).
+  // First Aid Supplies and Emergency Supplies don't run on the monthly
+  // review cadence above — they only need attention when something is
+  // actually set to expire. Due date is one week before the earliest
+  // expiration among items with Tracks Expiration checked and a real
+  // Current Exp Date; null means nothing is currently expiring, so
+  // there's no review due right now.
   function earliestExpirationDueDate(items) {
     const expDates = (items || [])
       .filter(function (i) { return i.tracksExpiration && i.currentExpDate; })
@@ -962,12 +961,17 @@
     return earliest;
   }
 
-  // Whichever is sooner: the periodic review cadence, or a week before
-  // the next item expires. Never later than the plain cadence date, so
-  // this only ever makes "next due" more urgent, never less.
-  function dueDateWithExpiration(cadenceDue, items) {
-    const expirationDue = earliestExpirationDueDate(items);
-    return expirationDue && expirationDue < cadenceDue ? expirationDue : cadenceDue;
+  // Same red/yellow/green thresholds as statusClassForDueDate, but due
+  // may be null (nothing expiring) — that reads green as long as the
+  // checklist has been reviewed at least once; never-reviewed still
+  // reads red regardless of what's expiring.
+  function statusClassForSupplyDueDate(recent, due) {
+    if (!recent) return 'status-red';
+    if (!due) return 'status-green';
+    const daysUntilDue = Math.ceil((due.getTime() - Date.now()) / 86400000);
+    if (daysUntilDue < 0) return 'status-red';
+    if (daysUntilDue <= 7) return 'status-yellow';
+    return 'status-green';
   }
 
   function renderHome(session) {
@@ -1014,10 +1018,10 @@
       const items = data.items || [];
       const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      const due = dueDateWithExpiration(computeDueDate(recent), items);
+      const due = earliestExpirationDueDate(items);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
-      dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
+      dueEl.textContent = 'Next due: ' + (due ? formatDate(due.toISOString().slice(0, 10)) : 'Nothing expiring soon');
+      dotEl.className = 'status-dot ' + statusClassForSupplyDueDate(recent, due);
     } catch (e) {
       // leave blank
     }
@@ -1197,10 +1201,10 @@
       const items = data.items || [];
       const dates = items.map(function (i) { return i.lastUpdatedDate; }).filter(Boolean).sort();
       const recent = dates.length ? dates[dates.length - 1] : null;
-      const due = dueDateWithExpiration(computeDueDate(recent), items);
+      const due = earliestExpirationDueDate(items);
       statusEl.textContent = 'Last reviewed: ' + (recent ? formatDate(recent) : 'Never');
-      dueEl.textContent = 'Next due: ' + formatDate(due.toISOString().slice(0, 10));
-      dotEl.className = 'status-dot ' + statusClassForDueDate(recent, due);
+      dueEl.textContent = 'Next due: ' + (due ? formatDate(due.toISOString().slice(0, 10)) : 'Nothing expiring soon');
+      dotEl.className = 'status-dot ' + statusClassForSupplyDueDate(recent, due);
     } catch (e) {
       // Leave it blank — the report screen itself will surface any real error.
     }
