@@ -1255,6 +1255,7 @@
         formData.append('file', file, filename);
         formData.append('parent_folder_id', config.parentFolderId);
         formData.append('filename', filename);
+        formData.append('previous_filename', stepDef.filename || '');
 
         const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
         if (!uploadRes.ok) {

@@ -1,4 +1,4 @@
-const { parseFilename, staffInfoById, driveFolderIdFromUrl } = require('./lib/staff-training');
+const { parseFilename, staffInfoById, itemsForStaff, driveFolderIdFromUrl } = require('./lib/staff-training');
 
 // Called by the reusable "any form template" Zap for this process —
 // same shape as annual-planning-resolve-upload.js. A form's own native
@@ -36,6 +36,11 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Could not read a Drive folder ID from the stored folder link.' }) };
     }
 
+    // The prior document for this same step, if any — so the Zap can
+    // archive it once the new one lands, same as the direct-upload path.
+    const existingItems = await itemsForStaff(staff.location, staff.name);
+    const priorItem = existingItems.filter(function (i) { return i.stepKey === parsed.stepKey; })[0];
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -44,7 +49,8 @@ exports.handler = async function (event) {
         stepKey: parsed.stepKey,
         expDate: parsed.expDate,
         filename: body.filename,
-        parentFolderId: parentFolderId
+        parentFolderId: parentFolderId,
+        previousFilename: (priorItem && priorItem.filename) || ''
       })
     };
   } catch (err) {
