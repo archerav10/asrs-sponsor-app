@@ -198,37 +198,54 @@ async function checkAnnualPlanning(location, now) {
   return [].concat.apply([], perResident);
 }
 
+// Admins commonly share granted locations (e.g. two admins who both
+// cover every location) — memoize each location's issue list per run so
+// it's computed once no matter how many admins ask for it, instead of
+// re-querying Notion from scratch per admin. Storing the in-flight
+// Promise (not just its resolved value) is what makes this safe when
+// two admins' builds ask for the same location concurrently.
+function makeLocationIssuesCache(today, now) {
+  const cache = new Map();
+  return function issuesForLocation(location) {
+    if (!cache.has(location)) {
+      cache.set(location, Promise.all([
+        checkSimpleReport(FIRST_AID_DB_ID, location, 'First Aid Supplies', today),
+        checkSimpleReport(EMERGENCY_SUPPLIES_DB_ID, location, 'Emergency Supplies', today),
+        checkPhysicalEnvironment(location, today),
+        checkStaffTraining(location, today),
+        checkAnnualPlanning(location, now)
+      ]).then(function (results) { return [].concat.apply([], results); }));
+    }
+    return cache.get(location);
+  };
+}
+
 async function buildAdminDigests(today, now) {
   const adminsResult = await queryDatabase(ADMIN_ACCOUNTS_DB_ID, null);
   const admins = (adminsResult.results || []).filter(function (p) {
     return getPlainText(p.properties['Admin App Enabled']);
   });
 
-  const digests = [];
+  const issuesForLocation = makeLocationIssuesCache(today, now);
 
-  for (const adminPage of admins) {
+  // Admins themselves also build concurrently — each one just fans out
+  // to issuesForLocation, which dedupes the actual Notion work above.
+  const digests = await Promise.all(admins.map(async function (adminPage) {
     const name = getPlainText(adminPage.properties['Name']);
     const email = getPlainText(adminPage.properties['Email']);
     const grantedLocations = (getPlainText(adminPage.properties['Granted Locations']) || '')
       .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-    if (!email || !grantedLocations.length) continue;
+    if (!email || !grantedLocations.length) return null;
 
-    const sections = [];
-    for (const location of grantedLocations) {
-      const issues = [].concat(
-        await checkSimpleReport(FIRST_AID_DB_ID, location, 'First Aid Supplies', today),
-        await checkSimpleReport(EMERGENCY_SUPPLIES_DB_ID, location, 'Emergency Supplies', today),
-        await checkPhysicalEnvironment(location, today),
-        await checkStaffTraining(location, today),
-        await checkAnnualPlanning(location, now)
-      );
-      sections.push({ location: location, issues: issues });
-    }
+    const issuesByLocation = await Promise.all(grantedLocations.map(issuesForLocation));
+    const sections = grantedLocations.map(function (location, i) {
+      return { location: location, issues: issuesByLocation[i] };
+    });
 
-    digests.push({ name: name, email: email, sections: sections });
-  }
+    return { name: name, email: email, sections: sections };
+  }));
 
-  return digests;
+  return digests.filter(Boolean);
 }
 
 function digestToText(digest, dateLabel) {

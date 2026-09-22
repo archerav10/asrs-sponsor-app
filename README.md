@@ -518,7 +518,13 @@ EDT — drifts to 7:00am local during EST Nov-Mar).
 **Testing:** `test-check-admin-digest.js` follows the same pattern as
 the other test endpoints — not scheduled, gated by
 `NOTIFICATION_TEST_SECRET`, defaults to dry-run, supports `&asOf=` to
-preview a different date, `&send=true` to actually send.
+preview a different date. **Unlike the other test endpoints, a real
+send also requires a POST** (`&send=true` on a GET is silently treated
+as a dry run, with a `note` in the response explaining why) — this
+digest emails every admin at once, so it's the one test endpoint where
+a plain browser reload accidentally re-triggering it for real would
+actually matter. Use e.g. `curl -X POST "<url>&send=true"` to send for
+real.
 
 **Important Netlify behavior:** functions with a `schedule` set can
 only be triggered by Netlify's own scheduler — visiting their URL
