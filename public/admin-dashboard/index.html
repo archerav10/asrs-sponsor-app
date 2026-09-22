@@ -1236,6 +1236,39 @@
     fileInput.style.marginTop = '8px';
     actions.appendChild(fileInput);
 
+    // Same date already on file = same filename = nothing gets archived and
+    // a duplicate lands in Drive. Gate the picker itself rather than only
+    // catching it after a file's already been chosen.
+    function expDateUsable() {
+      const v = dateInput.value;
+      if (!v) return false;
+      if (stepDef.done && v === stepDef.expDate) return false;
+      return true;
+    }
+
+    const actionEls = [fileInput];
+    function refreshActionState() {
+      const usable = expDateUsable();
+      actionEls.forEach(function (el) {
+        el.style.opacity = usable ? '' : '0.5';
+        el.style.cursor = usable ? '' : 'not-allowed';
+      });
+    }
+    dateInput.addEventListener('input', refreshActionState);
+
+    function blockedMessage() {
+      return dateInput.value
+        ? 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before continuing.'
+        : 'Enter an expiration date first.';
+    }
+
+    fileInput.addEventListener('click', function (e) {
+      if (!expDateUsable()) {
+        e.preventDefault();
+        alert(blockedMessage());
+      }
+    });
+
     fileInput.addEventListener('change', async function () {
       const file = fileInput.files[0];
       if (!file) return;
@@ -1294,6 +1327,7 @@
       formLink.rel = 'noopener';
       formLink.textContent = 'Complete Form';
       formLink.style.marginLeft = '8px';
+      actionEls.push(formLink);
       formLink.addEventListener('click', function (e) {
         e.preventDefault();
         const expDate = dateInput.value;
@@ -1315,6 +1349,7 @@
       actions.appendChild(formLink);
     }
 
+    refreshActionState();
     wrap.appendChild(actions);
     container.appendChild(wrap);
   }
