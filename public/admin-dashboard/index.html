@@ -1242,11 +1242,14 @@
       const expDate = dateInput.value;
       if (!expDate) {
         setError('staff-detail-error', 'Enter an expiration date first.');
+        alert('Enter an expiration date first.');
         fileInput.value = '';
         return;
       }
       if (stepDef.done && expDate === stepDef.expDate) {
-        setError('staff-detail-error', 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before uploading — otherwise the old copy won’t get archived.');
+        const msg = 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before uploading — otherwise the old copy won’t get archived.';
+        setError('staff-detail-error', msg);
+        alert(msg);
         fileInput.value = '';
         return;
       }
@@ -1296,10 +1299,13 @@
         const expDate = dateInput.value;
         if (!expDate) {
           setError('staff-detail-error', 'Enter an expiration date first.');
+          alert('Enter an expiration date first.');
           return;
         }
         if (stepDef.done && expDate === stepDef.expDate) {
-          setError('staff-detail-error', 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before continuing.');
+          const msg = 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before continuing.';
+          setError('staff-detail-error', msg);
+          alert(msg);
           return;
         }
         const url = new URL(stepDef.formUrl);
