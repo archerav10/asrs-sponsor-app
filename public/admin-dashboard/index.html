@@ -1528,7 +1528,19 @@
 
         loc.residents.forEach(function (residentEntry) {
           (residentEntry.services || []).forEach(function (entry) {
-            listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry, 'current'));
+            // While a prior cycle is showing, hide the current cycle's
+            // button for as long as it's disabled (nothing on it has
+            // opened yet) — nothing actionable is lost, since a disabled
+            // button has nothing to click anyway, and it keeps the list
+            // from showing a still-locked "Q1 opens ..." button next to
+            // the prior period's real open work. The moment the current
+            // cycle's own quarter opens (state.disabled flips false)
+            // it reappears on its own, even if the prior period is
+            // still being caught up.
+            const currentState = quarterlyPuzzleState(entry);
+            if (!(entry.priorCycle && currentState.disabled)) {
+              listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry, 'current'));
+            }
             if (entry.priorCycle) {
               listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry.priorCycle, 'prior'));
             }
