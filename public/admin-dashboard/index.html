@@ -1431,15 +1431,27 @@
   // separate Drive folder link, no finalize step. Each service's puzzle
   // state is driven by whichever quarter is currently "active" (open and
   // not yet fully done); see activeQuarter in lib/quarterly-reporting.js.
+  function cycleRangeLabel(quarters) {
+    if (!quarters || !quarters.length) return '';
+    const start = quarters[0].start;
+    const end = quarters[quarters.length - 1].end;
+    return formatDate(start) + '–' + formatDate(end);
+  }
+
   function quarterlyPuzzleState(entry) {
+    const cycleRange = cycleRangeLabel(entry.quarters);
     if (entry.activeQuarterIndex) {
-      return { spinning: true, label: 'Q' + entry.activeQuarterIndex + ' due ' + formatDate(entry.activeQuarterDueDate) };
+      return { spinning: true, disabled: false, label: 'Q' + entry.activeQuarterIndex + ' due ' + formatDate(entry.activeQuarterDueDate) + ' · Cycle ' + cycleRange };
     }
     const next = (entry.quarters || []).filter(function (q) { return !q.isOpen; })[0];
+    // No quarter has ever opened yet this cycle — nothing to see or do,
+    // so this one stays disabled (matches Annual Planning's locked
+    // resident button) rather than clicking through to an empty screen.
+    const anyOpen = (entry.quarters || []).some(function (q) { return q.isOpen; });
     if (next) {
-      return { spinning: false, label: 'Q' + next.index + ' opens ' + formatDate(next.dueDate) };
+      return { spinning: false, disabled: !anyOpen, label: 'Q' + next.index + ' opens ' + formatDate(next.dueDate) + ' · Cycle ' + cycleRange };
     }
-    return { spinning: false, label: 'Complete for this cycle' };
+    return { spinning: false, disabled: false, label: 'Complete for this cycle · Cycle ' + cycleRange };
   }
 
   function renderQuarterlyServiceButton(location, resident, entry) {
@@ -1448,6 +1460,7 @@
     const btn = document.createElement('button');
     btn.className = 'ap-resident-button';
     btn.type = 'button';
+    btn.disabled = state.disabled;
 
     const left = document.createElement('span');
     left.className = 'ap-resident-left';
@@ -1658,6 +1671,9 @@
     try {
       const data = await apiFetch('/get-quarterly-reporting?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService));
       const quarters = data.quarters || [];
+      const cycleRange = cycleRangeLabel(quarters);
+      document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService +
+        (cycleRange ? ' — Annual cycle ' + cycleRange : '');
       const bannerEl = document.getElementById('quarterly-detail-banner');
 
       bannerEl.innerHTML = '';
