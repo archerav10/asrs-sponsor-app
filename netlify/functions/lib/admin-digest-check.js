@@ -2,6 +2,7 @@ const { queryDatabase, getPlainText } = require('./notion');
 const { sendEmail, sleep } = require('./email');
 const { staffListForLocation, itemsForStaff, fullStepList } = require('./staff-training');
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
+const { computeQuarterlyReportingForRecord, activeQuarter } = require('./quarterly-reporting');
 
 const ADMIN_ACCOUNTS_DB_ID = process.env.ADMIN_ACCOUNTS_DB_ID;
 const FIRST_AID_DB_ID = process.env.FIRST_AID_DB_ID;
@@ -198,6 +199,42 @@ async function checkAnnualPlanning(location, now) {
   return [].concat.apply([], perResident);
 }
 
+// Only flags the one quarter driving each service's puzzle state (see
+// activeQuarter in lib/quarterly-reporting.js) — an open quarter that's
+// already fully done, or a quarter that hasn't opened yet, needs nothing
+// from an admin right now. This process only exists where an Annual
+// Planning record already does, so residents/services with no cycle on
+// file are silently skipped here — Annual Planning's own check above
+// already flags that gap.
+async function checkQuarterlyReporting(location, now) {
+  const residents = await residentsForLocation(location);
+
+  const perResident = await Promise.all(residents.map(async function (resident) {
+    const records = await findRecordsForResident(location, resident);
+    const byService = {};
+    records.forEach(function (r) { byService[r.service] = r; });
+
+    const services = Object.keys(byService);
+    const perService = await Promise.all(services.map(async function (service) {
+      const record = byService[service];
+      const state = await computeQuarterlyReportingForRecord(location, resident, service, record, now);
+      if (!state.hasCycle) return [];
+
+      const active = activeQuarter(state.quarters);
+      if (!active) return [];
+
+      const label = resident + (service === DEFAULT_SERVICE ? '' : ' (' + service + ')');
+      const doneCount = active.steps.length - active.missingCount;
+      return ['Quarterly Reporting: ' + label + ' — Q' + active.index + ' (' + active.start + ' to ' + active.end +
+        ') open, ' + doneCount + '/' + active.steps.length + ' items complete'];
+    }));
+
+    return [].concat.apply([], perService);
+  }));
+
+  return [].concat.apply([], perResident);
+}
+
 // Admins commonly share granted locations (e.g. two admins who both
 // cover every location) — memoize each location's issue list per run so
 // it's computed once no matter how many admins ask for it, instead of
@@ -213,7 +250,8 @@ function makeLocationIssuesCache(today, now) {
         checkSimpleReport(EMERGENCY_SUPPLIES_DB_ID, location, 'Emergency Supplies', today),
         checkPhysicalEnvironment(location, today),
         checkStaffTraining(location, today),
-        checkAnnualPlanning(location, now)
+        checkAnnualPlanning(location, now),
+        checkQuarterlyReporting(location, now)
       ]).then(function (results) { return [].concat.apply([], results); }));
     }
     return cache.get(location);

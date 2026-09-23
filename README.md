@@ -474,16 +474,83 @@ updated at any time.
   a `formUrl` set yet — add one to any entry in `STEPS` to light up its
   "Complete Form" option, same as Annual Planning.
 
+### Quarterly Reporting (fourth process — tied entirely to Annual Planning)
+
+No independent existence of its own: four fixed reports (Quarterly
+Progress Report, Client Satisfaction Interview, Comprehensive
+Re-Assessment, Person Centered Assessment) due every 3 months, anchored
+to the SAME Effective Date and Drive folder a resident/service already
+has on file for Annual Planning — no separate one-time setup step, no
+finalize step, no independent existence for a resident/service that
+doesn't already have an Annual Planning cycle.
+
+- **Notion:** new "Quarterly Reporting Items" database
+  (`QUARTERLY_REPORTING_DB_ID`), one active row per Location + Resident
+  Initials + Service + Quarter Start Date + Step Key — row-per-item
+  like Staff Training, not row-per-cycle like Annual Planning, since
+  each of the 16 slots across a year (4 quarters × 4 reports) has its
+  own independent completion state.
+- **Quarter boundaries** (`computeQuarters` in
+  `lib/quarterly-reporting.js`): four 3-month spans starting at the
+  Effective Date, each one's due date landing exactly on the day the
+  *next* quarter begins — e.g. effective `2026-11-01` gives Q1
+  `2026-11-01`–`2027-01-31` due `2027-02-01`. **Deliberately anchored on
+  the resident's record's actual stored `Effective Date`, never
+  `computeAnnualPlanningWindow`'s projected `targetEffectiveDate`** —
+  that function intentionally shows Annual Planning's next cycle up to
+  6 weeks early so its own UI can unlock ahead of time, but the record
+  itself (and therefore the real calendar quarters) doesn't move until
+  someone actually opens that resident's Annual Planning detail screen
+  and `rollToNextCycleIfWindowJustOpened` fires. Anchoring Quarterly
+  Reporting on that same early-projected date would make whichever
+  quarter is genuinely open right now silently disappear for that same
+  ~6-week stretch every year, with no way to complete it until the
+  roll happens — this bit a first draft of this feature before it
+  shipped.
+- **No lead time, unlike Annual Planning/Staff Training:** the puzzle
+  turns yellow and spinning the *instant* a quarter ends — there's no
+  earlier "due soon" warning window the way Annual Planning unlocks 6
+  weeks early or Staff Training warns 30 days out. Per quarter/service,
+  `activeQuarter` picks the earliest open-and-incomplete quarter to
+  drive the button's state; every write is still gated server-side
+  (`save-quarterly-reporting-step.js` re-derives the quarters and
+  rejects an upload for one that isn't open yet) — unlike Staff
+  Training's anytime model, this one really does lock.
+- **Drive folder nests two levels inside the existing Annual Planning
+  folder**, not a separate link: `AnnualPlanningFolder/{dated cycle
+  folder, e.g. 20261101-20271031}/Quarterly Report/`. The dated
+  subfolder name reuses `computeFolderName` from `lib/annual-planning.js`
+  directly, so it always matches the same folder Annual Planning's own
+  Zap already created — `get-quarterly-reporting-upload-config.js`
+  hands back both folder names (`cycleFolderName`, `subfolderName`) plus
+  the resolved root `parentFolderId`, and the Zap does two Find/Create
+  Folder steps before Upload File.
+- **Uploads only — no form path.** Since there's no reusable "any form
+  template" Zap for this process, filenames here never need to be
+  parsed back out of anything (unlike Annual Planning/Staff
+  Training's `parseFilename`) — they're built once client-side
+  (`buildQuarterlyFilename` in `admin-dashboard/index.html`) purely to
+  be human-legible in Drive.
+- **New env vars:** `QUARTERLY_REPORTING_DB_ID`,
+  `ZAPIER_QUARTERLY_REPORTING_WEBHOOK_URL` (a new Zap — Catch Hook →
+  Find/Create Folder (cycle) → Find/Create Folder (Quarterly Report,
+  nested) → Upload File).
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not
 sponsors), covering every location they're granted, listing anything
-currently expired, missing, or out of range across **First Aid
-Supplies, Emergency Supplies, and Physical Environment** (MAR isn't
+currently expired, missing, out of range, or open-and-incomplete across
+**First Aid Supplies, Emergency Supplies, Physical Environment, Staff
+Training, Annual Planning, and Quarterly Reporting** (MAR isn't
 included here since it already gets its own daily SMS alert). A
 location with nothing wrong still gets its own "No issues found" line
 rather than being omitted, so the weekly email always confirms
-coverage for every location an admin has.
+coverage for every location an admin has. `lib/admin-digest-check.js`
+memoizes each location's issue list per run (admins commonly share
+granted locations) and builds every admin's digest concurrently, so
+the six checks fanning out per resident/staff member don't risk the
+function's execution time limit as the roster grows.
 
 Sent via **EmailJS** (server-side), not Resend — reusing the account
 already used elsewhere rather than standing up a new service. Setup
@@ -614,6 +681,38 @@ New env vars for the admin-tools login itself:
 | `SUPER_ADMIN_EMAIL` | `archera@archsupportres.com` |
 | `SUPER_ADMIN_PASSWORD_HASH` | `82f6ed9a8e9a21b3d8ba37fbef89adaf90f469fd8924925dd29d8edcc5494d64` |
 | `SUPER_ADMIN_PHONE` | Phone number the OTP should text — confirm/set this |
+
+## Admin window-opened SMS alerts
+
+Separate from both the weekly email digest and the sponsor SMS reports
+— texts admins (never sponsors) the instant an Annual Planning or
+Quarterly Reporting window actually opens, rather than waiting for
+Friday. `lib/window-opened-alert-check.js` runs daily and, for every
+resident/service, checks whether *today* exactly equals that record's
+Annual Planning `windowOpenDate` (the 6-weeks-early unlock) or any of
+its Quarterly Reporting quarters' due dates — both are fully
+deterministic single calendar days given an Effective Date, so a daily
+"does this date equal today" check needs no separate "already sent"
+bookkeeping; each date can only ever equal today once.
+
+Recipients are `recipientsForLocation` (the same helper
+`mar-alert-check.js` uses) filtered to `role === 'admin'` — sponsors
+are never texted by this check, matching the existing separation
+between the two SMS channels. Reuses the existing `TWILIO_*` env vars;
+nothing new to configure there.
+
+**Schedule:** daily at 9:30am US/Eastern (`30 13 * * *`, same slot as
+the other daily checks).
+
+**Testing:** `test-check-window-opened-alerts.js` — not scheduled,
+gated by `NOTIFICATION_TEST_SECRET`, defaults to dry-run, `&asOf=` to
+simulate a different date (the main way to actually test this, since a
+real window-open date only exists on the one specific day it happens
+to fall on for real data). Same POST-required-for-real-sends guard as
+`test-check-admin-digest.js` (`&send=true` on a GET is silently
+treated as a dry run) — after the digest's duplicate-send incident,
+every test endpoint capable of messaging every admin at once gets this
+guard by default now, not just the one that already broke.
 
 ## Setting up event attachments (Zapier)
 

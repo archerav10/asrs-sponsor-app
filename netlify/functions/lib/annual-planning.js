@@ -313,6 +313,7 @@ module.exports = {
   computeDueDate,
   computeWindowOpenDate,
   computeFolderName,
+  oneYearLater,
   driveFolderIdFromUrl,
   parseFilename,
   findRecord,

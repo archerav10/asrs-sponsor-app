@@ -24,3 +24,6 @@
   # 8:00am US/Eastern every Friday. Pinned to EDT (UTC-4) like the
   # others — during EST (Nov-Mar) this fires at 7:00am local instead.
   schedule = "0 12 * * 5"
+
+[functions."check-window-opened-alerts"]
+  schedule = "30 13 * * *"
