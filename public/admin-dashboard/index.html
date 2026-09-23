@@ -1533,11 +1533,18 @@
     loadQuarterlyDetail();
   }
 
+  // Includes an upload timestamp (same YYYYMMDDHHMMSS convention as Log
+  // an Event's filenames) so re-uploading the same report within the
+  // same still-open quarter gets its own distinct filename instead of
+  // colliding with the previous one — there's no archiving step for
+  // this process (deliberately, to keep full history), so every upload
+  // needs to stay individually distinguishable in Drive on its own.
   function buildQuarterlyFilename(stepKey, quarterStart) {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '').slice(0, 14);
     return sanitizeForFilename(currentQuarterlyLocation) + '_Resident_' +
       sanitizeForFilename(currentQuarterlyResident) + '_' +
       sanitizeForFilename(currentQuarterlyService) + '_' +
-      stepKey + '_' + quarterStart;
+      stepKey + '_' + quarterStart + '_' + stamp;
   }
 
   function renderQuarterlyStepSection(container, stepDef, quarter) {
