@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { findRecord, computeFolderName, QUARTERLY_REPORT_SUBFOLDER_NAME, driveFolderIdFromUrl } = require('./lib/quarterly-reporting');
+const { findRecord, computeFolderName, effectiveDateForCycle, computeQuarterlyReportingForRecord, QUARTERLY_REPORT_SUBFOLDER_NAME, driveFolderIdFromUrl } = require('./lib/quarterly-reporting');
 
 // Reports nest two folders deep inside the resident's EXISTING Annual
 // Planning folder — no separate one-time folder link for this process.
@@ -21,6 +21,7 @@ exports.handler = async function (event) {
     const location = params.location;
     const resident = params.resident;
     const service = params.service;
+    const cycle = params.cycle === 'prior' ? 'prior' : 'current';
     if (!location || !resident || !service) {
       return { statusCode: 400, body: JSON.stringify({ error: 'location, resident, and service are required.' }) };
     }
@@ -43,12 +44,25 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Could not read a Drive folder ID from the Annual Planning folder link.' }) };
     }
 
-    // The record's actual stored effective date, not a projected future
-    // one — see the comment on computeQuarterlyReportingForRecord in
+    // Mirrors get-quarterly-reporting.js's own check — a client-supplied
+    // cycle=prior is only honored when a prior cycle genuinely exists (see
+    // the priorCycle comment on computeQuarterlyReportingForRecord in
+    // lib/quarterly-reporting.js), so a stale/desynced client can't cause
+    // an upload into a fabricated dated folder that was never a real cycle.
+    if (cycle === 'prior') {
+      const state = await computeQuarterlyReportingForRecord(location, resident, service, record);
+      if (!state.priorCycle) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'No prior cycle with outstanding items is on file for that resident/service.' }) };
+      }
+    }
+
+    // The record's actual stored effective date (or, for the prior
+    // cycle, exactly one year before it) — not a projected future one,
+    // see the comment on computeQuarterlyReportingForRecord in
     // lib/quarterly-reporting.js for why that distinction matters. This
     // has to match the SAME dated folder Annual Planning's own Zap
-    // already created, not a not-yet-existing next cycle's.
-    const cycleFolderName = computeFolderName(record.effectiveDate);
+    // already created for that specific cycle, not a different one's.
+    const cycleFolderName = computeFolderName(effectiveDateForCycle(record, cycle));
 
     return {
       statusCode: 200,

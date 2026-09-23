@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { STEP_KEYS, computeQuarters, findRecord, markQuarterlyStepDone } = require('./lib/quarterly-reporting');
+const { STEP_KEYS, computeQuarters, effectiveDateForCycle, findRecord, markQuarterlyStepDone } = require('./lib/quarterly-reporting');
 
 // Unlike Staff Training, this process IS gated the way Annual Planning
 // is — a quarter genuinely has to be open before its reports can be
@@ -40,13 +40,17 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No Annual Planning cycle is on file for that resident/service.' }) };
     }
 
-    // The record's actual stored effective date — see the comment on
-    // computeQuarterlyReportingForRecord in lib/quarterly-reporting.js
-    // for why this must NOT be Annual Planning's early-projected target.
-    const quarters = computeQuarters(record.effectiveDate);
-    const quarter = quarters.filter(function (q) { return q.start === quarterStart; })[0];
+    // Checks both the current cycle's quarters and the prior cycle's (see
+    // computeQuarterlyReportingForRecord in lib/quarterly-reporting.js) —
+    // a resident's Effective Date can move onto the next cycle while a
+    // quarter from the outgoing one is still open and being caught up.
+    // Quarter start dates a year apart are inherently unambiguous, so this
+    // doesn't need to trust a client-supplied cycle flag.
+    const currentQuarters = computeQuarters(record.effectiveDate);
+    const priorQuarters = computeQuarters(effectiveDateForCycle(record, 'prior'));
+    const quarter = currentQuarters.concat(priorQuarters).filter(function (q) { return q.start === quarterStart; })[0];
     if (!quarter) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'That quarter is not part of the current annual cycle.' }) };
+      return { statusCode: 400, body: JSON.stringify({ error: 'That quarter is not part of the current or prior annual cycle.' }) };
     }
     const now = new Date();
     if (now < new Date(quarter.dueDate + 'T00:00:00')) {

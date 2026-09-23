@@ -535,6 +535,31 @@ doesn't already have an Annual Planning cycle.
   `ZAPIER_QUARTERLY_REPORTING_WEBHOOK_URL` (a new Zap — Catch Hook →
   Find/Create Folder (cycle) → Find/Create Folder (Quarterly Report,
   nested) → Upload File).
+- **Prior cycle ("catching up" on the outgoing period).** A resident's
+  next Annual Planning packet often has to start well before the
+  outgoing period's own quarterly reports can be finished — you can't
+  report on a quarter/period until it's actually over, so the real-world
+  cutover point lands right around when the next cycle's Annual Planning
+  early-unlock window is also opening. Since Annual Planning keeps only
+  ONE row per Location + Resident + Service (reused across years, not
+  one row per year), its `Effective Date` can only represent one cycle's
+  position at a time — so once it's rolled forward onto the next cycle,
+  Quarterly Reporting also computes a second, **prior** cycle exactly one
+  year behind it (`effectiveDateForCycle`/`computeQuarterlyReportingForRecord`
+  in `lib/quarterly-reporting.js`) and surfaces it as its own puzzle
+  button/detail screen whenever it still has something incomplete. It's
+  fully self-resolving: it only appears once at least one report was
+  ever actually uploaded against it (so a resident's very first cycle
+  never fabricates a false "overdue" prior year), and it disappears on
+  its own the moment it's caught up — no manual toggle, no cleanup step.
+  Every endpoint that's cycle-aware (`get-quarterly-reporting.js`,
+  `get-quarterly-reporting-upload-config.js`) takes a `cycle=current|prior`
+  query param and re-validates a requested prior cycle genuinely exists
+  server-side rather than trusting the client; `save-quarterly-reporting-step.js`
+  doesn't need the flag at all, since a quarter's start date alone (a
+  year apart between cycles) is already unambiguous. Also flagged in the
+  weekly admin digest (`checkQuarterlyReporting` in
+  `lib/admin-digest-check.js`) alongside the current cycle's own line.
 
 ## Weekly admin email digest
 

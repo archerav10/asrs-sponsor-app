@@ -1456,8 +1456,15 @@
     return { spinning: false, disabled: false, label: 'Complete for this cycle · Cycle ' + cycleRange };
   }
 
-  function renderQuarterlyServiceButton(location, resident, entry) {
-    const state = quarterlyPuzzleState(entry);
+  // cycleData is either the service entry itself (current cycle) or its
+  // priorCycle sub-object — both carry the same {quarters,
+  // activeQuarterIndex, activeQuarterDueDate} shape, so quarterlyPuzzleState
+  // works unchanged for either. A resident/service only ever gets a
+  // second, prior-period button when the outgoing cycle still has
+  // something incomplete on it — see the comment on priorCycle in
+  // lib/quarterly-reporting.js.
+  function renderQuarterlyServiceButton(location, resident, service, cycleData, cycle) {
+    const state = quarterlyPuzzleState(cycleData);
 
     const btn = document.createElement('button');
     btn.className = 'ap-resident-button';
@@ -1471,7 +1478,8 @@
     puzzle.textContent = '\u{1F9E9}';
     const initials = document.createElement('span');
     initials.className = 'ap-resident-initials';
-    initials.textContent = entry.service === DEFAULT_SERVICE ? resident : (resident + ' — ' + entry.service);
+    const namePart = service === DEFAULT_SERVICE ? resident : (resident + ' — ' + service);
+    initials.textContent = cycle === 'prior' ? (namePart + ' (prior period)') : namePart;
     left.appendChild(puzzle);
     left.appendChild(initials);
 
@@ -1483,7 +1491,7 @@
     btn.appendChild(status);
 
     btn.addEventListener('click', function () {
-      openQuarterlyDetail(location, resident, entry.service);
+      openQuarterlyDetail(location, resident, service, cycle);
     });
 
     return btn;
@@ -1520,7 +1528,10 @@
 
         loc.residents.forEach(function (residentEntry) {
           (residentEntry.services || []).forEach(function (entry) {
-            listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry));
+            listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry, 'current'));
+            if (entry.priorCycle) {
+              listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry.priorCycle, 'prior'));
+            }
           });
         });
       });
@@ -1534,16 +1545,18 @@
   let currentQuarterlyLocation = null;
   let currentQuarterlyResident = null;
   let currentQuarterlyService = null;
+  let currentQuarterlyCycle = 'current';
 
   document.getElementById('quarterly-detail-back').addEventListener('click', function () {
     showScreen('dashboard');
     loadQuarterlyDashboard();
   });
 
-  function openQuarterlyDetail(location, resident, service) {
+  function openQuarterlyDetail(location, resident, service, cycle) {
     currentQuarterlyLocation = location;
     currentQuarterlyResident = resident;
     currentQuarterlyService = service;
+    currentQuarterlyCycle = cycle === 'prior' ? 'prior' : 'current';
     showScreen('quarterlyDetail');
     loadQuarterlyDetail();
   }
@@ -1603,7 +1616,7 @@
       setError('quarterly-detail-error', '');
       fileInput.disabled = true;
       try {
-        const config = await apiFetch('/get-quarterly-reporting-upload-config?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService));
+        const config = await apiFetch('/get-quarterly-reporting-upload-config?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService) + '&cycle=' + currentQuarterlyCycle);
         const filename = buildQuarterlyFilename(stepDef.key, quarter.start);
 
         const formData = new FormData();
@@ -1663,19 +1676,20 @@
   }
 
   async function loadQuarterlyDetail() {
+    const priorSuffix = currentQuarterlyCycle === 'prior' ? ' — Prior period (catching up)' : '';
     document.getElementById('quarterly-detail-title').textContent = currentQuarterlyResident;
-    document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService;
+    document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService + priorSuffix;
     document.getElementById('quarterly-detail-banner').textContent = 'Loading…';
     setError('quarterly-detail-error', '');
     const bodyEl = document.getElementById('quarterly-detail-body');
     bodyEl.innerHTML = '';
 
     try {
-      const data = await apiFetch('/get-quarterly-reporting?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService));
+      const data = await apiFetch('/get-quarterly-reporting?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService) + '&cycle=' + currentQuarterlyCycle);
       const quarters = data.quarters || [];
       const cycleRange = cycleRangeLabel(quarters);
       document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService +
-        (cycleRange ? ' — Annual cycle ' + cycleRange : '');
+        (cycleRange ? ' — Annual cycle ' + cycleRange : '') + priorSuffix;
       const bannerEl = document.getElementById('quarterly-detail-banner');
 
       bannerEl.innerHTML = '';

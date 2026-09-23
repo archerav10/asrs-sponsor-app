@@ -44,6 +44,13 @@ function subtractDayISO(dateStr) {
   return isoDate(d);
 }
 
+// 'current' is always record.effectiveDate; 'prior' is exactly one year
+// before it — the only lookback depth this app supports (see
+// computeQuarterlyReportingForRecord's priorCycle handling below).
+function effectiveDateForCycle(record, cycle) {
+  return cycle === 'prior' ? addMonthsISO(record.effectiveDate, -12) : record.effectiveDate;
+}
+
 // Four 3-month quarters spanning the same year an Annual Planning cycle
 // covers, anchored to that SAME effective date (never a separately-set
 // one). Quarter due date = the day the *next* quarter begins — i.e. the
@@ -104,6 +111,21 @@ function fullStepList(items) {
   });
 }
 
+async function quartersWithItems(location, resident, service, effectiveDate, now) {
+  const quarters = computeQuarters(effectiveDate);
+  return Promise.all(quarters.map(async function (q) {
+    const items = await itemsForQuarter(location, resident, service, q.start);
+    const steps = fullStepList(items);
+    const missingCount = steps.filter(function (s) { return !s.done; }).length;
+    return Object.assign({}, q, {
+      isOpen: now >= new Date(q.dueDate + 'T00:00:00'),
+      steps: steps,
+      missingCount: missingCount,
+      hasAnyRecord: items.length > 0
+    });
+  }));
+}
+
 // The full picture for one resident/service: every quarter of the
 // resident's ACTUAL stored Annual Planning cycle, each with its own
 // open/locked state and 4 report items.
@@ -120,25 +142,36 @@ function fullStepList(items) {
 // now (from the cycle still on file) silently disappear for that same
 // ~6-week stretch every year, with no way to complete it until the
 // roll happens.
+//
+// Also computes `priorCycle` — a resident's next Annual Planning packet
+// often needs to start well before the outgoing period's own quarterly
+// reports can be finished (you can't report on a quarter/period until
+// it's over), so the Effective Date on file can move forward onto the
+// next cycle while a quarter from the OLD one is still open. priorCycle
+// surfaces that leftover cycle, but ONLY when it genuinely existed (at
+// least one report was ever uploaded against it — otherwise a brand
+// new resident's very first cycle would falsely show a full year of
+// fabricated "overdue" quarters one year before their real start date)
+// AND it still has something incomplete. Once caught up, it stops
+// appearing on its own — no manual cleanup, no toggle to flip.
 async function computeQuarterlyReportingForRecord(location, resident, service, record, now) {
   now = now || new Date();
   if (!record || !record.effectiveDate) {
-    return { hasCycle: false, targetEffectiveDate: null, quarters: [] };
+    return { hasCycle: false, targetEffectiveDate: null, quarters: [], priorCycle: null };
   }
 
-  const quarters = computeQuarters(record.effectiveDate);
-  const withItems = await Promise.all(quarters.map(async function (q) {
-    const items = await itemsForQuarter(location, resident, service, q.start);
-    const steps = fullStepList(items);
-    const missingCount = steps.filter(function (s) { return !s.done; }).length;
-    return Object.assign({}, q, {
-      isOpen: now >= new Date(q.dueDate + 'T00:00:00'),
-      steps: steps,
-      missingCount: missingCount
-    });
-  }));
+  const priorEffectiveDate = effectiveDateForCycle(record, 'prior');
+  const [quarters, priorQuarters] = await Promise.all([
+    quartersWithItems(location, resident, service, record.effectiveDate, now),
+    quartersWithItems(location, resident, service, priorEffectiveDate, now)
+  ]);
+  const priorCycleExisted = priorQuarters.some(function (q) { return q.hasAnyRecord; });
+  const priorCycleIncomplete = priorQuarters.some(function (q) { return q.isOpen && q.missingCount > 0; });
+  const priorCycle = (priorCycleExisted && priorCycleIncomplete)
+    ? { targetEffectiveDate: priorEffectiveDate, quarters: priorQuarters }
+    : null;
 
-  return { hasCycle: true, targetEffectiveDate: record.effectiveDate, quarters: withItems };
+  return { hasCycle: true, targetEffectiveDate: record.effectiveDate, quarters: quarters, priorCycle: priorCycle };
 }
 
 // The one quarter driving the puzzle's yellow/spinning state and the
@@ -198,6 +231,7 @@ module.exports = {
   DEFAULT_SERVICE,
   QUARTERLY_REPORT_SUBFOLDER_NAME,
   computeQuarters,
+  effectiveDateForCycle,
   computeFolderName,
   findRecord,
   itemsForQuarter,

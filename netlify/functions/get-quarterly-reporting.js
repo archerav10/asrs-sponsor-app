@@ -28,6 +28,7 @@ exports.handler = async function (event) {
     const location = params.location;
     const resident = params.resident;
     const service = params.service;
+    const cycle = params.cycle === 'prior' ? 'prior' : 'current';
     if (!location || !resident || !service) {
       return { statusCode: 400, body: JSON.stringify({ error: 'location, resident, and service are required.' }) };
     }
@@ -42,11 +43,30 @@ exports.handler = async function (event) {
 
     const state = await computeQuarterlyReportingForRecord(location, resident, service, record);
 
+    if (cycle === 'prior') {
+      if (!state.priorCycle) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'No prior cycle with outstanding items is on file for that resident/service.' }) };
+      }
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          resident: resident,
+          service: service,
+          cycle: 'prior',
+          folderUrl: record.folderUrl || '',
+          hasCycle: true,
+          targetEffectiveDate: state.priorCycle.targetEffectiveDate,
+          quarters: state.priorCycle.quarters.map(quarterOut)
+        })
+      };
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         resident: resident,
         service: service,
+        cycle: 'current',
         folderUrl: record.folderUrl || '',
         hasCycle: state.hasCycle,
         targetEffectiveDate: state.targetEffectiveDate,

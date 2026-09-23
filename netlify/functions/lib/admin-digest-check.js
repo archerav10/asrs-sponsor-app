@@ -220,13 +220,30 @@ async function checkQuarterlyReporting(location, now) {
       const state = await computeQuarterlyReportingForRecord(location, resident, service, record, now);
       if (!state.hasCycle) return [];
 
-      const active = activeQuarter(state.quarters);
-      if (!active) return [];
-
       const label = resident + (service === DEFAULT_SERVICE ? '' : ' (' + service + ')');
-      const doneCount = active.steps.length - active.missingCount;
-      return ['Quarterly Reporting: ' + label + ' — Q' + active.index + ' (' + active.start + ' to ' + active.end +
-        ') open, ' + doneCount + '/' + active.steps.length + ' items complete'];
+      const lines = [];
+
+      const active = activeQuarter(state.quarters);
+      if (active) {
+        const doneCount = active.steps.length - active.missingCount;
+        lines.push('Quarterly Reporting: ' + label + ' — Q' + active.index + ' (' + active.start + ' to ' + active.end +
+          ') open, ' + doneCount + '/' + active.steps.length + ' items complete');
+      }
+
+      // A resident's Effective Date can move onto the next Annual Planning
+      // cycle while a quarter from the outgoing one is still open and being
+      // caught up — see priorCycle in lib/quarterly-reporting.js.
+      if (state.priorCycle) {
+        const priorActive = activeQuarter(state.priorCycle.quarters);
+        if (priorActive) {
+          const priorDoneCount = priorActive.steps.length - priorActive.missingCount;
+          lines.push('Quarterly Reporting (prior period ' + state.priorCycle.targetEffectiveDate + '): ' + label +
+            ' — Q' + priorActive.index + ' (' + priorActive.start + ' to ' + priorActive.end +
+            ') open, ' + priorDoneCount + '/' + priorActive.steps.length + ' items complete');
+        }
+      }
+
+      return lines;
     }));
 
     return [].concat.apply([], perService);

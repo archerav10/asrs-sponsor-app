@@ -57,12 +57,25 @@ exports.handler = async function (event) {
           const record = byService[service];
           const state = await computeQuarterlyReportingForRecord(location, resident, service, record);
           const active = state.hasCycle ? activeQuarter(state.quarters) : null;
+
+          let priorCycle = null;
+          if (state.priorCycle) {
+            const priorActive = activeQuarter(state.priorCycle.quarters);
+            priorCycle = {
+              targetEffectiveDate: state.priorCycle.targetEffectiveDate,
+              quarters: state.priorCycle.quarters.map(quarterSummary),
+              activeQuarterIndex: priorActive ? priorActive.index : null,
+              activeQuarterDueDate: priorActive ? priorActive.dueDate : null
+            };
+          }
+
           return {
             service: service,
             hasCycle: state.hasCycle,
             quarters: state.quarters.map(quarterSummary),
             activeQuarterIndex: active ? active.index : null,
-            activeQuarterDueDate: active ? active.dueDate : null
+            activeQuarterDueDate: active ? active.dueDate : null,
+            priorCycle: priorCycle
           };
         }));
 
