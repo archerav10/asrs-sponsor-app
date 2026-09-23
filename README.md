@@ -675,6 +675,24 @@ been granted.
   as First Aid/Emergency Supplies/Physical Environment — history stays
   in Notion), or add a brand new medication at the bottom.
 
+  **This is also how you add a brand-new resident to a location** —
+  there's no separate "add resident" screen anywhere in this app.
+  Every "active residents for this location" query (MAR Review, Annual
+  Planning, Quarterly Reporting, the weekly digest, all of it) is
+  derived entirely from `residentsForLocation`, which reads the
+  *distinct Resident Initials with at least one medication on file* in
+  the MAR database — there's no independent resident registry. To add
+  someone: pick their Location, type their (new) initials, and add
+  just one medication for them here. That's what makes them "exist"
+  everywhere else.
+
+  **Known gap:** a resident who genuinely takes no medications has no
+  way to show up anywhere in this app as things stand — not MAR
+  Review, not Annual Planning, not Quarterly Reporting. Workaround
+  until/unless this gets a real fix (e.g. a resident flag independent
+  of medications): add one placeholder PRN medication (e.g.
+  Ibuprofen) just to get them into the system.
+
 New env vars for the admin-tools login itself:
 | Variable | Value |
 |---|---|
