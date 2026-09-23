@@ -624,17 +624,24 @@
   }
 
   // --- Screen 3b: Annual Planning oversight ---
+  function annualCycleRangeLabel(row) {
+    if (!row.targetEffectiveDate || !row.cycleEndDate) return '';
+    return formatDate(row.targetEffectiveDate) + '–' + formatDate(row.cycleEndDate);
+  }
+
   function annualPuzzleState(row) {
+    const cycleRange = annualCycleRangeLabel(row);
+    const suffix = cycleRange ? ' · Cycle ' + cycleRange : '';
     if (row.isFinalizedForTarget) {
-      return { spinning: false, label: 'Finalized ' + formatDate(row.finalizedDate), disabled: false };
+      return { spinning: false, label: 'Finalized ' + formatDate(row.finalizedDate) + suffix, disabled: false };
     }
     if (!row.hasCycle) {
       return { spinning: false, label: 'Not started', disabled: false };
     }
     if (!row.isWindowOpen) {
-      return { spinning: false, label: 'Opens ' + formatDate(row.windowOpenDate), disabled: true };
+      return { spinning: false, label: 'Opens ' + formatDate(row.windowOpenDate) + suffix, disabled: true };
     }
-    return { spinning: true, label: 'Due ' + formatDate(row.dueDate), disabled: false };
+    return { spinning: true, label: 'Due ' + formatDate(row.dueDate) + suffix, disabled: false };
   }
 
   // Sourced from the oversight response (lib/annual-planning.js's own

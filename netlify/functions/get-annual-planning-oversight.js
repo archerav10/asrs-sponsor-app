@@ -1,6 +1,6 @@
 const { queryDatabase, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
-const { SERVICES, DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./lib/annual-planning');
+const { SERVICES, DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow, computePeriodEndDate } = require('./lib/annual-planning');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 
@@ -24,6 +24,12 @@ function windowSummary(record, windowState) {
   return {
     hasCycle: windowState.hasCycle,
     targetEffectiveDate: windowState.targetEffectiveDate,
+    // The cycle's covered period, e.g. 2026-11-01 through 2027-10-31 —
+    // same "one year minus a day" span computeFolderName's dated Drive
+    // folder already uses, just surfaced for display on the button.
+    cycleEndDate: windowState.targetEffectiveDate
+      ? computePeriodEndDate(windowState.targetEffectiveDate).toISOString().slice(0, 10)
+      : null,
     dueDate: windowState.dueDate ? windowState.dueDate.toISOString().slice(0, 10) : null,
     windowOpenDate: windowState.windowOpenDate ? windowState.windowOpenDate.toISOString().slice(0, 10) : null,
     isWindowOpen: windowState.isWindowOpen,
