@@ -1,7 +1,17 @@
 const { queryDatabase, updatePage, createPage, getPlainText, driveFolderIdFromUrl } = require('./notion');
-const { DEFAULT_SERVICE, findRecord, computeFolderName, oneYearLater } = require('./annual-planning');
+const { DEFAULT_SERVICE, findRecord: findRecordPage, recordFromPage, computeFolderName, oneYearLater } = require('./annual-planning');
 
 const QUARTERLY_REPORTING_DB_ID = process.env.QUARTERLY_REPORTING_DB_ID;
+
+// annual-planning.js's own findRecord returns the raw Notion page — every
+// one of its own callers (loadCurrentRecord) immediately pipes it through
+// recordFromPage to get the {folderUrl, effectiveDate, ...} shape callers
+// actually want. Wrapped here once so every Quarterly Reporting endpoint
+// gets the processed record automatically, rather than each one having to
+// remember to call recordFromPage itself.
+async function findRecord(location, resident, service) {
+  return recordFromPage(await findRecordPage(location, resident, service));
+}
 
 // Tied entirely to Annual Planning — no independent effective date, no
 // separate Drive folder link, no finalize step. Every quarter's window
