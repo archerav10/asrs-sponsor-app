@@ -56,6 +56,13 @@ exports.handler = async function (event) {
           folderUrl: record.folderUrl || '',
           hasCycle: true,
           targetEffectiveDate: state.priorCycle.targetEffectiveDate,
+          // The record's own current cycle start — Annual Planning can
+          // roll this onto the NEXT period up to 6 weeks before it's
+          // actually reached, so until that date genuinely arrives, this
+          // "prior" cycle is still the real, active period. The client
+          // uses it to decide whether "prior period" is an accurate
+          // label yet.
+          currentCycleStartDate: record.effectiveDate,
           quarters: state.priorCycle.quarters.map(quarterOut)
         })
       };

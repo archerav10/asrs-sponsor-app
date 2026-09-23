@@ -72,6 +72,7 @@ exports.handler = async function (event) {
           return {
             service: service,
             hasCycle: state.hasCycle,
+            targetEffectiveDate: state.targetEffectiveDate,
             quarters: state.quarters.map(quarterSummary),
             activeQuarterIndex: active ? active.index : null,
             activeQuarterDueDate: active ? active.dueDate : null,

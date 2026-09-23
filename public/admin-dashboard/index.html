@@ -1463,7 +1463,13 @@
   // second, prior-period button when the outgoing cycle still has
   // something incomplete on it — see the comment on priorCycle in
   // lib/quarterly-reporting.js.
-  function renderQuarterlyServiceButton(location, resident, service, cycleData, cycle) {
+  // showPriorLabel only matters when cycle === 'prior': the record's own
+  // cycle can be rolled onto the NEXT period's start date up to 6 weeks
+  // before it's actually reached (Annual Planning's early-unlock
+  // window), so until that date genuinely arrives, this "prior" cycle
+  // IS still the real, active period and shouldn't be labeled as prior
+  // yet — see the newPeriodStarted comment in loadQuarterlyDashboard.
+  function renderQuarterlyServiceButton(location, resident, service, cycleData, cycle, showPriorLabel) {
     const state = quarterlyPuzzleState(cycleData);
 
     const btn = document.createElement('button');
@@ -1479,7 +1485,7 @@
     const initials = document.createElement('span');
     initials.className = 'ap-resident-initials';
     const namePart = service === DEFAULT_SERVICE ? resident : (resident + ' — ' + service);
-    initials.textContent = cycle === 'prior' ? (namePart + ' (prior period)') : namePart;
+    initials.textContent = (cycle === 'prior' && showPriorLabel) ? (namePart + ' (prior period)') : namePart;
     left.appendChild(puzzle);
     left.appendChild(initials);
 
@@ -1542,7 +1548,14 @@
               listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry, 'current'));
             }
             if (entry.priorCycle) {
-              listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry.priorCycle, 'prior'));
+              // Has the record's own current cycle actually reached its
+              // start date yet, or is it only on file early (Annual
+              // Planning's up-to-6-weeks-early roll)? Only once it's
+              // genuinely arrived is the other cycle truly "prior."
+              const newPeriodStarted = entry.targetEffectiveDate
+                ? (new Date() >= new Date(entry.targetEffectiveDate + 'T00:00:00'))
+                : true;
+              listEl.appendChild(renderQuarterlyServiceButton(loc.location, residentEntry.resident, entry.service, entry.priorCycle, 'prior', newPeriodStarted));
             }
           });
         });
@@ -1688,9 +1701,8 @@
   }
 
   async function loadQuarterlyDetail() {
-    const priorSuffix = currentQuarterlyCycle === 'prior' ? ' — Prior period (catching up)' : '';
     document.getElementById('quarterly-detail-title').textContent = currentQuarterlyResident;
-    document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService + priorSuffix;
+    document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService;
     document.getElementById('quarterly-detail-banner').textContent = 'Loading…';
     setError('quarterly-detail-error', '');
     const bodyEl = document.getElementById('quarterly-detail-body');
@@ -1700,6 +1712,14 @@
       const data = await apiFetch('/get-quarterly-reporting?location=' + encodeURIComponent(currentQuarterlyLocation) + '&resident=' + encodeURIComponent(currentQuarterlyResident) + '&service=' + encodeURIComponent(currentQuarterlyService) + '&cycle=' + currentQuarterlyCycle);
       const quarters = data.quarters || [];
       const cycleRange = cycleRangeLabel(quarters);
+      // Same "has the new period actually started yet" check as the
+      // dashboard button — currentCycleStartDate is the record's own
+      // current effective date, which Annual Planning can roll forward
+      // up to 6 weeks before it's genuinely reached.
+      const newPeriodStarted = (currentQuarterlyCycle === 'prior' && data.currentCycleStartDate)
+        ? (new Date() >= new Date(data.currentCycleStartDate + 'T00:00:00'))
+        : false;
+      const priorSuffix = (currentQuarterlyCycle === 'prior' && newPeriodStarted) ? ' — Prior period (catching up)' : '';
       document.getElementById('quarterly-detail-meta').textContent = currentQuarterlyLocation + ' — ' + currentQuarterlyService +
         (cycleRange ? ' — Annual cycle ' + cycleRange : '') + priorSuffix;
       const bannerEl = document.getElementById('quarterly-detail-banner');
