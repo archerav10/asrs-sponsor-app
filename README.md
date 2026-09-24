@@ -606,8 +606,9 @@ background check results.
 
 #### Notion: two new databases
 
-This app never creates schema, so add these by hand and put their
-**Data Source IDs** in the env vars below.
+Both already exist under **Longstreet Dashboard** in Notion, alongside
+Sponsors. Their Data Source IDs are in the env vars below. For reference,
+these are the schemas the app expects:
 
 **Sponsor Intakes** (`SPONSOR_INTAKES_DB_ID`), one row per sponsor:
 
@@ -644,8 +645,8 @@ intake and step, created as needed:
 
 | Variable | Value |
 |---|---|
-| `SPONSOR_INTAKES_DB_ID` | Data Source ID of Sponsor Intakes |
-| `SPONSOR_INTAKE_ITEMS_DB_ID` | Data Source ID of Sponsor Intake Items |
+| `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
+| `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
 | `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
 | `EMAILJS_INTAKE_TEMPLATE_ID` | The intake EmailJS template (below) |
