@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Upload a Document · ASRS</title>
+<meta name="theme-color" content="#16332B">
+<link rel="stylesheet" href="intake.css">
+</head>
+<body>
+<header class="bar">
+  <div class="bar-inner">
+    <span class="wordmark">ASRS</span>
+    <span class="bar-title">Sponsor Intake</span>
+  </div>
+</header>
+
+<main>
+  <p class="loading" id="loading">Loading&hellip;</p>
+  <p class="error" id="error" hidden></p>
+
+  <section class="card" id="upload-card" hidden>
+    <p class="eyebrow" id="for-name"></p>
+    <h1 id="item-label" style="margin:0"></h1>
+    <p class="row-sub" id="item-includes" hidden></p>
+    <p class="row-sub returned" id="item-returned" hidden></p>
+    <p class="row-sub" id="item-message" hidden></p>
+
+    <div id="picker">
+      <label class="file-drop" id="drop" for="file-input">
+        <strong>Choose file(s) to upload</strong>
+        <span class="row-sub">PDF or photo. Add every page, e.g. the front and back of an ID. Up to 25 MB per file.</span>
+        <span class="btn ghost">Browse</span>
+      </label>
+      <input type="file" id="file-input" accept="application/pdf,image/*,.doc,.docx" multiple hidden>
+      <ul class="file-list" id="file-list" style="margin-top:12px"></ul>
+      <button class="btn block" id="upload-btn" type="button" disabled style="margin-top:14px">Upload</button>
+    </div>
+
+    <div class="success" id="success" hidden>
+      <span class="check" aria-hidden="true">&#10003;</span>
+      <h2>Thank you, it's uploaded</h2>
+      <p class="row-sub">ASRS will review it. You can close this page.</p>
+    </div>
+  </section>
+
+  <a class="btn ghost" id="status-link" hidden style="align-self:flex-start">View my intake status</a>
+</main>
+
+<script>
+(function () {
+  const FN = '/.netlify/functions';
+  const MAX_BYTES = 25 * 1024 * 1024;
+  const params = new URLSearchParams(location.search);
+  const token = params.get('t') || '';
+  const stepKey = params.get('step') || '';
+  let config = null;
+  let files = [];
+
+  const $ = function (id) { return document.getElementById(id); };
+
+  function showError(message) {
+    $('loading').hidden = true;
+    $('error').textContent = message;
+    $('error').hidden = false;
+  }
+
+  function extOf(name) {
+    const m = /\.([a-zA-Z0-9]{1,5})$/.exec(name || '');
+    return m ? m[1].toLowerCase() : '';
+  }
+
+  function renderFiles(states) {
+    const list = $('file-list');
+    list.innerHTML = '';
+    files.forEach(function (f, i) {
+      const li = document.createElement('li');
+      const name = document.createElement('span');
+      name.textContent = f.name;
+      const state = document.createElement('span');
+      state.className = 'state' + (states && states[i] === 'Uploaded' ? ' ok' : '');
+      state.textContent = states ? states[i] : (Math.max(1, Math.round(f.size / 1024)) + ' KB');
+      li.appendChild(name);
+      li.appendChild(state);
+      list.appendChild(li);
+    });
+    $('upload-btn').disabled = !files.length;
+  }
+
+  function setFiles(fileList) {
+    const chosen = Array.prototype.slice.call(fileList || []);
+    const tooBig = chosen.filter(function (f) { return f.size > MAX_BYTES; });
+    if (tooBig.length) {
+      alert(tooBig[0].name + ' is larger than 25 MB. Please upload a smaller copy.');
+    }
+    files = chosen.filter(function (f) { return f.size <= MAX_BYTES; }).slice(0, 20);
+    renderFiles();
+  }
+
+  $('file-input').addEventListener('change', function () { setFiles(this.files); });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    $('drop').addEventListener(t, function (e) { e.preventDefault(); $('drop').classList.add('drag'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    $('drop').addEventListener(t, function (e) { e.preventDefault(); $('drop').classList.remove('drag'); });
+  });
+  $('drop').addEventListener('drop', function (e) { setFiles(e.dataTransfer.files); });
+
+  $('upload-btn').addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+    $('file-input').disabled = true;
+    const states = files.map(function () { return 'Waiting'; });
+    renderFiles(states);
+    const ext = files.length === 1 ? extOf(files[0].name) : '';
+    try {
+      for (let i = 0; i < files.length; i++) {
+        states[i] = 'Uploading…';
+        renderFiles(states);
+        const fd = new FormData();
+        fd.append('file', files[i], files[i].name);
+        fd.append('ticket', config.ticket);
+        fd.append('part', String(i + 1));
+        fd.append('total', String(files.length));
+        fd.append('ext', extOf(files[i].name));
+        const res = await fetch(config.webhookUrl, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(files[i].name + ' didn\'t upload. Please try again.');
+        states[i] = 'Uploaded';
+        renderFiles(states);
+      }
+      const done = await fetch(FN + '/sponsor-intake-upload-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket: config.ticket, total: files.length, ext: ext })
+      });
+      const data = await done.json();
+      if (!done.ok) throw new Error(data.error || 'Something went wrong.');
+      $('picker').hidden = true;
+      $('item-returned').hidden = true;
+      $('success').hidden = false;
+    } catch (e) {
+      alert(e.message || 'The upload didn\'t go through. Check your connection and try again.');
+      btn.disabled = false;
+      btn.textContent = 'Upload';
+      $('file-input').disabled = false;
+    }
+  });
+
+  if (!token || !stepKey) {
+    showError('This link is incomplete. Use the button in your most recent ASRS email.');
+    return;
+  }
+
+  $('status-link').href = './?t=' + encodeURIComponent(token);
+
+  fetch(FN + '/sponsor-intake-upload-ticket?t=' + encodeURIComponent(token) + '&step=' + encodeURIComponent(stepKey))
+    .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+    .then(function (r) {
+      if (!r.ok) throw new Error(r.data.error || 'Something went wrong.');
+      config = r.data;
+      document.title = config.label + ' · ASRS';
+      $('for-name').textContent = 'Upload for ' + config.sponsorName;
+      $('item-label').textContent = config.label;
+      if (config.includes && config.includes.length) {
+        $('item-includes').textContent = 'Includes: ' + config.includes.join('; ');
+        $('item-includes').hidden = false;
+      }
+      if (config.returnReason) {
+        $('item-returned').textContent = 'Please resubmit: ' + config.returnReason;
+        $('item-returned').hidden = false;
+      }
+      if (!config.canUpload) {
+        $('picker').hidden = true;
+        $('item-message').textContent = config.message;
+        $('item-message').hidden = false;
+      }
+      $('loading').hidden = true;
+      $('upload-card').hidden = false;
+      $('status-link').hidden = false;
+    })
+    .catch(function (e) { showError(e.message || 'Could not load this page. Check your connection and try again.'); });
+})();
+</script>
+</body>
+</html>

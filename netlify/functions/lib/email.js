@@ -3,9 +3,12 @@
 // and a template with (at minimum) merge fields: to_email, to_name,
 // subject, message. Rate-limited to 1 request/second by EmailJS, so
 // callers sending multiple emails should space them out.
-async function sendEmail(toEmail, toName, subject, message) {
+// `options.templateId` sends through a different template than the
+// digest's, and `options.params` adds extra merge fields (e.g. reply_to).
+async function sendEmail(toEmail, toName, subject, message, options) {
+  options = options || {};
   const serviceId = process.env.EMAILJS_SERVICE_ID;
-  const templateId = process.env.EMAILJS_TEMPLATE_ID;
+  const templateId = options.templateId || process.env.EMAILJS_TEMPLATE_ID;
   const publicKey = process.env.EMAILJS_PUBLIC_KEY;
   const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
@@ -17,12 +20,12 @@ async function sendEmail(toEmail, toName, subject, message) {
       template_id: templateId,
       user_id: publicKey,
       accessToken: privateKey,
-      template_params: {
+      template_params: Object.assign({
         to_email: toEmail,
         to_name: toName,
         subject: subject,
         message: message
-      }
+      }, options.params || {})
     })
   });
 

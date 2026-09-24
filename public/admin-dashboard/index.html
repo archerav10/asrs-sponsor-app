@@ -199,6 +199,50 @@
     text-decoration: none;
   }
   .ap-setup-row { display: flex; flex-direction: column; gap: 4px; }
+  /* Sponsor Intake */
+  main.wide { max-width: 760px; }
+  .tab-row { flex-wrap: wrap; }
+  .tab-button { min-width: 120px; }
+  .in-pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; background: #ECE8DE; color: #6B6659; }
+  .in-pill.Requested, .in-pill.Returned { background: #F6EBD3; color: #9A5B0E; }
+  .in-pill.Received { background: #DCE7F5; color: #1F4E8C; }
+  .in-pill.Scheduled { background: #E4ECE7; color: var(--forest-light); }
+  .in-pill.Complete { background: #DDEEE3; color: #1B7A3D; }
+  .in-row-button { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); padding: 14px 16px; border-radius: 8px; margin: 0 0 10px; cursor: pointer; font-weight: 400; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  .in-row-button .who { font-size: 16px; font-weight: 600; }
+  .in-row-button .meta-line { font-size: 13px; color: #666; margin-top: 2px; }
+  .in-stage-bar { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; width: 120px; flex-shrink: 0; }
+  .in-stage-bar span { height: 7px; border-radius: 2px; background: #ECE8DE; }
+  .in-stage-bar span.done { background: #1B7A3D; }
+  .in-stage-bar span.current { background: #C9A227; }
+  .in-new { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 4px 16px 16px; margin-bottom: 18px; }
+  .in-new summary { cursor: pointer; font-weight: 600; padding: 12px 0 8px; color: var(--forest); }
+  .in-actions-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .in-actions-row button, .in-actions-row a.small-btn, .in-item button.small { width: auto; margin: 0; padding: 7px 12px; font-size: 13px; border-radius: 6px; }
+  a.small-btn { display: inline-block; font-weight: 600; color: var(--forest); border: 1px solid var(--forest); text-decoration: none; }
+  button.small.secondary, .in-actions-row button.secondary { background: transparent; color: var(--forest); border: 1px solid var(--forest); }
+  .in-stage { border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-bottom: 12px; }
+  .in-stage > summary { cursor: pointer; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 600; }
+  .in-stage > summary .count { font-size: 13px; font-weight: 400; color: #666; }
+  .in-stage-body { padding: 0 16px 8px; }
+  .in-item { border-top: 1px solid var(--border); padding: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+  .in-item-head { display: flex; align-items: flex-start; gap: 10px; }
+  .in-item-head input[type="checkbox"] { width: 18px; height: 18px; margin: 1px 0 0; flex-shrink: 0; }
+  .in-item-title { flex: 1; font-size: 15px; }
+  .in-item-title .num { color: #777; font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .in-item-title .lic { font-size: 11px; font-weight: 700; color: var(--forest-light); margin-left: 4px; }
+  .in-item-title .who-tag { font-size: 11px; font-weight: 700; color: #9A5B0E; margin-left: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .in-item-info { font-size: 13px; color: #555; margin: 0; }
+  .in-item-info.warn { color: #9A5B0E; }
+  .in-item-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .in-item-controls input[type="date"], .in-item-controls input[type="time"], .in-item-controls input[type="text"] { width: auto; padding: 7px 9px; font-size: 14px; }
+  .in-item-controls input[type="text"] { flex: 1; min-width: 180px; }
+  .in-item-controls input[type="file"] { font-size: 13px; max-width: 230px; }
+  .in-item textarea, .in-new textarea, .in-send textarea { width: 100%; padding: 9px 11px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; min-height: 54px; }
+  .in-item details summary { cursor: pointer; font-size: 13px; color: var(--forest); }
+  .in-item ul { margin: 0; padding-left: 20px; font-size: 13px; color: #555; }
+  .in-send { position: sticky; bottom: 0; background: var(--cream); border-top: 1px solid var(--border); padding: 12px 0 14px; margin-top: 8px; }
+  .in-send button { margin-top: 8px; }
   input[type="date"], input[type="url"] {
     width: 100%;
     padding: 13px 14px;
@@ -256,6 +300,7 @@
       <button class="tab-button" id="tab-annual" type="button">Annual Planning</button>
       <button class="tab-button" id="tab-staff" type="button">Staff Training</button>
       <button class="tab-button" id="tab-quarterly" type="button">Quarterly Reporting</button>
+      <button class="tab-button" id="tab-intake" type="button">Sponsor Intake</button>
     </div>
 
     <div id="mar-tab-content">
@@ -280,6 +325,24 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Tied to Annual Planning — four reports due every 3 months. Each quarter unlocks the moment the one before it ends.</p>
       <p class="error-text" id="quarterly-dashboard-error"></p>
       <div id="quarterly-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="intake-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Prospective sponsors. They never log in: they get an email only when you click Send request, and they can always check their private status page.</p>
+      <details class="in-new" id="intake-new">
+        <summary>+ Start a new intake</summary>
+        <label for="intake-new-name">Sponsor name</label>
+        <input type="text" id="intake-new-name" autocomplete="off">
+        <label for="intake-new-email">Email</label>
+        <input type="email" id="intake-new-email" autocomplete="off">
+        <label for="intake-new-phone">Phone (optional)</label>
+        <input type="text" id="intake-new-phone" autocomplete="off" inputmode="tel">
+        <label style="display:flex; gap:8px; align-items:center; font-weight:400;"><input type="checkbox" id="intake-new-welcome" checked style="width:auto;"> Email them their status page link now</label>
+        <p class="error-text" id="intake-new-error"></p>
+        <button id="intake-new-submit" type="button">Start intake</button>
+      </details>
+      <p class="error-text" id="intake-dashboard-error"></p>
+      <div id="intake-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -309,6 +372,28 @@
     <div id="staff-detail-body"></div>
   </section>
 
+  <!-- Screen 7: Sponsor Intake — one sponsor's full checklist -->
+  <section id="screen-intake-detail" class="screen">
+    <button class="back-button" id="intake-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="intake-detail-title"></p>
+      <p class="meta" id="intake-detail-meta"></p>
+      <div class="in-actions-row">
+        <button class="secondary" type="button" id="intake-copy-link">Copy status link</button>
+        <a class="small-btn" id="intake-open-status" target="_blank" rel="noopener">Open status page</a>
+        <a class="small-btn" id="intake-open-drive" target="_blank" rel="noopener">Drive folder</a>
+        <button class="secondary" type="button" id="intake-email-link">Email status link</button>
+      </div>
+    </div>
+    <div class="ap-banner" id="intake-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="intake-detail-error"></p>
+    <div id="intake-detail-body"></div>
+    <div class="in-send" id="intake-send" style="display:none;">
+      <textarea id="intake-send-note" placeholder="Optional note to include at the top of the email"></textarea>
+      <button type="button" id="intake-send-btn" disabled>Send request</button>
+    </div>
+  </section>
+
   <!-- Screen 6: Quarterly Reporting — per-resident/service, 4 quarters x 4 reports -->
   <section id="screen-quarterly-detail" class="screen">
     <button class="back-button" id="quarterly-detail-back">&larr; Back</button>
@@ -333,12 +418,16 @@
     dashboard: document.getElementById('screen-dashboard'),
     annualDetail: document.getElementById('screen-annual-detail'),
     staffDetail: document.getElementById('screen-staff-detail'),
-    quarterlyDetail: document.getElementById('screen-quarterly-detail')
+    quarterlyDetail: document.getElementById('screen-quarterly-detail'),
+    intakeDetail: document.getElementById('screen-intake-detail')
   };
+
+  let activeTabKey = 'mar'; // widens the page while the Sponsor Intake tab is showing
 
   function showScreen(name) {
     Object.values(screens).forEach(function (el) { el.classList.remove('active'); });
     screens[name].classList.add('active');
+    document.querySelector('main').classList.toggle('wide', name === 'intakeDetail' || (name === 'dashboard' && activeTabKey === 'intake'));
   }
 
   function setError(id, message) {
@@ -607,10 +696,13 @@
     mar: { button: document.getElementById('tab-mar'), content: document.getElementById('mar-tab-content') },
     annual: { button: document.getElementById('tab-annual'), content: document.getElementById('annual-tab-content'), load: loadAnnualDashboard },
     staff: { button: document.getElementById('tab-staff'), content: document.getElementById('staff-tab-content'), load: loadStaffDashboard },
-    quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard }
+    quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard },
+    intake: { button: document.getElementById('tab-intake'), content: document.getElementById('intake-tab-content'), load: loadIntakeDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
+      activeTabKey = key;
+      document.querySelector('main').classList.toggle('wide', key === 'intake');
       Object.keys(tabs).forEach(function (otherKey) {
         tabs[otherKey].button.classList.toggle('active', otherKey === key);
         tabs[otherKey].content.style.display = otherKey === key ? '' : 'none';
@@ -1750,6 +1842,441 @@
       setError('quarterly-detail-error', e.message);
     }
   }
+
+  // --- Sponsor Intake ---
+  // One-time, stage-by-stage checklist for a prospective sponsor (see
+  // lib/sponsor-intake.js). The sponsor never logs in: this page is where
+  // an admin records dates, uploads ASRS's own documents, reviews what the
+  // sponsor sent, and clicks "Send request" — the only thing that ever
+  // emails them.
+  let currentIntakeId = null;
+  let intakeSelected = {};
+  let intakeOpenStages = {}; // stage num -> open, kept across reloads after each save
+
+  function intakeEl(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function intakeStageBar(currentStage) {
+    const bar = intakeEl('div', 'in-stage-bar');
+    for (let n = 1; n <= 9; n++) {
+      const seg = intakeEl('span');
+      if (currentStage === null || n < currentStage) seg.className = 'done';
+      else if (n === currentStage) seg.className = 'current';
+      bar.appendChild(seg);
+    }
+    return bar;
+  }
+
+  async function loadIntakeDashboard() {
+    const listEl = document.getElementById('intake-dashboard-list');
+    setError('intake-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading…</p>';
+    try {
+      const data = await apiFetch('/sponsor-intake-list');
+      listEl.innerHTML = '';
+      if (!data.intakes.length) {
+        listEl.appendChild(intakeEl('p', 'empty-text', 'No sponsors in intake yet. Start one above.'));
+        return;
+      }
+      data.intakes.forEach(function (row) {
+        const btn = intakeEl('button', 'in-row-button');
+        btn.type = 'button';
+        const left = intakeEl('div');
+        left.appendChild(intakeEl('div', 'who', row.name));
+        left.appendChild(intakeEl('div', 'meta-line', row.currentStage
+          ? 'Stage ' + row.currentStage + ' · ' + row.currentStageName + ' · ' + row.completeCount + ' of ' + row.totalCount + ' items done'
+          : 'Intake complete'));
+        const flags = [];
+        if (row.needsReview) flags.push(row.needsReview + ' to review');
+        if (row.waitingOnSponsor) flags.push(row.waitingOnSponsor + ' waiting on sponsor' + (row.oldestRequest ? ' (oldest ' + formatDate(row.oldestRequest) + ')' : ''));
+        if (flags.length) {
+          const f = intakeEl('div', 'meta-line', flags.join(' · '));
+          if (row.needsReview) f.style.color = '#1F4E8C';
+          left.appendChild(f);
+        }
+        btn.appendChild(left);
+        btn.appendChild(intakeStageBar(row.currentStage));
+        btn.addEventListener('click', function () { openIntakeDetail(row.id); });
+        listEl.appendChild(btn);
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('intake-dashboard-error', e.message);
+    }
+  }
+
+  document.getElementById('intake-new-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('intake-new-error', '');
+    const name = document.getElementById('intake-new-name').value.trim();
+    const email = document.getElementById('intake-new-email').value.trim();
+    if (!name || !email) {
+      setError('intake-new-error', 'Enter the sponsor\'s name and email.');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const data = await apiFetch('/sponsor-intake-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          phone: document.getElementById('intake-new-phone').value.trim(),
+          sendWelcome: document.getElementById('intake-new-welcome').checked
+        })
+      });
+      ['intake-new-name', 'intake-new-email', 'intake-new-phone'].forEach(function (id) { document.getElementById(id).value = ''; });
+      document.getElementById('intake-new').open = false;
+      openIntakeDetail(data.id);
+    } catch (e) {
+      setError('intake-new-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function openIntakeDetail(id) {
+    currentIntakeId = id;
+    intakeSelected = {};
+    intakeOpenStages = {};
+    document.getElementById('intake-send-note').value = '';
+    showScreen('intakeDetail');
+    window.scrollTo(0, 0);
+    loadIntakeDetail();
+  }
+
+  document.getElementById('intake-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadIntakeDashboard();
+  });
+
+  async function intakeUpdate(stepKey, payload) {
+    setError('intake-detail-error', '');
+    try {
+      await apiFetch('/sponsor-intake-update-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ id: currentIntakeId, stepKey: stepKey }, payload))
+      });
+      const scrollY = window.scrollY;
+      await loadIntakeDetail();
+      window.scrollTo(0, scrollY);
+    } catch (e) {
+      setError('intake-detail-error', e.message);
+      window.scrollTo(0, 0);
+    }
+  }
+
+  // Admin uploads go through the same Zap as the sponsor's, with a
+  // ticket from an admin session; an admin upload marks the item Complete.
+  async function intakeAdminUpload(item, fileInput) {
+    const files = Array.prototype.slice.call(fileInput.files || []);
+    if (!files.length) return;
+    setError('intake-detail-error', '');
+    fileInput.disabled = true;
+    function extOf(name) { const m = /\.([a-zA-Z0-9]{1,5})$/.exec(name || ''); return m ? m[1].toLowerCase() : ''; }
+    try {
+      const config = await apiFetch('/sponsor-intake-upload-ticket?id=' + encodeURIComponent(currentIntakeId) + '&step=' + encodeURIComponent(item.key));
+      for (let i = 0; i < files.length; i++) {
+        const fd = new FormData();
+        fd.append('file', files[i], files[i].name);
+        fd.append('ticket', config.ticket);
+        fd.append('part', String(i + 1));
+        fd.append('total', String(files.length));
+        fd.append('ext', extOf(files[i].name));
+        const res = await fetch(config.webhookUrl, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error(files[i].name + ' failed to upload. Try again.');
+      }
+      await apiFetch('/sponsor-intake-upload-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket: config.ticket, total: files.length, ext: files.length === 1 ? extOf(files[0].name) : '' })
+      });
+      const scrollY = window.scrollY;
+      await loadIntakeDetail();
+      window.scrollTo(0, scrollY);
+    } catch (e) {
+      setError('intake-detail-error', e.message);
+      fileInput.disabled = false;
+      fileInput.value = '';
+      window.scrollTo(0, 0);
+    }
+  }
+
+  function intakeButton(label, secondary, onClick) {
+    const b = intakeEl('button', 'small' + (secondary ? ' secondary' : ''), label);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  function intakeFileInput(item, multiple) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf,image/*,.doc,.docx';
+    input.multiple = !!multiple;
+    input.addEventListener('change', function () { intakeAdminUpload(item, input); });
+    return input;
+  }
+
+  function refreshIntakeSendBar() {
+    const keys = Object.keys(intakeSelected);
+    const btn = document.getElementById('intake-send-btn');
+    btn.disabled = !keys.length;
+    btn.textContent = keys.length ? 'Send request (' + keys.length + ' item' + (keys.length === 1 ? '' : 's') + ')' : 'Tick sponsor items above to send a request';
+  }
+
+  function renderIntakeItem(container, item) {
+    const wrap = intakeEl('div', 'in-item');
+    const head = intakeEl('div', 'in-item-head');
+
+    const requestable = item.sponsorStep && (item.status === '' || item.status === 'Requested' || item.status === 'Returned');
+    if (requestable) {
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'intake-sel-' + item.key;
+      cb.checked = !!intakeSelected[item.key];
+      cb.title = 'Include in the next request email';
+      cb.addEventListener('change', function () {
+        if (cb.checked) intakeSelected[item.key] = true; else delete intakeSelected[item.key];
+        refreshIntakeSendBar();
+      });
+      head.appendChild(cb);
+    }
+
+    const title = intakeEl('label', 'in-item-title');
+    if (requestable) title.htmlFor = 'intake-sel-' + item.key;
+    title.style.margin = '0';
+    title.style.fontWeight = '400';
+    title.appendChild(intakeEl('span', 'num', item.key));
+    title.appendChild(document.createTextNode(item.label));
+    if (item.licensing) title.appendChild(intakeEl('span', 'lic', '[L]'));
+    if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', 'Sponsor'));
+    head.appendChild(title);
+
+    let pillText = item.status || 'Not started';
+    if (item.status === 'Scheduled' && item.eventDate) pillText = formatDate(item.eventDate) + (item.eventTime ? ' ' + item.eventTime : '');
+    head.appendChild(intakeEl('span', 'in-pill ' + (item.status || ''), pillText));
+    wrap.appendChild(head);
+
+    // Status detail lines
+    const info = [];
+    if (item.requestedDate && item.sponsorStep) info.push('Requested ' + formatDate(item.requestedDate));
+    if (item.receivedDate) info.push('Received ' + formatDate(item.receivedDate));
+    if (item.completedDate) info.push('Completed ' + formatDate(item.completedDate));
+    if (item.lastUpdatedBy) info.push('by ' + item.lastUpdatedBy);
+    if (info.length) wrap.appendChild(intakeEl('p', 'in-item-info', info.join(' · ')));
+    if (item.filename) wrap.appendChild(intakeEl('p', 'in-item-info', 'File: ' + item.filename));
+    if (item.status === 'Returned' && item.returnReason) wrap.appendChild(intakeEl('p', 'in-item-info warn', 'Returned: ' + item.returnReason));
+    if (item.includes.length) {
+      const ul = intakeEl('ul');
+      item.includes.forEach(function (x) { ul.appendChild(intakeEl('li', null, x)); });
+      wrap.appendChild(ul);
+    }
+    if (item.type === 'form' && !item.formConfigured) {
+      wrap.appendChild(intakeEl('p', 'in-item-info warn', 'No JotForm link set for this item yet, so the sponsor gets an upload link instead.'));
+    }
+    if (item.agenda.length) {
+      const ag = intakeEl('details');
+      ag.appendChild(intakeEl('summary', null, 'Agenda'));
+      const ul = intakeEl('ul');
+      item.agenda.forEach(function (x) { ul.appendChild(intakeEl('li', null, x)); });
+      ag.appendChild(ul);
+      wrap.appendChild(ag);
+    }
+
+    // Controls by type
+    const controls = intakeEl('div', 'in-item-controls');
+    const isComplete = item.status === 'Complete';
+
+    if (item.sponsorStep) {
+      if (item.status === 'Received') {
+        controls.appendChild(intakeButton('Accept', false, function () { intakeUpdate(item.key, { action: 'accept' }); }));
+        const reason = document.createElement('input');
+        reason.type = 'text';
+        reason.placeholder = 'Reason for returning (the sponsor sees this)';
+        controls.appendChild(reason);
+        controls.appendChild(intakeButton('Return', true, function () {
+          if (!reason.value.trim()) { reason.focus(); setError('intake-detail-error', 'Enter a reason before returning an item.'); return; }
+          intakeUpdate(item.key, { action: 'return', reason: reason.value.trim() });
+        }));
+      } else if (!isComplete) {
+        const up = intakeEl('label', 'in-item-info', 'Upload on their behalf: ');
+        up.style.margin = '0';
+        up.style.fontWeight = '400';
+        up.appendChild(intakeFileInput(item, true));
+        controls.appendChild(up);
+      }
+    } else if (item.type === 'event') {
+      const d = document.createElement('input');
+      d.type = 'date';
+      d.value = item.eventDate || '';
+      d.setAttribute('aria-label', item.label + ' date');
+      const t = document.createElement('input');
+      t.type = 'time';
+      t.value = item.eventTime || '';
+      t.setAttribute('aria-label', item.label + ' time');
+      controls.appendChild(d);
+      controls.appendChild(t);
+      controls.appendChild(intakeButton('Save date', true, function () { intakeUpdate(item.key, { action: 'schedule', date: d.value, time: t.value }); }));
+      if (!isComplete) controls.appendChild(intakeButton('Mark done', false, function () { intakeUpdate(item.key, { action: 'complete', date: d.value || undefined }); }));
+    } else if (item.type === 'training') {
+      if (!isComplete) {
+        const d = document.createElement('input');
+        d.type = 'date';
+        d.setAttribute('aria-label', item.label + ' completion date');
+        controls.appendChild(d);
+        controls.appendChild(intakeButton('Mark complete', false, function () { intakeUpdate(item.key, { action: 'complete', date: d.value || undefined }); }));
+      }
+      if (item.cert) {
+        const up = intakeEl('label', 'in-item-info', isComplete ? 'Upload certificate: ' : 'or upload certificate: ');
+        up.style.margin = '0';
+        up.style.fontWeight = '400';
+        up.appendChild(intakeFileInput(item, true));
+        controls.appendChild(up);
+      }
+    } else if (item.type === 'document') {
+      const up = intakeEl('label', 'in-item-info', item.filename ? 'Replace: ' : 'Upload: ');
+      up.style.margin = '0';
+      up.style.fontWeight = '400';
+      up.appendChild(intakeFileInput(item, true));
+      controls.appendChild(up);
+      if (!isComplete) controls.appendChild(intakeButton('Mark complete (no file)', true, function () { intakeUpdate(item.key, { action: 'complete' }); }));
+    }
+
+    if (isComplete) {
+      controls.appendChild(intakeButton('Reopen', true, function () { intakeUpdate(item.key, { action: 'reopen' }); }));
+    }
+    if (controls.children.length) wrap.appendChild(controls);
+
+    // Admin-only notes
+    const notes = intakeEl('details');
+    notes.appendChild(intakeEl('summary', null, item.notes ? 'Notes (1)' : 'Add note'));
+    const ta = document.createElement('textarea');
+    ta.value = item.notes || '';
+    ta.placeholder = 'Only admins see this';
+    notes.appendChild(ta);
+    const saveNotes = intakeButton('Save note', true, function () { intakeUpdate(item.key, { action: 'notes', notes: ta.value }); });
+    saveNotes.style.marginTop = '6px';
+    notes.appendChild(saveNotes);
+    wrap.appendChild(notes);
+
+    container.appendChild(wrap);
+  }
+
+  async function loadIntakeDetail() {
+    const bodyEl = document.getElementById('intake-detail-body');
+    const banner = document.getElementById('intake-detail-banner');
+    setError('intake-detail-error', '');
+    try {
+      const data = await apiFetch('/sponsor-intake-get?id=' + encodeURIComponent(currentIntakeId));
+      const intake = data.intake;
+      const progress = data.progress;
+      bodyEl.innerHTML = '';
+
+      document.getElementById('intake-detail-title').textContent = intake.name;
+      document.getElementById('intake-detail-meta').textContent = [intake.email, intake.phone, 'Started ' + formatDate(intake.startedDate)]
+        .filter(Boolean).join(' · ') + (intake.lastRequestSent ? ' · Last request ' + formatDate(intake.lastRequestSent) : '');
+      document.getElementById('intake-open-status').href = intake.statusUrl;
+      const drive = document.getElementById('intake-open-drive');
+      drive.style.display = intake.driveUrl ? '' : 'none';
+      drive.href = intake.driveUrl || '#';
+      document.getElementById('intake-copy-link').onclick = function () {
+        const btn = this;
+        navigator.clipboard.writeText(intake.statusUrl).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy status link'; }, 1600);
+        }).catch(function () { window.prompt('Copy the status link:', intake.statusUrl); });
+      };
+      document.getElementById('intake-email-link').onclick = async function () {
+        const btn = this;
+        btn.disabled = true;
+        try {
+          await apiFetch('/sponsor-intake-send-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentIntakeId, stepKeys: [] })
+          });
+          btn.textContent = 'Sent';
+          setTimeout(function () { btn.textContent = 'Email status link'; }, 2000);
+        } catch (e) {
+          setError('intake-detail-error', e.message);
+        } finally {
+          btn.disabled = false;
+        }
+      };
+
+      const received = data.items.filter(function (i) { return i.status === 'Received'; }).length;
+      const waiting = data.items.filter(function (i) { return i.status === 'Requested' || i.status === 'Returned'; }).length;
+      banner.innerHTML = '';
+      const strong = intakeEl('strong', null, progress.currentStage
+        ? 'Stage ' + progress.currentStage + ' of 9 · ' + data.stages[progress.currentStage - 1].name
+        : 'Intake complete');
+      banner.appendChild(strong);
+      const bits = [];
+      if (received) bits.push(received + ' to review');
+      if (waiting) bits.push(waiting + ' waiting on sponsor');
+      if (bits.length) banner.appendChild(document.createTextNode(' — ' + bits.join(', ')));
+
+      // Drop selections that are no longer requestable (e.g. just received).
+      Object.keys(intakeSelected).forEach(function (key) {
+        const it = data.items.filter(function (i) { return i.key === key; })[0];
+        if (!it || it.status === 'Received' || it.status === 'Complete') delete intakeSelected[key];
+      });
+
+      data.stages.forEach(function (stage) {
+        const stageItems = data.items.filter(function (i) { return i.stage === stage.num; });
+        const sp = progress.stages[stage.num - 1];
+        const det = intakeEl('details', 'in-stage');
+        det.open = intakeOpenStages[stage.num] !== undefined
+          ? intakeOpenStages[stage.num]
+          : (stage.num === progress.currentStage || stageItems.some(function (i) { return i.status === 'Received'; }));
+        det.addEventListener('toggle', function () { intakeOpenStages[stage.num] = det.open; });
+        const sum = intakeEl('summary');
+        sum.appendChild(intakeEl('span', null, stage.num + ' · ' + stage.name));
+        sum.appendChild(intakeEl('span', 'count', sp.isComplete ? 'Complete' : sp.complete + ' of ' + sp.total));
+        det.appendChild(sum);
+        const inner = intakeEl('div', 'in-stage-body');
+        stageItems.forEach(function (item) { renderIntakeItem(inner, item); });
+        det.appendChild(inner);
+        bodyEl.appendChild(det);
+      });
+
+      document.getElementById('intake-send').style.display = '';
+      refreshIntakeSendBar();
+    } catch (e) {
+      banner.textContent = '';
+      setError('intake-detail-error', e.message);
+    }
+  }
+
+  document.getElementById('intake-send-btn').addEventListener('click', async function () {
+    const btn = this;
+    const keys = Object.keys(intakeSelected);
+    if (!keys.length) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    setError('intake-detail-error', '');
+    try {
+      await apiFetch('/sponsor-intake-send-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentIntakeId, stepKeys: keys, note: document.getElementById('intake-send-note').value })
+      });
+      intakeSelected = {};
+      document.getElementById('intake-send-note').value = '';
+      await loadIntakeDetail();
+    } catch (e) {
+      setError('intake-detail-error', e.message);
+      window.scrollTo(0, 0);
+      refreshIntakeSendBar();
+    }
+  });
 
   // --- Boot ---
   const stored = getStoredSession();

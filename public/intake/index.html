@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>My Intake Status · ASRS</title>
+<meta name="theme-color" content="#16332B">
+<link rel="stylesheet" href="intake.css">
+</head>
+<body>
+<header class="bar">
+  <div class="bar-inner">
+    <span class="wordmark">ASRS</span>
+    <span class="bar-title">Sponsor Intake</span>
+  </div>
+</header>
+
+<main>
+  <p class="loading" id="loading">Loading your intake status&hellip;</p>
+  <p class="error" id="error" hidden></p>
+
+  <div id="content" hidden>
+    <section class="hero">
+      <p class="eyebrow" id="stage-eyebrow"></p>
+      <h1 id="sponsor-name"></h1>
+      <div class="progress" id="progress" aria-hidden="true"></div>
+      <p class="progress-caption" id="progress-caption"></p>
+    </section>
+
+    <section class="card attention" id="action-card" hidden>
+      <h2>Waiting on you</h2>
+      <p class="sub">Tap an item to complete it. You'll also find these buttons in your emails from ASRS.</p>
+      <div id="action-list" class="rows"></div>
+    </section>
+
+    <section class="card" id="asrs-card">
+      <h2>ASRS is working on</h2>
+      <div id="asrs-list" class="rows"></div>
+    </section>
+
+    <section class="card">
+      <h2>Your intake, stage by stage</h2>
+      <ol class="stages" id="stage-list"></ol>
+    </section>
+
+    <p class="footnote">This page is private to you, so please don't share the link. Questions? Reply to any email from ASRS Sponsor Intake.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  const token = new URLSearchParams(location.search).get('t') || '';
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function formatShortDate(iso) {
+    if (!iso) return '';
+    return new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function formatTime(hhmm) {
+    if (!hhmm) return '';
+    const parts = hhmm.split(':').map(Number);
+    const d = new Date(2000, 0, 1, parts[0], parts[1]);
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function pill(text, kind) { return el('span', 'pill ' + kind, text); }
+
+  function itemPill(item) {
+    switch (item.state) {
+      case 'complete': return pill(item.completedDate ? 'Done ' + formatShortDate(item.completedDate) : 'Done', 'done');
+      case 'under-review': return pill('Received', 'review');
+      case 'action-needed': return pill('Waiting on you', 'action');
+      case 'scheduled': return pill(item.eventDate ? formatShortDate(item.eventDate) + (item.eventTime ? ', ' + formatTime(item.eventTime) : '') : 'Scheduled', 'scheduled');
+      default: return pill('Not started', 'idle');
+    }
+  }
+
+  function render(data) {
+    document.title = data.name + ' · Intake Status · ASRS';
+    document.getElementById('sponsor-name').textContent = data.name;
+
+    const current = data.currentStage;
+    document.getElementById('stage-eyebrow').textContent = current
+      ? 'Stage ' + current + ' of 9 · ' + data.stages[current - 1].name
+      : 'Intake complete';
+
+    const progress = document.getElementById('progress');
+    data.stages.forEach(function (s) { progress.appendChild(el('span', 'seg ' + s.state)); });
+    const doneStages = data.stages.filter(function (s) { return s.state === 'complete'; }).length;
+    document.getElementById('progress-caption').textContent = current
+      ? doneStages + ' of 9 stages complete · Started ' + formatDate(data.startedDate)
+      : 'All 9 stages complete. Welcome to ASRS!';
+
+    // Waiting on you
+    if (data.actionNeeded.length) {
+      const list = document.getElementById('action-list');
+      data.actionNeeded.forEach(function (a) {
+        const row = el('div', 'row');
+        const text = el('div', 'row-text');
+        text.appendChild(el('span', 'row-title', a.label));
+        if (a.includes.length) text.appendChild(el('span', 'row-sub', 'Includes: ' + a.includes.join('; ')));
+        if (a.returnReason) text.appendChild(el('span', 'row-sub returned', 'Please resubmit: ' + a.returnReason));
+        row.appendChild(text);
+        const link = el('a', 'btn', a.actionLabel);
+        link.href = a.actionUrl;
+        link.rel = 'noopener';
+        row.appendChild(link);
+        list.appendChild(row);
+      });
+      document.getElementById('action-card').hidden = false;
+    }
+
+    // ASRS is working on
+    const asrs = document.getElementById('asrs-list');
+    if (current) {
+      const row = el('div', 'row');
+      row.appendChild(el('span', 'row-title', data.currentStageNote));
+      row.appendChild(pill('In progress', 'review'));
+      asrs.appendChild(row);
+    }
+    data.underReview.forEach(function (r) {
+      const row = el('div', 'row');
+      row.appendChild(el('span', 'row-title', 'Reviewing: ' + r.label));
+      row.appendChild(pill('Received', 'review'));
+      asrs.appendChild(row);
+    });
+    data.upcoming.forEach(function (u) {
+      const row = el('div', 'row');
+      row.appendChild(el('span', 'row-title', u.label));
+      row.appendChild(pill(formatDate(u.date) + (u.time ? ', ' + formatTime(u.time) : ''), 'scheduled'));
+      asrs.appendChild(row);
+    });
+    if (!asrs.children.length) {
+      document.getElementById('asrs-card').hidden = true;
+    }
+
+    // Stage by stage
+    const stageList = document.getElementById('stage-list');
+    data.stages.forEach(function (s) {
+      const li = el('li', 'stage ' + s.state);
+      const details = el('details');
+      if (s.state === 'current') details.open = true;
+      const summary = el('summary');
+      summary.appendChild(el('span', 'stage-num', String(s.num)));
+      summary.appendChild(el('span', 'stage-name', s.name));
+      summary.appendChild(pill(s.state === 'complete' ? 'Complete' : s.state === 'current' ? 'In progress' : 'Upcoming',
+        s.state === 'complete' ? 'done' : s.state === 'current' ? 'review' : 'idle'));
+      details.appendChild(summary);
+      const items = el('div', 'stage-items');
+      if (s.items.length) {
+        s.items.forEach(function (item) {
+          const row = el('div', 'row compact');
+          row.appendChild(el('span', 'row-title', item.label));
+          row.appendChild(itemPill(item));
+          items.appendChild(row);
+        });
+      } else {
+        items.appendChild(el('p', 'row-sub', 'ASRS handles everything in this stage. We\'ll let you know when it\'s done.'));
+      }
+      details.appendChild(items);
+      li.appendChild(details);
+      stageList.appendChild(li);
+    });
+
+    document.getElementById('loading').hidden = true;
+    document.getElementById('content').hidden = false;
+  }
+
+  function showError(message) {
+    document.getElementById('loading').hidden = true;
+    const err = document.getElementById('error');
+    err.textContent = message;
+    err.hidden = false;
+  }
+
+  if (!token) {
+    showError('This link is missing its access code. Use the "View my intake status" link in your most recent ASRS email.');
+    return;
+  }
+
+  fetch('/.netlify/functions/sponsor-intake-status?t=' + encodeURIComponent(token))
+    .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+    .then(function (r) {
+      if (!r.ok) throw new Error(r.data.error || 'Something went wrong.');
+      render(r.data);
+    })
+    .catch(function (e) { showError(e.message || 'Could not load your status. Check your connection and try again.'); });
+})();
+</script>
+</body>
+</html>

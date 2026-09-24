@@ -30,6 +30,26 @@ function queryDatabase(dataSourceId, filter) {
   });
 }
 
+// Same as queryDatabase, but follows Notion's pagination (100 rows per
+// page) until every match is collected — for queries that can
+// legitimately exceed one page, e.g. a sponsor intake's ~77 item rows.
+async function queryDatabaseAll(dataSourceId, filter) {
+  let results = [];
+  let cursor;
+  do {
+    const body = {};
+    if (filter) body.filter = filter;
+    if (cursor) body.start_cursor = cursor;
+    const page = await notionFetch('/data_sources/' + dataSourceId + '/query', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
+    results = results.concat(page.results || []);
+    cursor = page.has_more ? page.next_cursor : null;
+  } while (cursor);
+  return results;
+}
+
 function updatePage(pageId, properties) {
   return notionFetch('/pages/' + pageId, {
     method: 'PATCH',
@@ -72,6 +92,8 @@ function getPlainText(prop) {
       return (prop.rich_text || []).map(function (t) { return t.plain_text; }).join('');
     case 'phone_number':
       return prop.phone_number || '';
+    case 'email':
+      return prop.email || '';
     case 'checkbox':
       return prop.checkbox;
     case 'select':
@@ -85,4 +107,4 @@ function getPlainText(prop) {
   }
 }
 
-module.exports = { notionFetch, queryDatabase, updatePage, createPage, getPage, getPlainText, driveFolderIdFromUrl };
+module.exports = { notionFetch, queryDatabase, queryDatabaseAll, updatePage, createPage, getPage, getPlainText, driveFolderIdFromUrl };
