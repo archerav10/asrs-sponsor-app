@@ -1,6 +1,6 @@
 const { decryptToken } = require('./lib/crypto');
 const {
-  getIntake, STEPS_BY_KEY, stageFolderName, sponsorFolderName, uploadFilename, parseFormFilename,
+  loadChecklist, stepOrPlaceholder, getIntake, stageFolderName, sponsorFolderName, uploadFilename, parseFormFilename,
   json, errorResponse
 } = require('./lib/sponsor-intake');
 
@@ -56,13 +56,14 @@ exports.handler = async function (event) {
       ext = 'pdf';
     }
 
-    const step = STEPS_BY_KEY[stepKey];
+    const cl = await loadChecklist();
+    const step = stepOrPlaceholder(cl, stepKey);
     const intake = await getIntake(intakeId);
 
     return json(200, {
       rootFolderId: rootFolderId,
       sponsorFolderName: sponsorFolderName(intake),
-      stageFolderName: stageFolderName(step.stage),
+      stageFolderName: stageFolderName(cl, step.stage),
       filename: uploadFilename(intake, step, part, total, ext),
       sponsorName: intake.name,
       stepKey: step.key

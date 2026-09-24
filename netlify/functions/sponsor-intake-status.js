@@ -1,4 +1,4 @@
-const { findIntakeByToken, itemsForIntake, sponsorStatus, json, errorResponse } = require('./lib/sponsor-intake');
+const { loadChecklist, findIntakeByToken, itemsForIntake, sponsorStatus, json, errorResponse } = require('./lib/sponsor-intake');
 
 // The sponsor's read-only status page. The private token in the link is
 // the only credential — no login — so everything returned goes through
@@ -14,8 +14,8 @@ exports.handler = async function (event) {
     if (!intake) {
       return json(404, { error: 'This status link isn\'t valid. Check the link in your most recent ASRS email.' });
     }
-    const items = await itemsForIntake(intake.id);
-    return json(200, sponsorStatus(intake, items));
+    const results = await Promise.all([loadChecklist(), itemsForIntake(intake.id)]);
+    return json(200, sponsorStatus(results[0], intake, results[1]));
   } catch (err) {
     return errorResponse(err);
   }

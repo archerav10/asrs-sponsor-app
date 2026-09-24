@@ -211,7 +211,9 @@
   .in-row-button { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); padding: 14px 16px; border-radius: 8px; margin: 0 0 10px; cursor: pointer; font-weight: 400; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
   .in-row-button .who { font-size: 16px; font-weight: 600; }
   .in-row-button .meta-line { font-size: 13px; color: #666; margin-top: 2px; }
-  .in-stage-bar { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; width: 120px; flex-shrink: 0; }
+  .in-stage-bar { display: grid; gap: 3px; width: 120px; flex-shrink: 0; }
+  .in-problems { border: 1px solid #E0B563; background: #FBF3E2; color: #6B4A0E; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+  .in-problems ul { margin: 6px 0 0; padding-left: 18px; }
   .in-stage-bar span { height: 7px; border-radius: 2px; background: #ECE8DE; }
   .in-stage-bar span.done { background: #1B7A3D; }
   .in-stage-bar span.current { background: #C9A227; }
@@ -1860,15 +1862,28 @@
     return e;
   }
 
-  function intakeStageBar(currentStage) {
+  function intakeStageBar(currentPosition, stageCount) {
     const bar = intakeEl('div', 'in-stage-bar');
-    for (let n = 1; n <= 9; n++) {
+    bar.style.gridTemplateColumns = 'repeat(' + Math.max(1, stageCount) + ', 1fr)';
+    for (let n = 1; n <= stageCount; n++) {
       const seg = intakeEl('span');
-      if (currentStage === null || n < currentStage) seg.className = 'done';
-      else if (n === currentStage) seg.className = 'current';
+      if (currentPosition === null || n < currentPosition) seg.className = 'done';
+      else if (n === currentPosition) seg.className = 'current';
       bar.appendChild(seg);
     }
     return bar;
+  }
+
+  // Rows in the Notion Intake Stages/Steps databases the app had to skip
+  // (blank Key, duplicate Key, no Type...), so whoever edited them can fix it.
+  function renderChecklistProblems(container, problems) {
+    if (!problems || !problems.length) return;
+    const box = intakeEl('div', 'in-problems');
+    box.appendChild(intakeEl('strong', null, 'Checklist rows in Notion that need fixing:'));
+    const ul = intakeEl('ul');
+    problems.forEach(function (p) { ul.appendChild(intakeEl('li', null, p)); });
+    box.appendChild(ul);
+    container.appendChild(box);
   }
 
   async function loadIntakeDashboard() {
@@ -1878,6 +1893,7 @@
     try {
       const data = await apiFetch('/sponsor-intake-list');
       listEl.innerHTML = '';
+      renderChecklistProblems(listEl, data.checklistProblems);
       if (!data.intakes.length) {
         listEl.appendChild(intakeEl('p', 'empty-text', 'No sponsors in intake yet. Start one above.'));
         return;
@@ -1888,7 +1904,7 @@
         const left = intakeEl('div');
         left.appendChild(intakeEl('div', 'who', row.name));
         left.appendChild(intakeEl('div', 'meta-line', row.currentStage
-          ? 'Stage ' + row.currentStage + ' · ' + row.currentStageName + ' · ' + row.completeCount + ' of ' + row.totalCount + ' items done'
+          ? 'Stage ' + row.currentPosition + ' of ' + row.stageCount + ' · ' + row.currentStageName + ' · ' + row.completeCount + ' of ' + row.totalCount + ' items done'
           : 'Intake complete'));
         const flags = [];
         if (row.needsReview) flags.push(row.needsReview + ' to review');
@@ -1899,7 +1915,7 @@
           left.appendChild(f);
         }
         btn.appendChild(left);
-        btn.appendChild(intakeStageBar(row.currentStage));
+        btn.appendChild(intakeStageBar(row.currentPosition, row.stageCount));
         btn.addEventListener('click', function () { openIntakeDetail(row.id); });
         listEl.appendChild(btn);
       });
@@ -2214,8 +2230,9 @@
       const received = data.items.filter(function (i) { return i.status === 'Received'; }).length;
       const waiting = data.items.filter(function (i) { return i.status === 'Requested' || i.status === 'Returned'; }).length;
       banner.innerHTML = '';
-      const strong = intakeEl('strong', null, progress.currentStage
-        ? 'Stage ' + progress.currentStage + ' of 9 · ' + data.stages[progress.currentStage - 1].name
+      const currentStage = data.stages.filter(function (s) { return s.num === progress.currentStage; })[0];
+      const strong = intakeEl('strong', null, currentStage
+        ? 'Stage ' + currentStage.position + ' of ' + data.stages.length + ' · ' + currentStage.name
         : 'Intake complete');
       banner.appendChild(strong);
       const bits = [];
@@ -2229,16 +2246,18 @@
         if (!it || it.status === 'Received' || it.status === 'Complete') delete intakeSelected[key];
       });
 
+      renderChecklistProblems(bodyEl, data.checklistProblems);
+
       data.stages.forEach(function (stage) {
         const stageItems = data.items.filter(function (i) { return i.stage === stage.num; });
-        const sp = progress.stages[stage.num - 1];
+        const sp = progress.stages.filter(function (s) { return s.num === stage.num; })[0];
         const det = intakeEl('details', 'in-stage');
         det.open = intakeOpenStages[stage.num] !== undefined
           ? intakeOpenStages[stage.num]
           : (stage.num === progress.currentStage || stageItems.some(function (i) { return i.status === 'Received'; }));
         det.addEventListener('toggle', function () { intakeOpenStages[stage.num] = det.open; });
         const sum = intakeEl('summary');
-        sum.appendChild(intakeEl('span', null, stage.num + ' · ' + stage.name));
+        sum.appendChild(intakeEl('span', null, stage.position + ' · ' + stage.name));
         sum.appendChild(intakeEl('span', 'count', sp.isComplete ? 'Complete' : sp.complete + ' of ' + sp.total));
         det.appendChild(sum);
         const inner = intakeEl('div', 'in-stage-body');

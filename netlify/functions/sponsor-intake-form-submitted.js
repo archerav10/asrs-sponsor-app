@@ -1,5 +1,5 @@
 const {
-  getIntake, itemsForIntake, upsertItem, STEPS_BY_KEY, STATUS, parseFormFilename,
+  loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS, parseFormFilename,
   todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse
 } = require('./lib/sponsor-intake');
 const { notifyAdmins } = require('./lib/sponsor-intake-email');
@@ -22,7 +22,7 @@ exports.handler = async function (event) {
     const parsed = parseFormFilename(body.filename);
     if (!parsed) return json(400, { error: 'Could not find an intake/step in that filename.' });
 
-    const step = STEPS_BY_KEY[parsed.stepKey];
+    const step = stepOrPlaceholder(await loadChecklist(), parsed.stepKey);
     const intake = await getIntake(parsed.intakeId);
     const item = (await itemsForIntake(intake.id))[step.key] || null;
 
@@ -36,8 +36,8 @@ exports.handler = async function (event) {
       props['Return Reason'] = richText('');
     }
 
-    await upsertItem(intake, step.key, props, item);
-    await notifyAdmins(intake, step.key);
+    await upsertItem(intake, step, props, item);
+    await notifyAdmins(intake, step);
 
     return json(200, { success: true });
   } catch (err) {

@@ -1,6 +1,5 @@
 const { sendEmail } = require('./email');
 const {
-  STEPS_BY_KEY,
   stageFor,
   statusPageUrl,
   sponsorActionUrl,
@@ -60,15 +59,15 @@ function itemRow(intake, step, returnReason) {
     button(sponsorActionUrl(intake, step), sponsorActionLabel(step)) + '</td></tr>';
 }
 
-// items: [{ stepKey, returnReason }]
-function requestEmail(intake, items, note) {
-  const stageNums = items.map(function (i) { return STEPS_BY_KEY[i.stepKey].stage; });
-  const stage = stageFor(Math.min.apply(null, stageNums));
+// items: [{ step, returnReason }]
+function requestEmail(cl, intake, items, note) {
+  const stageNums = items.map(function (i) { return i.step.stage; });
+  const stage = stageFor(cl, Math.min.apply(null, stageNums));
   const count = items.length;
   const subject = 'Action needed: ' + count + ' item' + (count === 1 ? '' : 's') + ' for your ASRS sponsor intake';
 
   let body = '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#2F5D45;font-weight:700">Stage ' +
-    stage.num + ' of 9 · ' + esc(stage.name) + '</p>' +
+    stage.position + ' of ' + cl.stages.length + ' · ' + esc(stage.name) + '</p>' +
     '<p style="margin:0 0 14px">Hi ' + esc(firstName(intake.name)) + ',</p>' +
     '<p style="margin:0 0 14px">To keep your intake moving, please complete the ' + (count === 1 ? 'item' : count + ' items') +
     ' below. Each button opens a short, secure page for that one item.</p>';
@@ -76,7 +75,7 @@ function requestEmail(intake, items, note) {
     body += '<p style="margin:0 0 14px;padding:12px 14px;background:' + CREAM + ';border-radius:8px">' + esc(note).replace(/\n/g, '<br>') + '</p>';
   }
   body += '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse">' +
-    items.map(function (i) { return itemRow(intake, STEPS_BY_KEY[i.stepKey], i.returnReason); }).join('') +
+    items.map(function (i) { return itemRow(intake, i.step, i.returnReason); }).join('') +
     '</table>';
 
   return { subject: subject, html: layout(body, intake) };
@@ -110,13 +109,12 @@ async function sendToSponsor(intake, email) {
 // Heads-up to SPONSOR_INTAKE_NOTIFY_EMAILS when a sponsor submits
 // something. Best-effort: a failed notification never fails the
 // sponsor's upload.
-async function notifyAdmins(intake, stepKey) {
+async function notifyAdmins(intake, step) {
   const templateId = process.env.EMAILJS_INTAKE_TEMPLATE_ID;
   const recipients = (process.env.SPONSOR_INTAKE_NOTIFY_EMAILS || '').split(',')
     .map(function (s) { return s.trim(); }).filter(Boolean);
   if (!templateId || !recipients.length) return;
 
-  const step = STEPS_BY_KEY[stepKey];
   const subject = intake.name + ' submitted ' + step.key + ' ' + step.label;
   const html = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1C1C1A">' +
     '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +

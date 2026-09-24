@@ -102,6 +102,8 @@ function getPlainText(prop) {
       return prop.date ? prop.date.start : '';
     case 'url':
       return prop.url || '';
+    case 'number':
+      return prop.number;
     default:
       return '';
   }

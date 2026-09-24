@@ -1,5 +1,5 @@
 const {
-  requireIntakeAdmin, getIntake, itemsForIntake, fullItemList, stageSummary, STAGES,
+  requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary,
   statusPageUrl, json, errorResponse
 } = require('./lib/sponsor-intake');
 
@@ -15,6 +15,7 @@ exports.handler = async function (event) {
     const id = (event.queryStringParameters || {}).id;
     if (!id) return json(400, { error: 'id is required.' });
 
+    const cl = await loadChecklist({ fresh: true });
     const intake = await getIntake(id);
     const items = await itemsForIntake(intake.id);
     const rootFolderId = process.env.SPONSOR_INTAKE_ROOT_FOLDER_ID || '';
@@ -30,9 +31,10 @@ exports.handler = async function (event) {
         statusUrl: statusPageUrl(intake),
         driveUrl: rootFolderId ? 'https://drive.google.com/drive/folders/' + rootFolderId : ''
       },
-      stages: STAGES.map(function (s) { return { num: s.num, name: s.name }; }),
-      progress: stageSummary(items),
-      items: fullItemList(items)
+      stages: cl.stages.map(function (s) { return { num: s.num, position: s.position, name: s.name }; }),
+      progress: stageSummary(cl, items),
+      items: fullItemList(cl, items),
+      checklistProblems: cl.problems
     });
   } catch (err) {
     return errorResponse(err);

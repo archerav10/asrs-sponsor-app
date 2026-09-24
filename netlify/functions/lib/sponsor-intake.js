@@ -7,158 +7,142 @@ const ITEMS_DB_ID = process.env.SPONSOR_INTAKE_ITEMS_DB_ID;
 const TIME_ZONE = process.env.SPONSOR_INTAKE_TIME_ZONE || 'America/New_York';
 
 // Sponsor intake is a one-time, stage-by-stage checklist for a
-// prospective sponsor — unlike every other process in this app it has
+// prospective sponsor. Unlike every other process in this app it has
 // no location, no resident, and no recurring cycle. The sponsor never
 // logs in: they only ever see (1) the request emails an admin sends from
 // the dashboard, whose buttons open a single-item upload page or a
 // JotForm, and (2) a read-only status page behind a private link.
 //
-// Stage numbers and step numbers follow "Sponsor Intake Process –
-// Master 3.2", with the cleanups agreed during design: 1.7/1.8
-// (insurance) dropped in favor of 4.14/4.15; the two unnumbered
-// Assessment steps became 2.3a/2.4a; 7.8 moved to Forms & Review as
-// 4.16; the ten signature forms became one Sponsor Agreements packet;
-// and 2.8–2.10 are sponsor uploads.
-const STAGES = [
-  { num: 1, name: 'Application', sponsorNote: 'Reviewing your application documents' },
-  { num: 2, name: 'Assessment', sponsorNote: 'Interviews and assessment' },
-  { num: 3, name: 'Background', sponsorNote: 'Background checks in progress' },
-  { num: 4, name: 'Forms & Review', sponsorNote: 'Reviewing your agreements and forms' },
-  { num: 5, name: 'Home Prep', sponsorNote: 'Home preparation and inspections' },
-  { num: 6, name: 'Training Phase 1', sponsorNote: 'Training Phase 1' },
-  { num: 7, name: 'Training Phase 2', sponsorNote: 'Training Phase 2' },
-  { num: 8, name: 'Training Phases 3-4', sponsorNote: 'Training Phases 3 and 4' },
-  { num: 9, name: 'Final', sponsorNote: 'Final readiness steps' }
-];
+// The checklist itself lives in Notion, not in code, so it can be edited
+// without a deploy: "Intake Stages" (SPONSOR_INTAKE_STAGES_DB_ID) and
+// "Intake Steps" (SPONSOR_INTAKE_STEPS_DB_ID). Progress rows in the Items
+// database are keyed by each step's Key, which is why a Key must never
+// change once used — rename the Label instead.
+const STAGES_DB_ID = process.env.SPONSOR_INTAKE_STAGES_DB_ID;
+const STEPS_DB_ID = process.env.SPONSOR_INTAKE_STEPS_DB_ID;
+const CHECKLIST_TTL_MS = 30 * 1000;
 
-// Step types:
+// Notion "Type" option -> internal type:
 //   upload   — sponsor uploads a document (single-item upload page)
 //   form     — sponsor completes a JotForm (falls back to an upload link
-//              if its formUrl isn't configured yet)
+//              if its Form Link is blank)
 //   event    — admin records a date (and optional time); "Scheduled"
-//              until marked complete. `agenda` lists talking points shown
-//              on the admin page.
+//              until marked done. Agenda lines show on the admin page.
 //   document — admin uploads a document ASRS produces or receives
-//   training — admin records a completion date; `cert: true` adds an
+//   training — admin records a completion date; Certificate adds an
 //              optional certificate upload
-// `visible: true` puts an admin-side step on the sponsor's status page
-// (interviews they attend, trainings they take, milestone letters).
-// Sponsor steps (upload/form) are always visible to the sponsor. Anything
-// not visible — background checks especially — only ever shows up there
-// as its stage's generic progress.
-const STEPS = [
-  // 1 · Application
-  { key: '1.1', stage: 1, type: 'upload', label: 'Resume', licensing: true },
-  { key: '1.2', stage: 1, type: 'form', label: 'Sponsor Application (includes reference checks and bio)', licensing: true, formEnv: 'SPONSOR_INTAKE_FORM_APPLICATION_URL' },
-  { key: '1.3', stage: 1, type: 'upload', label: 'Photo ID', licensing: true },
-  { key: '1.4', stage: 1, type: 'form', label: 'Monthly Budget Form', licensing: true, formEnv: 'SPONSOR_INTAKE_FORM_BUDGET_URL', defaultFormUrl: 'https://form.jotform.com/261867275422059' },
-  { key: '1.5', stage: 1, type: 'upload', label: 'Proof of funds', licensing: true },
-  { key: '1.6', stage: 1, type: 'upload', label: 'DMV driving record' },
-  { key: '1.9', stage: 1, type: 'upload', label: 'Certificate of occupancy', licensing: true },
-  { key: '1.10', stage: 1, type: 'upload', label: 'Diploma / certifications', licensing: true },
+const TYPE_MAP = {
+  'Sponsor Upload': 'upload',
+  'Sponsor Form': 'form',
+  'Meeting / Event': 'event',
+  'ASRS Document': 'document',
+  'Training': 'training'
+};
+const KEY_RE = /^\d+\.\d+[a-z]?$/;
 
-  // 2 · Assessment
-  { key: '2.1', stage: 2, type: 'event', label: 'In-home tour and interview', visible: true, agenda: [] },
-  { key: '2.2', stage: 2, type: 'document', label: 'Sponsor reference letter(s)', licensing: true },
-  { key: '2.3', stage: 2, type: 'event', label: 'Sponsor interview #2', visible: true, agenda: [] },
-  { key: '2.3a', stage: 2, type: 'event', label: 'Sponsor responsibilities review', visible: true, agenda: [] },
-  { key: '2.4', stage: 2, type: 'document', label: 'Sponsor Intake Evaluation and Assessment', licensing: true },
-  { key: '2.4a', stage: 2, type: 'event', label: 'Sponsor interview #3', visible: true, agenda: [] },
-  { key: '2.5', stage: 2, type: 'document', label: 'Welcome and Acceptance Letter', licensing: true, visible: true },
-  { key: '2.6', stage: 2, type: 'document', label: 'DBHDS Sponsor Certification & Attestation', licensing: true },
-  { key: '2.7', stage: 2, type: 'document', label: 'DBHDS Family Member as Sponsor Provider', licensing: true },
-  { key: '2.8', stage: 2, type: 'upload', label: 'Letter for Care at Home (Physician)', licensing: true },
-  { key: '2.9', stage: 2, type: 'upload', label: 'Letter for Care at Home (Psychiatrist)', licensing: true },
-  { key: '2.10', stage: 2, type: 'upload', label: 'Letter for Care at Home (Occupational Therapist)', licensing: true },
+function lines(text) {
+  return (text || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+}
 
-  // 3 · Background — admin side never visible to the sponsor
-  { key: '3.1', stage: 3, type: 'form', label: 'ASRS Sponsor Background Check Disclosure Form', licensing: true, formEnv: 'SPONSOR_INTAKE_FORM_BACKGROUND_DISCLOSURE_URL' },
-  { key: '3.2', stage: 3, type: 'form', label: 'Background Check Disclosure Form for all adults living in the home', licensing: true, formEnv: 'SPONSOR_INTAKE_FORM_HOUSEHOLD_DISCLOSURE_URL' },
-  { key: '3.3', stage: 3, type: 'event', label: 'Initiate sponsor background check' },
-  { key: '3.4', stage: 3, type: 'event', label: 'Initiate sponsor Central Registry check' },
-  { key: '3.5', stage: 3, type: 'event', label: 'Initiate background checks for all adults in the home' },
-  { key: '3.6', stage: 3, type: 'event', label: 'Initiate Central Registry checks for all adults in the home' },
-  { key: '3.7', stage: 3, type: 'document', label: 'Completed sponsor background check', licensing: true },
-  { key: '3.8', stage: 3, type: 'document', label: 'Completed sponsor Central Registry check', licensing: true },
-  { key: '3.9', stage: 3, type: 'document', label: 'Completed background checks for all adults in the home', licensing: true },
-  { key: '3.10', stage: 3, type: 'document', label: 'Completed Central Registry checks for all adults in the home', licensing: true },
+function checkbox(prop) {
+  return !!(prop && prop.checkbox);
+}
 
-  // 4 · Forms & Review
-  {
-    key: '4.1', stage: 4, type: 'form', label: 'Sponsor Agreements packet', licensing: true, formEnv: 'SPONSOR_INTAKE_FORM_AGREEMENTS_URL',
-    includes: [
-      'Direct Deposit form',
-      'W-9 form',
-      'Rent Rate Sheet',
-      'Accountant declaration / statement of understanding / independent contractor',
-      'Sponsor Roles & Responsibilities / Licensing Requirements / No Advances',
-      'Sponsor as an Independent Contractor / Accountant Declaration',
-      'Commitment to Excellence',
-      'Communication Protocol',
-      'Sponsor Training Requirements',
-      'Sponsor Pay Schedule / Pay Requirements / No Advances'
-    ]
-  },
-  { key: '4.4', stage: 4, type: 'document', label: 'TB Assessment', licensing: true },
-  { key: '4.5', stage: 4, type: 'upload', label: 'ASRS Sponsor Physician Statement of Good Health' },
-  { key: '4.13', stage: 4, type: 'form', label: 'Sponsor Relief Plan and Budget', formEnv: 'SPONSOR_INTAKE_FORM_RELIEF_PLAN_URL' },
-  { key: '4.14', stage: 4, type: 'upload', label: 'Automobile insurance declaration page' },
-  { key: '4.15', stage: 4, type: 'upload', label: 'Homeowner\'s insurance declaration page' },
-  { key: '4.16', stage: 4, type: 'training', label: 'Sponsor/DSP Role and Responsibilities', licensing: true, cert: true, visible: true },
+let checklistCache = null;
 
-  // 5 · Home Prep
-  { key: '5.1', stage: 5, type: 'document', label: 'Home maintenance and improvement report' },
-  { key: '5.2', stage: 5, type: 'document', label: 'Home layout and evacuation route', licensing: true },
-  { key: '5.3', stage: 5, type: 'document', label: 'Fire inspection', licensing: true, visible: true },
-  { key: '5.4', stage: 5, type: 'document', label: 'Real estate inspection', licensing: true, visible: true },
-  { key: '5.5', stage: 5, type: 'event', label: 'Home setup and preparation', visible: true, agenda: [] },
-  { key: '5.6', stage: 5, type: 'event', label: 'First aid kit setup', visible: true, agenda: [] },
-  { key: '5.7', stage: 5, type: 'event', label: 'Emergency supply kit setup', visible: true, agenda: [] },
-  { key: '5.8', stage: 5, type: 'event', label: 'Fire inspection readiness setup', visible: true, agenda: [] },
-  { key: '5.9', stage: 5, type: 'document', label: 'Physical environment inspection', visible: true },
+// Loads and validates the checklist. A bad row never breaks the app: it
+// is skipped and described in `problems`, which the admin dashboard shows
+// so whoever edited Notion can fix it. Cached for 30s per function
+// instance; admin pages pass { fresh: true } so an edit shows up on the
+// next reload.
+async function loadChecklist(options) {
+  options = options || {};
+  if (!options.fresh && checklistCache && Date.now() - checklistCache.at < CHECKLIST_TTL_MS) {
+    return checklistCache.value;
+  }
+  if (!STAGES_DB_ID || !STEPS_DB_ID) {
+    const err = new Error('Sponsor Intake checklist is not configured (SPONSOR_INTAKE_STAGES_DB_ID / SPONSOR_INTAKE_STEPS_DB_ID).');
+    err.statusCode = 500;
+    throw err;
+  }
 
-  // 6 · Training Phase 1
-  { key: '6.1', stage: 6, type: 'training', label: 'HIPAA Training', licensing: true, cert: true, visible: true },
-  { key: '6.2', stage: 6, type: 'training', label: 'Medication Administration Refresher', licensing: true, cert: true, visible: true },
-  { key: '6.3', stage: 6, type: 'training', label: 'First Aid/CPR', licensing: true, cert: true, visible: true },
-  { key: '6.4', stage: 6, type: 'training', label: 'Behavior Management Training (TOVA)', licensing: true, cert: true, visible: true },
-  { key: '6.5', stage: 6, type: 'training', label: 'Universal Precautions and Infectious Controls', licensing: true, cert: true, visible: true },
+  const results = await Promise.all([queryDatabaseAll(STAGES_DB_ID), queryDatabaseAll(STEPS_DB_ID)]);
+  const problems = [];
 
-  // 7 · Training Phase 2
-  { key: '7.1', stage: 7, type: 'training', label: 'DD Waiver Orientation Training & Assurance Form', licensing: true, cert: true, visible: true },
-  { key: '7.2', stage: 7, type: 'training', label: '32 Hour Medication Administration Training', licensing: true, cert: true, visible: true },
-  { key: '7.3', stage: 7, type: 'training', label: 'Human Rights', licensing: true, cert: true, visible: true },
-  { key: '7.4', stage: 7, type: 'training', label: 'Home and Community Based Services', licensing: true, cert: true, visible: true },
-  { key: '7.5', stage: 7, type: 'training', label: 'Fire extinguisher / video training', cert: true, visible: true },
-  { key: '7.6', stage: 7, type: 'training', label: 'Serious Incident Reporting', licensing: true, cert: true, visible: true },
-  { key: '7.7', stage: 7, type: 'training', label: 'ID Waiver Key Summary and Review', visible: true },
-  { key: '7.9', stage: 7, type: 'training', label: 'ASRS – How We Treat Our Residents', cert: true, visible: true },
+  const allStages = {};
+  const stages = [];
+  results[0].forEach(function (page) {
+    const p = page.properties;
+    const name = getPlainText(p['Name']);
+    const num = getPlainText(p['Number']);
+    const active = checkbox(p['Active']);
+    if (!active) {
+      if (typeof num === 'number') allStages[num] = false;
+      return;
+    }
+    if (typeof num !== 'number' || !name) {
+      problems.push('Stage "' + (name || '(untitled)') + '" skipped: it needs a Name and a Number.');
+      return;
+    }
+    if (allStages[num]) {
+      problems.push('Stage "' + name + '" skipped: another active stage already uses Number ' + num + '.');
+      return;
+    }
+    const stage = { num: num, name: name, sponsorNote: getPlainText(p['Sponsor Note']) || name };
+    allStages[num] = stage;
+    stages.push(stage);
+  });
+  stages.sort(function (a, b) { return a.num - b.num; });
+  stages.forEach(function (s, i) { s.position = i + 1; });
 
-  // 8 · Training Phases 3 & 4
-  { key: '8.1', stage: 8, type: 'training', label: 'Behavior Supports for DSPs', licensing: true, cert: true, visible: true },
-  { key: '8.2', stage: 8, type: 'training', label: 'Autism Supports for DSPs', licensing: true, cert: true, visible: true },
-  { key: '8.3', stage: 8, type: 'training', label: 'How We Treat and Serve Our Residents', visible: true },
-  { key: '8.4', stage: 8, type: 'training', label: 'DBHDS/ASRS Documentation Requirements', visible: true },
-  { key: '8.5', stage: 8, type: 'training', label: 'Therap Training: Progress Notes', visible: true },
-  { key: '8.6', stage: 8, type: 'training', label: 'Therap Training: Medication Administration Records', visible: true },
-  { key: '8.7', stage: 8, type: 'training', label: 'Using TalentLMS/TalentCards', visible: true },
-  { key: '8.8', stage: 8, type: 'training', label: 'ASRS How To Complete Monthly Reports', visible: true },
-  { key: '8.9', stage: 8, type: 'training', label: 'Sponsor Shared Annual Planning and Weekly Check-in Plan', visible: true },
+  const steps = [];
+  const byKey = {};
+  results[1].forEach(function (page) {
+    const p = page.properties;
+    if (!checkbox(p['Active'])) return;
+    const label = getPlainText(p['Label']);
+    const key = (getPlainText(p['Key']) || '').trim();
+    const stageNum = getPlainText(p['Stage']);
+    const typeName = getPlainText(p['Type']);
+    const name = '"' + (label || key || '(untitled)') + '"';
+    if (!label || !key) return problems.push('Step ' + name + ' skipped: it needs both a Label and a Key.');
+    if (!KEY_RE.test(key)) return problems.push('Step ' + name + ' skipped: Key "' + key + '" must look like 2.3 or 2.3a.');
+    if (byKey[key]) return problems.push('Step ' + name + ' skipped: Key ' + key + ' is already used by "' + byKey[key].label + '".');
+    if (!TYPE_MAP[typeName]) return problems.push('Step ' + name + ' skipped: choose a Type.');
+    if (allStages[stageNum] === false) return; // stage retired: its steps quietly retire with it
+    if (!allStages[stageNum]) return problems.push('Step ' + name + ' skipped: Stage ' + (stageNum == null ? '(blank)' : stageNum) + ' is not an active stage.');
 
-  // 9 · Final
-  { key: '9.1', stage: 9, type: 'training', label: '28 Days to Complete, Accurate, and Timely Notes', cert: true, visible: true },
-  { key: '9.2', stage: 9, type: 'event', label: 'Sponsor interview, pictures, and video', visible: true, agenda: [] },
-  { key: '9.3', stage: 9, type: 'event', label: 'Sponsor webpage and video setup', visible: true, agenda: [] },
-  { key: '9.4', stage: 9, type: 'document', label: 'Sponsor Readiness Certification', visible: true },
-  { key: '9.5', stage: 9, type: 'event', label: 'ASRS/DBHDS licensing visit simulation', visible: true, agenda: [] },
-  { key: '9.6', stage: 9, type: 'document', label: 'ASRS Sponsor Service Plan' },
-  { key: '9.7', stage: 9, type: 'document', label: 'DSP Competency Assessment' },
-  { key: '9.8', stage: 9, type: 'document', label: 'ASRS Orientation Training Completion Report', licensing: true, visible: true },
-  { key: '9.9', stage: 9, type: 'training', label: 'Person Centered Thinking', cert: true, visible: true }
-];
+    const type = TYPE_MAP[typeName];
+    const formUrl = getPlainText(p['Form Link']) || '';
+    if (type === 'form' && formUrl && !/^https?:\/\//i.test(formUrl)) {
+      problems.push('Step ' + name + ': Form Link must start with https://, so the sponsor gets an upload link for now.');
+    }
+    const order = getPlainText(p['Order']);
+    const step = {
+      key: key,
+      stage: stageNum,
+      order: typeof order === 'number' ? order : 9999,
+      type: type,
+      label: label,
+      licensing: checkbox(p['Licensing']),
+      visible: checkbox(p['Visible to Sponsor']),
+      cert: type === 'training' && checkbox(p['Certificate']),
+      formUrl: type === 'form' && /^https?:\/\//i.test(formUrl) ? formUrl : '',
+      includes: lines(getPlainText(p['Includes'])),
+      agenda: lines(getPlainText(p['Agenda']))
+    };
+    byKey[key] = step;
+    steps.push(step);
+  });
 
-const STEPS_BY_KEY = {};
-STEPS.forEach(function (s) { STEPS_BY_KEY[s.key] = s; });
+  steps.sort(function (a, b) {
+    return (a.stage - b.stage) || (a.order - b.order) || a.key.localeCompare(b.key, undefined, { numeric: true });
+  });
+
+  const value = { stages: stages, steps: steps, byKey: byKey, problems: problems };
+  checklistCache = { at: Date.now(), value: value };
+  return value;
+}
 
 // Item statuses, stored in the Items database's Status select:
 //   (no row) — not started
@@ -179,21 +163,27 @@ function isSponsorStep(step) {
   return step.type === 'upload' || step.type === 'form';
 }
 
-function formUrlFor(step) {
-  if (step.type !== 'form') return '';
-  return process.env[step.formEnv] || step.defaultFormUrl || '';
+// For the Zapier/upload paths, where a file is already on its way: if its
+// step was retired in Notion after being requested, still file it
+// (under "Other") rather than lose it.
+function stepOrPlaceholder(cl, key) {
+  return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '' };
 }
 
-function stageFor(num) {
-  return STAGES.filter(function (s) { return s.num === num; })[0];
+function formUrlFor(step) {
+  return step.type === 'form' ? step.formUrl : '';
+}
+
+function stageFor(cl, num) {
+  return cl.stages.filter(function (s) { return s.num === num; })[0];
 }
 
 // Drive layout: {root}/{Sponsor Name}/{n Stage}/file — every folder
 // found-or-created by name in the Zap, same idempotent pattern as Annual
 // Planning, so this app never needs a folder ID back from Zapier.
-function stageFolderName(stageNum) {
-  const stage = stageFor(stageNum);
-  return stage.num + ' ' + stage.name;
+function stageFolderName(cl, stageNum) {
+  const stage = stageFor(cl, stageNum);
+  return stage ? stage.num + ' ' + stage.name.replace(/[\/\\]+/g, '-') : 'Other';
 }
 
 function sponsorFolderName(intake) {
@@ -249,9 +239,7 @@ function formFilename(intakeId, stepKey) {
 function parseFormFilename(filename) {
   const m = (filename || '').match(/Intake_([0-9a-fA-F]{32})_(\d+-\d+[a-z]?)/);
   if (!m) return null;
-  const stepKey = m[2].replace('-', '.');
-  if (!STEPS_BY_KEY[stepKey]) return null;
-  return { intakeId: m[1], stepKey: stepKey };
+  return { intakeId: m[1], stepKey: m[2].replace('-', '.') };
 }
 
 function newStatusToken() {
@@ -336,7 +324,7 @@ async function itemsForIntake(intakeId) {
   const byKey = {};
   pages.forEach(function (page) {
     const item = itemFromPage(page);
-    if (STEPS_BY_KEY[item.stepKey]) byKey[item.stepKey] = item;
+    if (item.stepKey) byKey[item.stepKey] = item;
   });
   return byKey;
 }
@@ -352,8 +340,8 @@ function normalizeId(id) {
 // Finds-or-creates the row for (intake, step) and applies `props` —
 // rows are created lazily the first time anything happens to a step, the
 // same way Staff Training items are.
-async function upsertItem(intake, stepKey, props, existing) {
-  const step = STEPS_BY_KEY[stepKey];
+async function upsertItem(intake, step, props, existing) {
+  const stepKey = step.key;
   if (existing === undefined) {
     const result = await queryDatabase(ITEMS_DB_ID, {
       and: [
@@ -384,8 +372,8 @@ function dateProp(iso) {
 
 // Full ordered checklist for the admin page, with each step's current
 // item state merged in (placeholders for steps with no row yet).
-function fullItemList(itemsByKey) {
-  return STEPS.map(function (step) {
+function fullItemList(cl, itemsByKey) {
+  return cl.steps.map(function (step) {
     const item = itemsByKey[step.key] || {};
     const event = splitEventDate(item.eventDate);
     return {
@@ -397,8 +385,8 @@ function fullItemList(itemsByKey) {
       visibleToSponsor: isSponsorStep(step) || !!step.visible,
       sponsorStep: isSponsorStep(step),
       cert: !!step.cert,
-      includes: step.includes || [],
-      agenda: step.agenda || [],
+      includes: step.includes,
+      agenda: step.agenda,
       formConfigured: step.type === 'form' ? !!formUrlFor(step) : null,
       status: item.status || '',
       eventDate: event.date,
@@ -416,26 +404,32 @@ function fullItemList(itemsByKey) {
 
 // Per-stage progress plus the current stage (the first one with anything
 // not yet Complete). null currentStage = intake complete.
-function stageSummary(itemsByKey) {
-  const stages = STAGES.map(function (stage) {
-    const steps = STEPS.filter(function (s) { return s.stage === stage.num; });
+function stageSummary(cl, itemsByKey) {
+  const stages = cl.stages.map(function (stage) {
+    const steps = cl.steps.filter(function (s) { return s.stage === stage.num; });
     const complete = steps.filter(function (s) {
       const item = itemsByKey[s.key];
       return item && item.status === STATUS.COMPLETE;
     }).length;
-    return { num: stage.num, name: stage.name, total: steps.length, complete: complete, isComplete: complete === steps.length };
+    return { num: stage.num, position: stage.position, name: stage.name, total: steps.length, complete: complete, isComplete: complete === steps.length };
   });
   const current = stages.filter(function (s) { return !s.isComplete; })[0] || null;
-  return { stages: stages, currentStage: current ? current.num : null };
+  return {
+    stages: stages,
+    stageCount: stages.length,
+    currentStage: current ? current.num : null,
+    currentPosition: current ? current.position : null
+  };
 }
 
-function pipelineSummary(intake, itemsByKey) {
-  const summary = stageSummary(itemsByKey);
+function pipelineSummary(cl, intake, itemsByKey) {
+  const summary = stageSummary(cl, itemsByKey);
   let waitingOnSponsor = 0;
   let needsReview = 0;
   let oldestRequest = '';
-  Object.keys(itemsByKey).forEach(function (key) {
-    const item = itemsByKey[key];
+  cl.steps.forEach(function (step) {
+    const item = itemsByKey[step.key];
+    if (!item) return;
     if (item.status === STATUS.REQUESTED || item.status === STATUS.RETURNED) {
       waitingOnSponsor++;
       if (item.requestedDate && (!oldestRequest || item.requestedDate < oldestRequest)) oldestRequest = item.requestedDate;
@@ -449,9 +443,11 @@ function pipelineSummary(intake, itemsByKey) {
     email: intake.email,
     startedDate: intake.startedDate,
     currentStage: summary.currentStage,
-    currentStageName: summary.currentStage ? stageFor(summary.currentStage).name : 'Complete',
+    currentPosition: summary.currentPosition,
+    stageCount: summary.stageCount,
+    currentStageName: summary.currentStage ? stageFor(cl, summary.currentStage).name : 'Complete',
     completeCount: done,
-    totalCount: STEPS.length,
+    totalCount: cl.steps.length,
     waitingOnSponsor: waitingOnSponsor,
     needsReview: needsReview,
     oldestRequest: oldestRequest
@@ -488,13 +484,13 @@ function sponsorActionLabel(step) {
 // only sponsor steps and `visible` admin steps are named, never notes,
 // filenames, return history beyond the current reason, or anything from
 // the Background stage's admin side.
-function sponsorStatus(intake, itemsByKey) {
-  const summary = stageSummary(itemsByKey);
+function sponsorStatus(cl, intake, itemsByKey) {
+  const summary = stageSummary(cl, itemsByKey);
   const now = dateInTimeZone(new Date());
 
   const stages = summary.stages.map(function (s) {
     const state = s.isComplete ? 'complete' : (s.num === summary.currentStage ? 'current' : 'upcoming');
-    const items = STEPS.filter(function (step) {
+    const items = cl.steps.filter(function (step) {
       return step.stage === s.num && (isSponsorStep(step) || step.visible);
     }).map(function (step) {
       const item = itemsByKey[step.key] || {};
@@ -516,7 +512,7 @@ function sponsorStatus(intake, itemsByKey) {
     return { num: s.num, name: s.name, state: state, items: items };
   });
 
-  const actionNeeded = STEPS.filter(function (step) {
+  const actionNeeded = cl.steps.filter(function (step) {
     const item = itemsByKey[step.key];
     return isSponsorStep(step) && item && (item.status === STATUS.REQUESTED || item.status === STATUS.RETURNED);
   }).map(function (step) {
@@ -524,14 +520,14 @@ function sponsorStatus(intake, itemsByKey) {
     return {
       key: step.key,
       label: step.label,
-      includes: step.includes || [],
+      includes: step.includes,
       returnReason: item.status === STATUS.RETURNED ? item.returnReason : '',
       actionUrl: sponsorActionUrl(intake, step),
       actionLabel: sponsorActionLabel(step)
     };
   });
 
-  const upcoming = STEPS.filter(function (step) {
+  const upcoming = cl.steps.filter(function (step) {
     const item = itemsByKey[step.key];
     if (step.type !== 'event' || !step.visible || !item || item.status !== STATUS.SCHEDULED) return false;
     const event = splitEventDate(item.eventDate);
@@ -545,10 +541,12 @@ function sponsorStatus(intake, itemsByKey) {
     name: intake.name,
     startedDate: intake.startedDate,
     currentStage: summary.currentStage,
-    currentStageNote: summary.currentStage ? stageFor(summary.currentStage).sponsorNote : '',
+    currentPosition: summary.currentPosition,
+    stageCount: summary.stageCount,
+    currentStageNote: summary.currentStage ? stageFor(cl, summary.currentStage).sponsorNote : '',
     stages: stages,
     actionNeeded: actionNeeded,
-    underReview: STEPS.filter(function (step) {
+    underReview: cl.steps.filter(function (step) {
       const item = itemsByKey[step.key];
       return isSponsorStep(step) && item && item.status === STATUS.RECEIVED;
     }).map(function (step) { return { key: step.key, label: step.label }; }),
@@ -586,9 +584,8 @@ function errorResponse(err) {
 }
 
 module.exports = {
-  STAGES,
-  STEPS,
-  STEPS_BY_KEY,
+  loadChecklist,
+  stepOrPlaceholder,
   STATUS,
   TIME_ZONE,
   isSponsorStep,

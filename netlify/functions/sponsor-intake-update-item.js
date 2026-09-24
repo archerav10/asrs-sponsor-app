@@ -1,5 +1,5 @@
 const {
-  requireIntakeAdmin, getIntake, itemsForIntake, upsertItem, STEPS_BY_KEY, STATUS, TIME_ZONE,
+  requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, upsertItem, STATUS, TIME_ZONE,
   isSponsorStep, todayIso, richText, statusProp, dateProp, json, errorResponse
 } = require('./lib/sponsor-intake');
 
@@ -21,7 +21,7 @@ exports.handler = async function (event) {
   try {
     const session = requireIntakeAdmin(event);
     const body = JSON.parse(event.body || '{}');
-    const step = STEPS_BY_KEY[body.stepKey];
+    const step = (await loadChecklist({ fresh: true })).byKey[body.stepKey];
     if (!body.id || !step) return json(400, { error: 'id and a valid stepKey are required.' });
 
     const intake = await getIntake(body.id);
@@ -86,7 +86,7 @@ exports.handler = async function (event) {
         return json(400, { error: 'Unknown action.' });
     }
 
-    await upsertItem(intake, step.key, props, item);
+    await upsertItem(intake, step, props, item);
     return json(200, { success: true });
   } catch (err) {
     return errorResponse(err);

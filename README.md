@@ -563,9 +563,10 @@ doesn't already have an Annual Planning cycle.
 
 ### Sponsor Intake (fifth process — prospective sponsors, no login)
 
-A one-time, 9-stage checklist for a **prospective** sponsor (77 items
-from "Sponsor Intake Process – Master 3.2"; see `STEPS` in
-`lib/sponsor-intake.js`). Unlike every other process here it has no
+A one-time, stage-by-stage checklist for a **prospective** sponsor. It
+started as 9 stages and 77 items from "Sponsor Intake Process – Master
+3.2", and **the checklist itself lives in Notion** (see "Editing the
+checklist" below), so it can change without a deploy. Unlike every other process here it has no
 location, no resident and no cycle, and **the sponsor never logs in**.
 They only ever see:
 
@@ -597,8 +598,45 @@ first one that isn't.
 is collected at 4.14/4.15). The unnumbered Assessment steps are now
 2.3a/2.4a. 7.8 moved to Forms & Review as 4.16. The ten signature forms
 are one **Sponsor Agreements packet** (4.1). 2.8–2.10 (care-at-home
-letters) are sponsor uploads. To add meeting agendas, fill in the
-`agenda: []` arrays on event steps; they show on the admin page.
+letters) are sponsor uploads.
+
+#### Editing the checklist (Notion, no deploy)
+
+Two databases under **Longstreet Dashboard** define the checklist.
+`loadChecklist` in `lib/sponsor-intake.js` reads them, caching for 30
+seconds on sponsor-facing pages. Admin pages always read fresh, so an edit
+shows on the next reload.
+
+- **Intake Stages**: Name, Number (the order), Sponsor Note (what the
+  sponsor sees under "ASRS is working on"), and Active. Stage counts
+  everywhere ("Stage 2 of 9", the progress bars) follow this list.
+  Unchecking Active on a stage also retires its steps.
+- **Intake Steps**: one row per step, with these fields:
+  - **Label**: the step's name.
+  - **Key**: e.g. `2.3a`.
+  - **Stage**: the stage's Number.
+  - **Order**: sort order within the stage. Values are 10, 20, 30… so
+    there's room to insert.
+  - **Type**: Sponsor Upload, Sponsor Form, Meeting / Event, ASRS
+    Document, or Training.
+  - **Visible to Sponsor**, **Licensing**, and **Certificate** (training
+    only).
+  - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
+    sponsor gets an upload link instead.
+  - **Includes** and **Agenda**: one line each.
+  - **Active**.
+
+Rules:
+- **Never change a step's Key once any sponsor has progress on it.**
+  Progress rows are keyed by it. Rename the Label instead. A retired
+  step's progress rows stay in Notion but are ignored.
+- A row the app can't use is skipped and listed in a yellow "Checklist
+  rows in Notion that need fixing" box on the Sponsor Intake tab. For
+  example: a missing Key or Type, a duplicate Key, a Key that isn't like
+  `2.3`, or a Stage number with no active stage. A bad row never breaks
+  the sponsor's pages.
+- Moving a step to another stage changes where *future* uploads are
+  filed. Earlier files stay where they are.
 
 **Who can use it:** any admin-dashboard session, narrowed to
 `SPONSOR_INTAKE_ADMIN_EMAILS` if that's set, because intake folders hold
@@ -646,6 +684,8 @@ intake and step, created as needed:
 | Variable | Value |
 |---|---|
 | `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
+| `SPONSOR_INTAKE_STAGES_DB_ID` | `b35ea149-5ec3-4796-b593-8a3b9cab764e` (Intake Stages) |
+| `SPONSOR_INTAKE_STEPS_DB_ID` | `a84f9277-bece-4bad-8fb7-1939f2d79452` (Intake Steps) |
 | `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
 | `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
@@ -653,17 +693,12 @@ intake and step, created as needed:
 | `SPONSOR_INTAKE_REPLY_TO` | Address sponsor replies should go to |
 | `SPONSOR_INTAKE_NOTIFY_EMAILS` | Optional. Comma-separated addresses emailed whenever a sponsor submits something |
 | `SPONSOR_INTAKE_ADMIN_EMAILS` | Optional. Comma-separated. Limits the Sponsor Intake tab to these admins |
-| `SPONSOR_INTAKE_FORM_APPLICATION_URL` | JotForm URL for 1.2 Sponsor Application |
-| `SPONSOR_INTAKE_FORM_BUDGET_URL` | Optional. 1.4 defaults to `https://form.jotform.com/261867275422059` |
-| `SPONSOR_INTAKE_FORM_BACKGROUND_DISCLOSURE_URL` | JotForm URL for 3.1 |
-| `SPONSOR_INTAKE_FORM_HOUSEHOLD_DISCLOSURE_URL` | JotForm URL for 3.2 |
-| `SPONSOR_INTAKE_FORM_RELIEF_PLAN_URL` | JotForm URL for 4.13 |
-| `SPONSOR_INTAKE_FORM_AGREEMENTS_URL` | JotForm URL for the 4.1 Sponsor Agreements packet |
 | `SPONSOR_INTAKE_BASE_URL` | Optional. Site URL used in email links. Defaults to Netlify's own `URL` |
 | `SPONSOR_INTAKE_TIME_ZONE` | Optional. Defaults to `America/New_York` |
 
-A form item with no URL set still works: the sponsor gets an upload link
-instead, and the admin page flags it. The Zapier-facing endpoints reuse
+JotForm links are set per step in the **Form Link** column of Intake
+Steps, not here. A Sponsor Form step with no link still works: the
+sponsor gets an upload link instead, and the admin page flags it. The Zapier-facing endpoints reuse
 `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, like Staff Training does.
 
 #### Drive layout

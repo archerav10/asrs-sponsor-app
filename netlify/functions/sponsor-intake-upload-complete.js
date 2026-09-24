@@ -1,6 +1,6 @@
 const { decryptToken } = require('./lib/crypto');
 const {
-  getIntake, itemsForIntake, upsertItem, STEPS_BY_KEY, STATUS,
+  loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS,
   todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse
 } = require('./lib/sponsor-intake');
 const { notifyAdmins } = require('./lib/sponsor-intake-email');
@@ -24,7 +24,7 @@ exports.handler = async function (event) {
     }
     if (ticket.kind !== 'intake-upload') return json(401, { error: 'Invalid upload session.' });
 
-    const step = STEPS_BY_KEY[ticket.stepKey];
+    const step = stepOrPlaceholder(await loadChecklist(), ticket.stepKey);
     const intake = await getIntake(ticket.intakeId);
     const item = (await itemsForIntake(intake.id))[step.key] || null;
     const total = Math.max(1, Math.min(20, parseInt(body.total, 10) || 1));
@@ -50,9 +50,9 @@ exports.handler = async function (event) {
       props['Completed Date'] = dateProp((item && item.completedDate) || today);
     }
 
-    await upsertItem(intake, step.key, props, item);
+    await upsertItem(intake, step, props, item);
 
-    if (ticket.role === 'sponsor') await notifyAdmins(intake, step.key);
+    if (ticket.role === 'sponsor') await notifyAdmins(intake, step);
 
     return json(200, { success: true });
   } catch (err) {

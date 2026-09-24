@@ -1,6 +1,6 @@
 const { encryptToken } = require('./lib/crypto');
 const {
-  requireIntakeAdmin, getIntake, findIntakeByToken, itemsForIntake, STEPS_BY_KEY, STATUS,
+  requireIntakeAdmin, loadChecklist, getIntake, findIntakeByToken, itemsForIntake, STATUS,
   isSponsorStep, json, errorResponse
 } = require('./lib/sponsor-intake');
 
@@ -25,7 +25,7 @@ exports.handler = async function (event) {
 
   try {
     const params = event.queryStringParameters || {};
-    const step = STEPS_BY_KEY[params.step];
+    const step = (await loadChecklist()).byKey[params.step];
     if (!step) return json(400, { error: 'That link is missing which item it\'s for.' });
 
     let intake;
@@ -48,7 +48,7 @@ exports.handler = async function (event) {
       sponsorName: intake.name,
       stepKey: step.key,
       label: step.label,
-      includes: step.includes || [],
+      includes: step.includes,
       canUpload: true,
       message: ''
     };

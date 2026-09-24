@@ -1,5 +1,5 @@
 const {
-  requireIntakeAdmin, getIntake, itemsForIntake, upsertItem, STEPS_BY_KEY, STATUS,
+  requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, upsertItem, STATUS,
   isSponsorStep, todayIso, richText, statusProp, dateProp, json, errorResponse
 } = require('./lib/sponsor-intake');
 const { updatePage } = require('./lib/notion');
@@ -23,6 +23,7 @@ exports.handler = async function (event) {
     const note = (body.note || '').trim();
     if (!body.id) return json(400, { error: 'id is required.' });
 
+    const cl = await loadChecklist({ fresh: true });
     const intake = await getIntake(body.id);
     if (!intake.email) return json(400, { error: 'This sponsor has no email address on file.' });
 
@@ -34,27 +35,27 @@ exports.handler = async function (event) {
     const items = await itemsForIntake(intake.id);
     const selected = [];
     for (let i = 0; i < stepKeys.length; i++) {
-      const step = STEPS_BY_KEY[stepKeys[i]];
+      const step = cl.byKey[stepKeys[i]];
       if (!step || !isSponsorStep(step)) return json(400, { error: 'Only sponsor items can be requested.' });
       const item = items[step.key];
       const status = item ? item.status : '';
       if (status === STATUS.RECEIVED || status === STATUS.COMPLETE) {
         return json(400, { error: step.key + ' ' + step.label + ' was already received — accept or return it instead.' });
       }
-      selected.push({ stepKey: step.key, item: item || null, returnReason: status === STATUS.RETURNED ? item.returnReason : '' });
+      selected.push({ step: step, stepKey: step.key, item: item || null, returnReason: status === STATUS.RETURNED ? item.returnReason : '' });
     }
 
-    const order = Object.keys(STEPS_BY_KEY);
+    const order = cl.steps.map(function (s) { return s.key; });
     selected.sort(function (a, b) { return order.indexOf(a.stepKey) - order.indexOf(b.stepKey); });
 
-    await sendToSponsor(intake, requestEmail(intake, selected, note));
+    await sendToSponsor(intake, requestEmail(cl, intake, selected, note));
 
     const today = todayIso();
     const by = richText(session.name || session.email);
     await Promise.all(selected.map(function (s) {
       const props = { 'Requested Date': dateProp(today), 'Last Updated By': by };
       if (!s.item || s.item.status !== STATUS.RETURNED) props['Status'] = statusProp(STATUS.REQUESTED);
-      return upsertItem(intake, s.stepKey, props, s.item);
+      return upsertItem(intake, s.step, props, s.item);
     }));
     await updatePage(intake.id, { 'Last Request Sent': dateProp(today) });
 
