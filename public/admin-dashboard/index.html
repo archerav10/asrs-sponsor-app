@@ -207,6 +207,15 @@
     border-radius: 6px;
     background: #fff;
   }
+  select, textarea {
+    width: 100%;
+    padding: 13px 14px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    font-family: inherit;
+  }
 </style>
 </head>
 <body>
@@ -256,6 +265,7 @@
       <button class="tab-button" id="tab-annual" type="button">Annual Planning</button>
       <button class="tab-button" id="tab-staff" type="button">Staff Training</button>
       <button class="tab-button" id="tab-quarterly" type="button">Quarterly Reporting</button>
+      <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
     </div>
 
     <div id="mar-tab-content">
@@ -280,6 +290,12 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Tied to Annual Planning — four reports due every 3 months. Each quarter unlocks the moment the one before it ends.</p>
       <p class="error-text" id="quarterly-dashboard-error"></p>
       <div id="quarterly-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="checklist-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">One checklist per location, due by the end of each month. Falling behind locks the next month until the missed one is caught up.</p>
+      <p class="error-text" id="checklist-dashboard-error"></p>
+      <div id="checklist-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -320,6 +336,18 @@
     <p class="error-text" id="quarterly-detail-error"></p>
     <div id="quarterly-detail-body"></div>
   </section>
+
+  <!-- Screen 7: Monthly Checklist — per-location, one form of 11 items -->
+  <section id="screen-checklist-detail" class="screen">
+    <button class="back-button" id="checklist-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="checklist-detail-title"></p>
+      <p class="meta" id="checklist-detail-meta"></p>
+    </div>
+    <div class="ap-banner" id="checklist-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="checklist-detail-error"></p>
+    <div id="checklist-detail-body"></div>
+  </section>
 </main>
 
 <script>
@@ -333,7 +361,8 @@
     dashboard: document.getElementById('screen-dashboard'),
     annualDetail: document.getElementById('screen-annual-detail'),
     staffDetail: document.getElementById('screen-staff-detail'),
-    quarterlyDetail: document.getElementById('screen-quarterly-detail')
+    quarterlyDetail: document.getElementById('screen-quarterly-detail'),
+    checklistDetail: document.getElementById('screen-checklist-detail')
   };
 
   function showScreen(name) {
@@ -607,7 +636,8 @@
     mar: { button: document.getElementById('tab-mar'), content: document.getElementById('mar-tab-content') },
     annual: { button: document.getElementById('tab-annual'), content: document.getElementById('annual-tab-content'), load: loadAnnualDashboard },
     staff: { button: document.getElementById('tab-staff'), content: document.getElementById('staff-tab-content'), load: loadStaffDashboard },
-    quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard }
+    quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard },
+    checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -1748,6 +1778,229 @@
     } catch (e) {
       document.getElementById('quarterly-detail-banner').textContent = '';
       setError('quarterly-detail-error', e.message);
+    }
+  }
+
+  // --- Screen 3e/7: Monthly Checklist ---
+  // One checklist per location, retrospective (reports on the month
+  // that's happening/just happened) rather than forward-looking like
+  // MAR Review — see resolveTarget in
+  // lib/monthly-checklist.js. No early-unlock window: a location is
+  // either caught up and working the current month, or overdue on one
+  // it fell behind on, or (having finished early) locked until next
+  // month actually starts.
+  function checklistPuzzleState(row) {
+    if (row.isFinalizedForTarget) {
+      return { spinning: false, label: 'Finalized — next opens ' + formatDate(row.dueDate) };
+    }
+    if (row.isOverdue) {
+      return { spinning: false, label: 'Overdue — ' + periodStrToLabel(row.period) };
+    }
+    return { spinning: true, label: (row.hasStarted ? 'In progress' : 'Not started') + ' — due ' + formatDate(row.dueDate) };
+  }
+
+  function renderChecklistLocationButton(row) {
+    const state = checklistPuzzleState(row);
+
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    const puzzle = document.createElement('span');
+    puzzle.className = 'puzzle-icon' + (state.spinning ? ' due-soon' : '');
+    puzzle.textContent = '\u{1F9E9}';
+    const label = document.createElement('span');
+    label.className = 'ap-resident-initials';
+    label.textContent = row.location;
+    left.appendChild(puzzle);
+    left.appendChild(label);
+
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    status.textContent = state.label;
+
+    btn.appendChild(left);
+    btn.appendChild(status);
+
+    btn.addEventListener('click', function () {
+      openChecklistDetail(row.location);
+    });
+
+    return btn;
+  }
+
+  async function loadChecklistDashboard() {
+    const listEl = document.getElementById('checklist-dashboard-list');
+    setError('checklist-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-monthly-checklist-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (row) {
+        listEl.appendChild(renderChecklistLocationButton(row));
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('checklist-dashboard-error', e.message);
+    }
+  }
+
+  // --- Screen 7: Monthly Checklist detail ---
+  let currentChecklistLocation = null;
+
+  document.getElementById('checklist-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadChecklistDashboard();
+  });
+
+  function openChecklistDetail(location) {
+    currentChecklistLocation = location;
+    showScreen('checklistDetail');
+    loadChecklistDetail();
+  }
+
+  function renderChecklistItemInput(item, value) {
+    let input;
+    if (item.type === 'date') {
+      input = document.createElement('input');
+      input.type = 'date';
+      input.value = value || '';
+    } else if (item.type === 'yesno') {
+      input = document.createElement('select');
+      ['', 'Yes', 'No'].forEach(function (opt) {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt || 'Not yet answered';
+        input.appendChild(option);
+      });
+      input.value = value || '';
+    } else {
+      input = document.createElement('textarea');
+      input.rows = 3;
+      input.value = value || '';
+    }
+    input.dataset.itemKey = item.key;
+    return input;
+  }
+
+  function renderChecklistForm(container, data) {
+    const inputs = {};
+
+    data.items.forEach(function (item) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ap-step';
+
+      const title = document.createElement('p');
+      title.className = 'ap-step-title';
+      title.textContent = item.label;
+      wrap.appendChild(title);
+
+      const value = data.record ? data.record.fields[item.key] : '';
+      const input = renderChecklistItemInput(item, value);
+      inputs[item.key] = input;
+      wrap.appendChild(input);
+
+      container.appendChild(wrap);
+    });
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save Progress';
+    saveBtn.addEventListener('click', async function () {
+      setError('checklist-detail-error', '');
+      saveBtn.disabled = true;
+      try {
+        const fields = {};
+        Object.keys(inputs).forEach(function (key) { fields[key] = inputs[key].value; });
+        await apiFetch('/save-monthly-checklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: currentChecklistLocation, fields: fields })
+        });
+        const scrollY = window.scrollY;
+        await loadChecklistDetail();
+        window.scrollTo(0, scrollY);
+      } catch (e) {
+        setError('checklist-detail-error', e.message);
+        saveBtn.disabled = false;
+      }
+    });
+    container.appendChild(saveBtn);
+
+    const finalizeBtn = document.createElement('button');
+    finalizeBtn.type = 'button';
+    finalizeBtn.className = 'secondary';
+    finalizeBtn.textContent = 'Finalize This Month’s Checklist';
+    finalizeBtn.addEventListener('click', async function () {
+      setError('checklist-detail-error', '');
+      finalizeBtn.disabled = true;
+      try {
+        // Same "save whatever's on screen first" step Annual Planning's
+        // Finalize doesn't need (its steps auto-save individually) but
+        // this form does, since typing into a field here doesn't save it
+        // until Save Progress or Finalize is pressed — skipping this
+        // would finalize against whatever was last saved, silently
+        // discarding anything typed since.
+        const fields = {};
+        Object.keys(inputs).forEach(function (key) { fields[key] = inputs[key].value; });
+        await apiFetch('/save-monthly-checklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: currentChecklistLocation, fields: fields })
+        });
+        await apiFetch('/finalize-monthly-checklist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ location: currentChecklistLocation })
+        });
+        alert('Checklist finalized for ' + currentChecklistLocation + '.');
+        showScreen('dashboard');
+        loadChecklistDashboard();
+      } catch (e) {
+        setError('checklist-detail-error', e.message);
+        finalizeBtn.disabled = false;
+      }
+    });
+    container.appendChild(finalizeBtn);
+  }
+
+  async function loadChecklistDetail() {
+    document.getElementById('checklist-detail-title').textContent = currentChecklistLocation;
+    document.getElementById('checklist-detail-meta').textContent = 'Monthly Checklist';
+    document.getElementById('checklist-detail-banner').textContent = 'Loading…';
+    setError('checklist-detail-error', '');
+    const bodyEl = document.getElementById('checklist-detail-body');
+    bodyEl.innerHTML = '';
+
+    try {
+      const data = await apiFetch('/get-monthly-checklist?location=' + encodeURIComponent(currentChecklistLocation));
+      const bannerEl = document.getElementById('checklist-detail-banner');
+      document.getElementById('checklist-detail-meta').textContent = 'Monthly Checklist — ' + periodStrToLabel(data.period);
+
+      if (data.record && data.record.finalized) {
+        bannerEl.textContent = 'Finalized by ' + (data.record.finalizedBy || 'a staff member') + ' on ' + formatDate(data.record.finalizedDate) + '. Next month’s checklist opens ' + formatDate(data.dueDate) + '.';
+      } else {
+        bannerEl.textContent = 'Due ' + formatDate(data.dueDate) + '. Every item is required before this month can be finalized.';
+      }
+
+      renderChecklistForm(bodyEl, data);
+
+      if (data.record && data.record.finalized) {
+        bodyEl.querySelectorAll('input, select, textarea, button').forEach(function (el) { el.disabled = true; });
+      }
+    } catch (e) {
+      document.getElementById('checklist-detail-banner').textContent = '';
+      setError('checklist-detail-error', e.message);
     }
   }
 

@@ -537,6 +537,7 @@
     <div class="home-card">
       <p class="name" id="home-name"></p>
       <p class="meta" id="home-meta"></p>
+      <p class="meta site-visit" id="home-site-visit"></p>
     </div>
 
     <div id="mar-buttons-container" class="mar-section"></div>
@@ -1024,8 +1025,25 @@
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
+    loadHomeSiteVisitStatus();
     renderMarButtons(session.residentInitials);
     loadInfoStatuses(session);
+  }
+
+  // Last/Next Site Visit come from the admin dashboard's Monthly
+  // Checklist (items #1 and #11) — display only, nothing to edit here.
+  async function loadHomeSiteVisitStatus() {
+    const el = document.getElementById('home-site-visit');
+    el.textContent = '';
+    try {
+      const data = await apiFetch('/get-provider-site-visit-status');
+      const parts = [];
+      parts.push('Last site visit: ' + (data.lastSiteVisit ? formatDate(data.lastSiteVisit) : 'Not yet recorded'));
+      parts.push('Next planned: ' + (data.nextPlannedSiteVisit ? formatDate(data.nextPlannedSiteVisit) : 'Not yet scheduled'));
+      el.textContent = parts.join(' · ');
+    } catch (e) {
+      // leave blank rather than guessing
+    }
   }
 
   // Same "split on comma, trim, drop blanks" parse renderMarButtons

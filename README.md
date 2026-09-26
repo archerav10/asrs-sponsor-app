@@ -204,6 +204,9 @@ don't pick up env var changes until the next deploy.
   reflecting that MAR is the most time-sensitive item on this screen.
   Unchanged behavior otherwise (tapping opens the same MAR Review
   screen as before).
+- **Last/Next Site Visit** shown right on the home card, under the
+  location line — sourced from the admin dashboard's Monthly Checklist
+  (see the Monthly Checklist section below), read-only.
 - **"For your information (view only)" section** at the bottom of Home:
   one red/yellow/green dot per resident for Annual Planning and
   Quarterly Reporting, plus one row per active staff member (by name)
@@ -593,6 +596,71 @@ doesn't already have an Annual Planning cycle.
   year apart between cycles) is already unambiguous. Also flagged in the
   weekly admin digest (`checkQuarterlyReporting` in
   `lib/admin-digest-check.js`) alongside the current cycle's own line.
+
+### Monthly Checklist (fifth process — per location, not per resident)
+
+One shared 11-item checklist template, one Notion row per Location +
+Month (never wiped or reused — every month is its own permanent record,
+so full history lives in Notion with no extra archiving step). Unlike
+every other process in this app, it's retrospective: it reports on the
+month that's happening or just happened, rather than looking ahead to
+one that hasn't started yet.
+
+- **Notion:** new "Monthly Checklist" database (`MONTHLY_CHECKLIST_DB_ID`),
+  one active row per Location + Period (`YYYY-MM`). See
+  `netlify/functions/lib/monthly-checklist.js`'s `ITEMS` array for the
+  exact property names/types to create — 2 date properties (`Last Site
+  Visit`, `Next Planned Site Visit`), 9 select properties with Yes/No
+  options (a select rather than a checkbox specifically so "answered
+  No" and "never answered yet" aren't the same blank state — Finalize
+  needs to tell those apart), 1 rich_text property (`Improvement
+  Notes`), plus the usual `Location` (select), `Period` (rich_text),
+  `Active`/`Finalized` (checkbox), `Finalized Date` (date), `Finalized
+  By` (rich_text), and a title property (`Record Title`).
+- **Template is code-level, not admin-editable.** Same convention as
+  Quarterly Reporting/Staff Training's fixed `STEPS` arrays — adding or
+  removing one of the 11 items means editing `ITEMS` in
+  `lib/monthly-checklist.js` (plus the matching Notion property), not a
+  self-service UI. There's only one template shared by every location,
+  so a code change already applies everywhere at once.
+- **Rolling target period** (`resolveTarget` in
+  `lib/monthly-checklist.js`): the mirror image of MAR Review's
+  forward-looking `computeMarTarget` (`lib/mar-period.js`) — this looks
+  backward instead of forward. Target is the EARLIEST month, from the
+  earliest one a location has any record for through the current month,
+  that isn't finalized yet — walked month by month (not jumped straight
+  from the last *finalized* period) so a month that was started, or even
+  never touched at all, but never finalized stays the target instead of
+  silently getting stepped over once the calendar rolls past it. Nothing
+  on file yet at all means nothing to catch up on, so a brand-new
+  location's target is just the current month.
+- **No early-unlock window**, unlike Annual Planning/Staff Training — a
+  retrospective report on the current month is workable the moment that
+  month begins. But finishing early still produces a brief locked state:
+  the target stays capped on that same month (now finalized) until the
+  calendar actually reaches the next one, since there's nothing to
+  advance to yet. The admin dashboard renders that the same way Annual
+  Planning renders `isFinalizedForTarget` — locked, read-only, with a
+  "next opens \<date\>" banner.
+- **Save Progress / Finalize**, same split as MAR Review: Save Progress
+  writes whatever's currently entered with no validation; Finalize
+  requires all 11 items have a real value (`missingItems` in
+  `lib/monthly-checklist.js`) and blocks with a message naming what's
+  still missing. Both endpoints re-resolve the target server-side rather
+  than trusting a client-supplied period, so a stale screen can't
+  accidentally write into the wrong month.
+- **Provider app surfacing:** the sponsor's home card shows "Last site
+  visit" and "Next planned visit," sourced from `latestSiteVisitDates`
+  in `lib/monthly-checklist.js` — the most recent non-blank value for
+  each of those two fields across every month on file (not necessarily
+  the same row, since a new month's own visit may not have happened yet
+  even though its next-planned date was already set). Read-only;
+  sponsors never see or edit the rest of the checklist.
+- **Checklist history:** since every month is its own Notion row, full
+  history is already there to browse directly in Notion — no separate
+  archive view was built for it, matching the low priority this was
+  given when the feature was scoped.
+- **New env var:** `MONTHLY_CHECKLIST_DB_ID`.
 
 ## Weekly admin email digest
 
