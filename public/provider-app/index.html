@@ -104,9 +104,61 @@
     padding: 16px 18px;
     margin-bottom: 24px;
     background: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
   }
   .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
   .home-card .meta { font-size: 14px; color: #555; margin: 0; }
+  .home-card-mar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .home-mar-badge {
+    width: auto;
+    text-align: right;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 0;
+    cursor: pointer;
+  }
+  .home-mar-badge .mar-label-row { justify-content: flex-end; }
+  .home-mar-badge .sub { display: block; font-size: 11px; font-weight: 400; color: #666; margin-top: 2px; }
+  .info-section {
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+  }
+  .info-section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 10px;
+  }
+  .info-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fafafa;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+  }
+  .info-status-row:last-child { margin-bottom: 0; }
   .action-list { display: flex; flex-direction: column; gap: 12px; }
   .action-button {
     text-align: left;
@@ -321,7 +373,7 @@
     color: var(--forest-light);
     margin: 4px 0 0;
   }
-  .action-button .mar-label-row {
+  .mar-label-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -501,8 +553,11 @@
   <!-- Screen 3: Home -->
   <section id="screen-home" class="screen">
     <div class="home-card">
-      <p class="name" id="home-name"></p>
-      <p class="meta" id="home-meta"></p>
+      <div>
+        <p class="name" id="home-name"></p>
+        <p class="meta" id="home-meta"></p>
+      </div>
+      <div class="home-card-mar" id="mar-buttons-container"></div>
     </div>
 
     <div class="action-list">
@@ -550,7 +605,11 @@
         Log an Event
         <span class="sub">Appointments and community outings</span>
       </button>
-      <div id="mar-buttons-container"></div>
+    </div>
+
+    <div class="info-section">
+      <p class="info-section-label">For your information (view only)</p>
+      <div id="info-status-container"></div>
     </div>
 
     <button class="logout-link" id="logout">Log Out</button>
@@ -985,6 +1044,67 @@
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
     renderMarButtons(session.residentInitials);
+    loadInfoStatuses(session);
+  }
+
+  // Same "split on comma, trim, drop blanks" parse renderMarButtons
+  // needs for its own per-resident buttons — one account's
+  // residentInitials can list more than one resident.
+  function parseResidentInitials(residentInitialsStr) {
+    return (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // Annual Planning, Quarterly Reporting, and Staff Training all have
+  // their own full workflows on the admin dashboard — sponsors only get
+  // a traffic light here, one row per resident for the first two (Staff
+  // Training isn't resident-scoped, so it's one row for the location).
+  // Plain divs, not buttons — nothing here is tappable. The three
+  // fetches are independent of each other, so they run concurrently
+  // rather than waiting on one another in turn.
+  async function loadInfoStatuses(session) {
+    const container = document.getElementById('info-status-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(session.residentInitials);
+
+    function addRow(dotId, label) {
+      const row = document.createElement('div');
+      row.className = 'info-status-row';
+      row.innerHTML = '<span id="' + dotId + '" class="status-dot status-green"></span><span>' + label + '</span>';
+      container.appendChild(row);
+    }
+
+    residents.forEach(function (initials) {
+      addRow('info-ap-dot-' + initials, 'Annual Planning — ' + initials);
+    });
+    residents.forEach(function (initials) {
+      addRow('info-qr-dot-' + initials, 'Quarterly Reporting — ' + initials);
+    });
+    addRow('info-st-dot', 'Staff Training — ' + (session.location || 'this location'));
+
+    await Promise.all([
+      apiFetch('/get-provider-annual-planning-status').then(function (data) {
+        (data.residents || []).forEach(function (r) {
+          const dot = document.getElementById('info-ap-dot-' + r.resident);
+          if (dot) dot.className = 'status-dot status-' + r.status;
+        });
+      }).catch(function (e) {
+        // leave dots at their default green rather than guessing
+      }),
+      apiFetch('/get-provider-quarterly-reporting-status').then(function (data) {
+        (data.residents || []).forEach(function (r) {
+          const dot = document.getElementById('info-qr-dot-' + r.resident);
+          if (dot) dot.className = 'status-dot status-' + r.status;
+        });
+      }).catch(function (e) {
+        // leave dots at their default green rather than guessing
+      }),
+      apiFetch('/get-provider-staff-training-status').then(function (data) {
+        const dot = document.getElementById('info-st-dot');
+        if (dot) dot.className = 'status-dot status-' + data.status;
+      }).catch(function (e) {
+        // leave dot at its default green rather than guessing
+      })
+    ]);
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -1075,15 +1195,16 @@
   function renderMarButtons(residentInitialsStr) {
     const container = document.getElementById('mar-buttons-container');
     container.innerHTML = '';
-    const residents = (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    const residents = parseResidentInitials(residentInitialsStr);
 
     residents.forEach(function (initials) {
       const btn = document.createElement('button');
-      btn.className = 'action-button';
+      btn.type = 'button';
+      btn.className = 'home-mar-badge';
       btn.innerHTML =
         '<span class="mar-label-row">' +
           '<span id="home-mar-dot-' + initials + '" class="status-dot status-green"></span>' +
-          '<span>&#128138; MAR Review \u2014 ' + initials + '</span>' +
+          '<span>&#128138; MAR \u2014 ' + initials + '</span>' +
         '</span>' +
         '<span class="sub" id="home-mar-summary-' + initials + '"></span>' +
         '<span class="sub" id="home-mar-due-' + initials + '"></span>';

@@ -198,6 +198,38 @@ don't pick up env var changes until the next deploy.
   recent-only window). **Immediately texts every admin granted that
   location** (not sponsors) the moment it's submitted — this is a
   real-time send, not part of any scheduled check.
+- **MAR Review moved to the home card.** Its badge(s) now sit top-right
+  on Home, underneath the sponsor's name — one per resident, compact and
+  right-aligned (`.home-mar-badge`) rather than a full-width button in
+  the main list — reflecting that MAR is the most time-sensitive item on
+  this screen. Still fully interactive (tapping opens the same MAR
+  Review screen as before); only its position and size changed.
+- **"For your information (view only)" section** at the bottom of Home:
+  one red/yellow/green dot per resident for Annual Planning and
+  Quarterly Reporting, plus one dot for the whole location for Staff
+  Training — all three processes sponsors can see but not act on (the
+  actual workflows only exist on the admin dashboard). Plain rows, not
+  buttons; nothing here is tappable. Backed by three new read-only
+  endpoints that reuse the same window/cycle logic the admin dashboard's
+  own oversight boards run, collapsed down to a single worst-of dot:
+  - `get-provider-annual-planning-status.js` — per resident, worst
+    across every service on file (`computeAnnualPlanningWindow`);
+    overdue is red, due within 7 days is yellow, otherwise green
+    (including "not started" and "opens later," neither of which is
+    urgent yet).
+  - `get-provider-quarterly-reporting-status.js` — per resident, worst
+    across every service's current AND prior cycle (see Quarterly
+    Reporting's own priorCycle section above). No lead time on any
+    quarter, so an open-and-incomplete quarter already means due right
+    now: exactly one such quarter is yellow, more than one (fallen
+    behind across a quarter boundary) is red.
+  - `get-provider-staff-training-status.js` — one dot, worst across
+    every active staff member at the location (staff aren't scoped
+    per-resident the way the other two are).
+  - The red/yellow/green day-count bucketing and the worst-of-a-list
+    helper are both shared from `lib/report-due-date.js`
+    (`statusForDaysUntilDue`, `worstOf`) rather than being redefined in
+    each new endpoint.
 
 ## Notifications (SMS)
 
