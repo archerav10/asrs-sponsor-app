@@ -104,34 +104,16 @@
     padding: 16px 18px;
     margin-bottom: 24px;
     background: #fff;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 14px;
   }
   .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
   .home-card .meta { font-size: 14px; color: #555; margin: 0; }
-  .home-card-mar {
+  .home-card .site-visit { font-size: 13px; color: #666; margin: 6px 0 0; }
+  .mar-section {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    flex-shrink: 0;
+    gap: 12px;
+    margin-bottom: 24px;
   }
-  .home-mar-badge {
-    width: auto;
-    text-align: right;
-    background: #fff;
-    color: var(--ink);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    margin-top: 0;
-    cursor: pointer;
-  }
-  .home-mar-badge .mar-label-row { justify-content: flex-end; }
-  .home-mar-badge .sub { display: block; font-size: 11px; font-weight: 400; color: #666; margin-top: 2px; }
   .info-section {
     margin-top: 4px;
     border-top: 1px solid var(--border);
@@ -553,12 +535,11 @@
   <!-- Screen 3: Home -->
   <section id="screen-home" class="screen">
     <div class="home-card">
-      <div>
-        <p class="name" id="home-name"></p>
-        <p class="meta" id="home-meta"></p>
-      </div>
-      <div class="home-card-mar" id="mar-buttons-container"></div>
+      <p class="name" id="home-name"></p>
+      <p class="meta" id="home-meta"></p>
     </div>
+
+    <div id="mar-buttons-container" class="mar-section"></div>
 
     <div class="action-list">
       <button class="action-button incident-button" data-action="serious-incident">
@@ -1079,7 +1060,12 @@
     residents.forEach(function (initials) {
       addRow('info-qr-dot-' + initials, 'Quarterly Reporting — ' + initials);
     });
-    addRow('info-st-dot', 'Staff Training — ' + (session.location || 'this location'));
+
+    // Staff Training rows can't be pre-rendered like the ones above —
+    // the names themselves come back from the fetch, so this group
+    // gets its own sub-container built fresh once the data arrives.
+    const staffGroup = document.createElement('div');
+    container.appendChild(staffGroup);
 
     await Promise.all([
       apiFetch('/get-provider-annual-planning-status').then(function (data) {
@@ -1099,10 +1085,15 @@
         // leave dots at their default green rather than guessing
       }),
       apiFetch('/get-provider-staff-training-status').then(function (data) {
-        const dot = document.getElementById('info-st-dot');
-        if (dot) dot.className = 'status-dot status-' + data.status;
+        staffGroup.innerHTML = '';
+        (data.staff || []).forEach(function (member) {
+          const row = document.createElement('div');
+          row.className = 'info-status-row';
+          row.innerHTML = '<span class="status-dot status-' + member.status + '"></span><span>Staff Training — ' + member.name + '</span>';
+          staffGroup.appendChild(row);
+        });
       }).catch(function (e) {
-        // leave dot at its default green rather than guessing
+        // leave the group empty rather than guessing
       })
     ]);
   }
@@ -1200,11 +1191,11 @@
     residents.forEach(function (initials) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'home-mar-badge';
+      btn.className = 'action-button';
       btn.innerHTML =
         '<span class="mar-label-row">' +
           '<span id="home-mar-dot-' + initials + '" class="status-dot status-green"></span>' +
-          '<span>&#128138; MAR \u2014 ' + initials + '</span>' +
+          '<span>&#128138; MAR Review \u2014 ' + initials + '</span>' +
         '</span>' +
         '<span class="sub" id="home-mar-summary-' + initials + '"></span>' +
         '<span class="sub" id="home-mar-due-' + initials + '"></span>';

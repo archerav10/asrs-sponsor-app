@@ -1,10 +1,10 @@
 const { requireSession } = require('./lib/session');
 const { staffListForLocation, itemsForStaff, computeStaffTrainingWindow } = require('./lib/staff-training');
-const { worstOf } = require('./lib/report-due-date');
 
-// Read-only, sponsor-facing traffic light — one dot for the whole
-// location (staff aren't scoped per-resident the way Annual Planning/
-// Quarterly Reporting are), worst-of across every active staff member.
+// Read-only, sponsor-facing traffic light — one row per active staff
+// member at the location (unlike Annual Planning/Quarterly Reporting,
+// which roll up to one dot per resident, staff here are broken out by
+// name since that's what the sponsor asked to see).
 function statusForWindow(windowState) {
   if (windowState.missingCount > 0 || windowState.isOverdue) {
     return windowState.isOverdue ? 'red' : 'yellow';
@@ -22,12 +22,12 @@ exports.handler = async function (event) {
     const session = requireSession(event);
     const staffList = await staffListForLocation(session.location);
 
-    const statuses = await Promise.all(staffList.map(async function (member) {
+    const staff = await Promise.all(staffList.map(async function (member) {
       const items = await itemsForStaff(session.location, member.name);
-      return statusForWindow(computeStaffTrainingWindow(items));
+      return { name: member.name, status: statusForWindow(computeStaffTrainingWindow(items)) };
     }));
 
-    return { statusCode: 200, body: JSON.stringify({ status: statuses.length ? worstOf(statuses) : 'green' }) };
+    return { statusCode: 200, body: JSON.stringify({ staff: staff }) };
   } catch (err) {
     console.error(err);
     return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message || 'Something went wrong.' }) };
