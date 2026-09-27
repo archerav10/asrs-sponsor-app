@@ -238,7 +238,14 @@ don't pick up env var changes until the next deploy.
   - `get-provider-staff-training-status.js` — one row per active staff
     member at the location, each with their own dot (unlike the other
     two, this one isn't collapsed to a single worst-of row, since the
-    sponsor asked to see it broken out by person).
+    sponsor asked to see it broken out by person). A yellow/red row also
+    shows why — `missingCount`/`doneCount`/`totalCount` (`STEPS.length`,
+    not a hardcoded copy of it) and `dueDate`/`isOverdue` come back raw
+    from the endpoint, and the client's `staffTrainingReasonText`
+    formats them into "Incomplete (14/19)" or "Overdue Oct 1, 2026" —
+    the same wording as the admin dashboard's own `staffPuzzleState`,
+    just computed independently since the two surfaces don't share a
+    render path. A green row shows no reason; there's nothing to explain.
   - The red/yellow/green day-count bucketing and the worst-of-a-list
     helper are both shared from `lib/report-due-date.js`
     (`statusForDaysUntilDue`, `worstOf`) rather than being redefined in

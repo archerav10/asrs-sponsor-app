@@ -143,6 +143,8 @@
     margin-bottom: 8px;
   }
   .info-status-row:last-child { margin-bottom: 0; }
+  .info-status-text { display: flex; flex-direction: column; }
+  .info-status-reason { font-size: 12px; font-weight: 400; color: #666; margin-top: 2px; }
   .action-list { display: flex; flex-direction: column; gap: 12px; }
   .action-button {
     text-align: left;
@@ -1058,13 +1060,26 @@
     return (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
   }
 
+  // Mirrors the admin dashboard's own staffPuzzleState wording — only
+  // shown for yellow/red, since a green dot needs no explanation.
+  function staffTrainingReasonText(member) {
+    if (member.status === 'green') return '';
+    if (member.missingCount > 0) {
+      return 'Incomplete (' + member.doneCount + '/' + member.totalCount + ')';
+    }
+    if (member.isOverdue) {
+      return 'Overdue ' + formatDate(member.dueDate);
+    }
+    return 'Due ' + formatDate(member.dueDate);
+  }
+
   // Annual Planning, Quarterly Reporting, and Staff Training all have
   // their own full workflows on the admin dashboard — sponsors only get
-  // a traffic light here, one row per resident for the first two (Staff
-  // Training isn't resident-scoped, so it's one row for the location).
-  // Plain divs, not buttons — nothing here is tappable. The three
-  // fetches are independent of each other, so they run concurrently
-  // rather than waiting on one another in turn.
+  // a traffic light here, one row per resident for the first two, one
+  // row per active staff member (by name) for Staff Training. Plain
+  // divs, not buttons — nothing here is tappable. The three fetches are
+  // independent of each other, so they run concurrently rather than
+  // waiting on one another in turn.
   async function loadInfoStatuses(session) {
     const container = document.getElementById('info-status-container');
     container.innerHTML = '';
@@ -1112,7 +1127,12 @@
         (data.staff || []).forEach(function (member) {
           const row = document.createElement('div');
           row.className = 'info-status-row';
-          row.innerHTML = '<span class="status-dot status-' + member.status + '"></span><span>Staff Training — ' + member.name + '</span>';
+          const reason = staffTrainingReasonText(member);
+          row.innerHTML = '<span class="status-dot status-' + member.status + '"></span>' +
+            '<span class="info-status-text">' +
+              '<span>Staff Training — ' + member.name + '</span>' +
+              (reason ? '<span class="info-status-reason">' + reason + '</span>' : '') +
+            '</span>';
           staffGroup.appendChild(row);
         });
       }).catch(function (e) {
