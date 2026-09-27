@@ -375,9 +375,14 @@ never `computeDueDate` — to build it.
   before this field existed) is treated as the default service —
   `findRecord`'s filter matches it via an explicit `is_empty` branch, since
   Notion's `select.equals` won't match an empty value on its own.
-- **The lock:** a resident's card is locked (gray puzzle) until 6 weeks
-  before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (yellow, slowly
-  rotating puzzle, CSS `@keyframes puzzleSpin`). A brand new resident
+- **The lock:** a resident's card is locked (green, still puzzle) until
+  6 weeks before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (bright
+  gold, slowly rotating puzzle, CSS `@keyframes puzzleSpin`). The puzzle
+  itself is a shared inline SVG (`createPuzzleIcon` in
+  `admin-dashboard/index.html`), not the 🧩 emoji it used to be — an
+  emoji glyph's color is fixed by the OS/browser and can't be
+  recolored with CSS, so switching it green/gold needed a real
+  `fill="currentColor"` icon instead. A brand new resident
   with no cycle on file yet is always unlocked, so Step 1 is reachable
   to bootstrap it. Server-enforced the same way MAR's window is — every
   write endpoint checks `isWindowOpen` before touching anything.
