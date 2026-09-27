@@ -178,9 +178,10 @@ don't pick up env var changes until the next deploy.
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
-- Serious Incident Report: a solid-orange button at the very top of
-  Home (distinct from everything else, deliberately not color-coded by
-  due date since it's not a recurring compliance report). Writes into
+- Serious Incident Report: a solid-orange button at the very bottom of
+  Home, alongside Log an Event (distinct from everything else,
+  deliberately not color-coded by due date since it's not a recurring
+  compliance report). Writes into
   the **existing** Serious Incident Report database shared with your
   other staff-facing systems, not a new one — this app only fills in
   Name, Location, Resident Involved, Date of Incident, Location of
@@ -207,14 +208,22 @@ don't pick up env var changes until the next deploy.
 - **Last/Next Site Visit** shown right on the home card, under the
   location line — sourced from the admin dashboard's Monthly Checklist
   (see the Monthly Checklist section below), read-only.
-- **"For your information (view only)" section** at the bottom of Home:
-  one red/yellow/green dot per resident for Annual Planning and
-  Quarterly Reporting, plus one row per active staff member (by name)
-  for Staff Training — all three processes sponsors can see but not act
-  on (the actual workflows only exist on the admin dashboard). Plain
-  rows, not buttons; nothing here is tappable. Backed by three new
-  read-only endpoints that reuse the same window/cycle logic the admin
-  dashboard's own oversight boards run:
+- **Home screen order:** the reports with their own progress/status
+  (First Aid, Fire Drill, Emergency Supplies, Physical Environment,
+  MAR) come first; the view-only info box comes next; Log an Event and
+  Serious Incident Report — neither of which is a "check on where things
+  stand" screen — sit at the very end, after it, so they read as
+  distinct from the view-only content above them.
+- **"For your information (view only)" section**, its own bordered/
+  shaded box (`.info-section`) so it reads as one visually distinct
+  group rather than blending into the buttons above or below it: one
+  red/yellow/green dot per resident for Annual Planning and Quarterly
+  Reporting, plus one row per active staff member (by name) for Staff
+  Training — all three processes sponsors can see but not act on (the
+  actual workflows only exist on the admin dashboard). Plain rows, not
+  buttons; nothing here is tappable. Backed by three new read-only
+  endpoints that reuse the same window/cycle logic the admin dashboard's
+  own oversight boards run:
   - `get-provider-annual-planning-status.js` — per resident, worst
     across every service on file (`computeAnnualPlanningWindow`);
     overdue is red, due within 7 days is yellow, otherwise green
@@ -649,6 +658,15 @@ one that hasn't started yet.
   still missing. Both endpoints re-resolve the target server-side rather
   than trusting a client-supplied period, so a stale screen can't
   accidentally write into the wrong month.
+- **"Due" shows the last day of the target month, not the first of the
+  next one.** The actual overdue threshold is still the instant the next
+  month begins (`dueDate` in `resolveTarget`) — that never changed — but
+  what admins are shown for "Due ..." is a separate `dueDisplayDate`
+  (`dueDisplayDateForPeriod` in `lib/monthly-checklist.js`), the target
+  month's real last calendar day, so October's row reads "Due Oct 31,"
+  not "Due Nov 1." The "Finalized — next opens ..." wording (shown after
+  finishing early) still uses `dueDate` itself, since that phrasing is
+  correctly about the next month's start.
 - **Provider app surfacing:** the sponsor's home card shows "Last site
   visit" and "Next planned visit," sourced from `latestSiteVisitDates`
   in `lib/monthly-checklist.js` — the most recent non-blank value for

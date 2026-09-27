@@ -26,6 +26,7 @@ exports.handler = async function (event) {
         location: location,
         period: target.targetPeriod,
         dueDate: target.dueDate.toISOString().slice(0, 10),
+        dueDisplayDate: target.dueDisplayDate.toISOString().slice(0, 10),
         isOverdue: Date.now() >= target.dueDate.getTime(),
         hasStarted: !!target.record,
         // True only in the "finished this month early" case — the

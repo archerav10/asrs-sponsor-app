@@ -36,10 +36,19 @@ function dateToPeriod(date) {
   return date.getFullYear() + '-' + pad2(date.getMonth() + 1);
 }
 
-// A period's due date is always the first of the NEXT month — "must be
-// completed by the end of EACH month."
+// The exact instant a period becomes overdue — the first moment of the
+// NEXT month — kept separate from the human-facing "due" date below so
+// changing how that reads never touches the actual overdue threshold.
 function dueDateForPeriod(date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+}
+
+// What "Due ..." should actually show admins: the last real calendar day
+// of the target month itself ("must be completed by the end of EACH
+// month" reads as "Oct 31," not "Nov 1"), even though the underlying
+// overdue check above still flips at the start of the next month.
+function dueDisplayDateForPeriod(date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
 function recordFromPage(page) {
@@ -122,7 +131,12 @@ async function resolveTarget(location, now) {
   const all = await findAllRecords(location);
 
   if (!all.length) {
-    return { targetPeriod: dateToPeriod(currentMonthStart), dueDate: dueDateForPeriod(currentMonthStart), record: null };
+    return {
+      targetPeriod: dateToPeriod(currentMonthStart),
+      dueDate: dueDateForPeriod(currentMonthStart),
+      dueDisplayDate: dueDisplayDateForPeriod(currentMonthStart),
+      record: null
+    };
   }
 
   const byPeriod = {};
@@ -133,7 +147,12 @@ async function resolveTarget(location, now) {
   while (cursor < currentMonthStart) {
     const record = byPeriod[dateToPeriod(cursor)] || null;
     if (!record || !record.finalized) {
-      return { targetPeriod: dateToPeriod(cursor), dueDate: dueDateForPeriod(cursor), record: record };
+      return {
+        targetPeriod: dateToPeriod(cursor),
+        dueDate: dueDateForPeriod(cursor),
+        dueDisplayDate: dueDisplayDateForPeriod(cursor),
+        record: record
+      };
     }
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
   }
@@ -142,7 +161,12 @@ async function resolveTarget(location, now) {
   // the current month itself, which may already be finalized too (the
   // "finished early, locked until next month" state).
   const record = byPeriod[dateToPeriod(currentMonthStart)] || null;
-  return { targetPeriod: dateToPeriod(currentMonthStart), dueDate: dueDateForPeriod(currentMonthStart), record: record };
+  return {
+    targetPeriod: dateToPeriod(currentMonthStart),
+    dueDate: dueDateForPeriod(currentMonthStart),
+    dueDisplayDate: dueDisplayDateForPeriod(currentMonthStart),
+    record: record
+  };
 }
 
 function fieldsToProps(fields) {

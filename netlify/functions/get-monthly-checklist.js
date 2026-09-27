@@ -36,6 +36,7 @@ exports.handler = async function (event) {
         location: location,
         period: target.targetPeriod,
         dueDate: target.dueDate.toISOString().slice(0, 10),
+        dueDisplayDate: target.dueDisplayDate.toISOString().slice(0, 10),
         record: target.record,
         items: ITEMS.map(function (i) { return { key: i.key, label: i.label, type: i.type }; }),
         missingItems: missingItems(target.record)

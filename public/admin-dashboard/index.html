@@ -1796,7 +1796,7 @@
     if (row.isOverdue) {
       return { spinning: false, label: 'Overdue — ' + periodStrToLabel(row.period) };
     }
-    return { spinning: true, label: (row.hasStarted ? 'In progress' : 'Not started') + ' — due ' + formatDate(row.dueDate) };
+    return { spinning: true, label: (row.hasStarted ? 'In progress' : 'Not started') + ' — due ' + formatDate(row.dueDisplayDate) };
   }
 
   function renderChecklistLocationButton(row) {
@@ -1990,7 +1990,7 @@
       if (data.record && data.record.finalized) {
         bannerEl.textContent = 'Finalized by ' + (data.record.finalizedBy || 'a staff member') + ' on ' + formatDate(data.record.finalizedDate) + '. Next month’s checklist opens ' + formatDate(data.dueDate) + '.';
       } else {
-        bannerEl.textContent = 'Due ' + formatDate(data.dueDate) + '. Every item is required before this month can be finalized.';
+        bannerEl.textContent = 'Due ' + formatDate(data.dueDisplayDate) + '. Every item is required before this month can be finalized.';
       }
 
       renderChecklistForm(bodyEl, data);

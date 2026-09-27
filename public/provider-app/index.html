@@ -115,9 +115,11 @@
     margin-bottom: 24px;
   }
   .info-section {
-    margin-top: 4px;
-    border-top: 1px solid var(--border);
-    padding-top: 18px;
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f3f2ee;
+    padding: 16px;
   }
   .info-section-label {
     font-size: 12px;
@@ -125,7 +127,7 @@
     color: #888;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    margin: 0 0 10px;
+    margin: 0 0 12px;
   }
   .info-status-row {
     display: flex;
@@ -134,7 +136,7 @@
     padding: 12px 14px;
     border: 1px solid var(--border);
     border-radius: 8px;
-    background: #fafafa;
+    background: #fff;
     font-size: 14px;
     font-weight: 600;
     color: #444;
@@ -543,10 +545,6 @@
     <div id="mar-buttons-container" class="mar-section"></div>
 
     <div class="action-list">
-      <button class="action-button incident-button" data-action="serious-incident">
-        &#128680; Serious Incident Report
-        <span class="sub">Immediately notifies administration</span>
-      </button>
       <button class="action-button" data-action="first-aid">
         <span class="mar-label-row">
           <span id="home-fa-dot" class="status-dot status-green"></span>
@@ -583,15 +581,22 @@
         <span class="sub" id="home-pe-status"></span>
         <span class="sub" id="home-pe-due"></span>
       </button>
-      <button class="action-button" data-action="log-event">
-        Log an Event
-        <span class="sub">Appointments and community outings</span>
-      </button>
     </div>
 
     <div class="info-section">
       <p class="info-section-label">For your information (view only)</p>
       <div id="info-status-container"></div>
+    </div>
+
+    <div class="action-list">
+      <button class="action-button" data-action="log-event">
+        Log an Event
+        <span class="sub">Appointments and community outings</span>
+      </button>
+      <button class="action-button incident-button" data-action="serious-incident">
+        &#128680; Serious Incident Report
+        <span class="sub">Immediately notifies administration</span>
+      </button>
     </div>
 
     <button class="logout-link" id="logout">Log Out</button>
