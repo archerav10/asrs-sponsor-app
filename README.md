@@ -620,7 +620,7 @@ doesn't already have an Annual Planning cycle.
 
 ### Monthly Checklist (fifth process — per location, not per resident)
 
-One shared 11-item checklist template, one Notion row per Location +
+One shared 12-item checklist template, one Notion row per Location +
 Month (never wiped or reused — every month is its own permanent record,
 so full history lives in Notion with no extra archiving step). Unlike
 every other process in this app, it's retrospective: it reports on the
@@ -631,7 +631,7 @@ one that hasn't started yet.
   one active row per Location + Period (`YYYY-MM`). See
   `netlify/functions/lib/monthly-checklist.js`'s `ITEMS` array for the
   exact property names/types to create — 2 date properties (`Last Site
-  Visit`, `Next Planned Site Visit`), 9 select properties with Yes/No
+  Visit`, `Next Planned Site Visit`), 10 select properties with Yes/No
   options (a select rather than a checkbox specifically so "answered
   No" and "never answered yet" aren't the same blank state — Finalize
   needs to tell those apart), 1 rich_text property (`Improvement
@@ -640,7 +640,7 @@ one that hasn't started yet.
   By` (rich_text), and a title property (`Record Title`).
 - **Template is code-level, not admin-editable.** Same convention as
   Quarterly Reporting/Staff Training's fixed `STEPS` arrays — adding or
-  removing one of the 11 items means editing `ITEMS` in
+  removing one of the 12 items means editing `ITEMS` in
   `lib/monthly-checklist.js` (plus the matching Notion property), not a
   self-service UI. There's only one template shared by every location,
   so a code change already applies everywhere at once.
@@ -665,7 +665,7 @@ one that hasn't started yet.
   "next opens \<date\>" banner.
 - **Save Progress / Finalize**, same split as MAR Review: Save Progress
   writes whatever's currently entered with no validation; Finalize
-  requires all 11 items have a real value (`missingItems` in
+  requires all 12 items have a real value (`missingItems` in
   `lib/monthly-checklist.js`) and blocks with a message naming what's
   still missing. Both endpoints re-resolve the target server-side rather
   than trusting a client-supplied period, so a stale screen can't

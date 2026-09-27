@@ -8,7 +8,7 @@ const MONTHLY_CHECKLIST_DB_ID = process.env.MONTHLY_CHECKLIST_DB_ID;
 // admin UI: there's only one shared template for every location, so a
 // code change here already applies everywhere at once.
 //
-// The 9 yes/no items are stored as a Notion select (Yes/No), not a
+// The 10 yes/no items are stored as a Notion select (Yes/No), not a
 // checkbox — a checkbox can't distinguish "answered No" from "never
 // answered yet," which finalizing needs to tell apart.
 const ITEMS = [
@@ -17,6 +17,7 @@ const ITEMS = [
   { key: 'AdminMedicationReview', property: 'Admin Medication Review', label: 'Administrative medication review', type: 'yesno' },
   { key: 'TherapMarConfigCompleted', property: 'Therap MAR Config Completed', label: 'Therap monthly MAR configuration completed?', type: 'yesno' },
   { key: 'LicensingComplianceCheck', property: 'Licensing Compliance Check', label: 'Licensing compliance check completed', type: 'yesno' },
+  { key: 'LicensingDrillCompleted', property: 'Licensing Drill Completed', label: 'Licensing drill completed', type: 'yesno' },
   { key: 'PhysicalEnvironmentWalkthrough', property: 'Physical Environment Walkthrough', label: 'Physical environment walk-thru?', type: 'yesno' },
   { key: 'RiskAssessmentReview', property: 'Risk Assessment Review', label: 'Risk Assessment Review', type: 'yesno' },
   { key: 'QualityImprovementReview', property: 'Quality Improvement Review', label: 'Quality Improvement Review', type: 'yesno' },
