@@ -13,6 +13,21 @@ function addDaysISO(dateStr, days) {
   return isoDate(d);
 }
 
+// Notion caps a single rich_text block at 2000 characters — splits
+// longer content (signature stroke JSON especially, but also a long
+// dictated answer) across multiple blocks in the same array. Reading it
+// back needs no special handling: getPlainText already joins every
+// rich_text array element's plain_text into one string.
+function chunkRichText(content) {
+  content = content || '';
+  const CHUNK_SIZE = 2000;
+  const chunks = [];
+  for (let i = 0; i < content.length; i += CHUNK_SIZE) {
+    chunks.push({ text: { content: content.slice(i, i + CHUNK_SIZE) } });
+  }
+  return chunks;
+}
+
 function questionFromPage(page) {
   return {
     id: page.id,
@@ -321,8 +336,8 @@ async function saveAnswers(location, resident, date, questions, answers) {
     const props = {
       'Question Text': { rich_text: [{ text: { content: question.text } }] },
       'Question Type': { select: { name: question.type } },
-      'Answer Text': { rich_text: value.answerText ? [{ text: { content: value.answerText } }] : [] },
-      'Checklist Answers': { rich_text: value.checklistAnswers ? [{ text: { content: JSON.stringify(value.checklistAnswers) } }] : [] }
+      'Answer Text': { rich_text: chunkRichText(value.answerText) },
+      'Checklist Answers': { rich_text: chunkRichText(value.checklistAnswers ? JSON.stringify(value.checklistAnswers) : '') }
     };
 
     if (existing[key]) {
@@ -391,7 +406,7 @@ async function signAndFinalize(location, resident, date, signedBy, strokes) {
   await updatePage(cover.id, {
     'Signed By': { rich_text: [{ text: { content: signedBy } }] },
     'Signed At': { date: { start: new Date().toISOString() } },
-    'Signature Strokes': { rich_text: [{ text: { content: JSON.stringify(strokes || []) } }] }
+    'Signature Strokes': { rich_text: chunkRichText(JSON.stringify(strokes || [])) }
   });
 }
 

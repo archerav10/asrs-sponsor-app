@@ -2608,11 +2608,22 @@
   let dpnCurrentStroke = null;
   let dpnCanvasCtx = null;
 
+  // Rounded to whole pixels — a real signature's stroke data gets stored
+  // as JSON text (see chunkRichText in lib/daily-progress-notes.js), so
+  // trimming float precision here meaningfully cuts how much of it there
+  // is without any visible loss of detail.
   function dpnCanvasPoint(canvas, evt) {
     const rect = canvas.getBoundingClientRect();
     const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
     const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return { x: Math.round(clientX - rect.left), y: Math.round(clientY - rect.top) };
+  }
+
+  // Skips points that haven't moved far enough to matter — a slow or
+  // jittery hand can otherwise generate several points per pixel of
+  // actual travel, ballooning the stored stroke data for no visible gain.
+  function dpnPointFarEnough(a, b) {
+    return Math.abs(a.x - b.x) >= 2 || Math.abs(a.y - b.y) >= 2;
   }
 
   function dpnRedrawSignature(canvas) {
@@ -2645,7 +2656,10 @@
     function move(evt) {
       if (!dpnCurrentStroke) return;
       evt.preventDefault();
-      dpnCurrentStroke.push(dpnCanvasPoint(canvas, evt));
+      const point = dpnCanvasPoint(canvas, evt);
+      const last = dpnCurrentStroke[dpnCurrentStroke.length - 1];
+      if (last && !dpnPointFarEnough(last, point)) return;
+      dpnCurrentStroke.push(point);
       dpnRedrawSignature(canvas);
     }
     function end() {
