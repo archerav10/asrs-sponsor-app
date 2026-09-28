@@ -72,6 +72,7 @@ exports.handler = async function () {
         residentFullName: cover.residentFullName,
         location: cover.location,
         date: cover.date,
+        timesCovered: cover.timesCovered,
         questions: mergedQuestions,
         enteredBy: cover.enteredBy,
         signedBy: cover.signedBy,

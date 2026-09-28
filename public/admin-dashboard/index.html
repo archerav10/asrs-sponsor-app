@@ -421,6 +421,10 @@
     <input type="date" id="dpn-t-last-valid-date">
     <p class="help-text" style="margin-top: -2px;">Leave blank for open-ended &mdash; it stays in effect until a newer version is published. Set this when the questionnaire's end date is already known (e.g. an annual renewal).</p>
 
+    <label for="dpn-t-times-covered">Times Covered</label>
+    <input type="text" id="dpn-t-times-covered" placeholder="e.g. 12:00 AM - 11:59 PM">
+    <p class="help-text" style="margin-top: -2px;">Printed on the generated PDF under the date. Defaults to the full day &mdash; only change it for a resident whose note covers a narrower window.</p>
+
     <div id="dpn-t-questions"></div>
     <button type="button" id="dpn-t-add-question" class="secondary">+ Add Question</button>
 
@@ -2208,6 +2212,7 @@
     container.appendChild(renderDpnTQuestionRow(dpnEmptyQuestion()));
     document.getElementById('dpn-t-effective-date').value = '';
     document.getElementById('dpn-t-last-valid-date').value = '';
+    document.getElementById('dpn-t-times-covered').value = '12:00 AM - 11:59 PM';
   }
 
   function renderDpnTVersionCard(v) {
@@ -2217,6 +2222,13 @@
     dates.className = 'dpn-t-version-dates';
     dates.textContent = 'Effective ' + formatDate(v.effectiveDate) + (v.lastValidDate ? ' through ' + formatDate(v.lastValidDate) : ' — current version');
     wrap.appendChild(dates);
+    if (v.timesCovered) {
+      const times = document.createElement('p');
+      times.className = 'dpn-t-version-dates';
+      times.style.fontWeight = '400';
+      times.textContent = 'Times covered: ' + v.timesCovered;
+      wrap.appendChild(times);
+    }
     const ol = document.createElement('ol');
     v.questions.forEach(function (q) {
       const li = document.createElement('li');
@@ -2233,6 +2245,7 @@
     if (isNew) {
       initialsInput.value = '';
       document.getElementById('dpn-t-resident-fullname').value = '';
+      document.getElementById('dpn-t-times-covered').value = '12:00 AM - 11:59 PM';
       initialsInput.disabled = false;
     } else {
       initialsInput.value = document.getElementById('dpn-t-resident-picker').value;
@@ -2252,6 +2265,7 @@
         data.versions.slice().reverse().forEach(function (v) { historyEl.appendChild(renderDpnTVersionCard(v)); });
       }
       if (data.residentFullName) document.getElementById('dpn-t-resident-fullname').value = data.residentFullName;
+      document.getElementById('dpn-t-times-covered').value = data.timesCovered || '12:00 AM - 11:59 PM';
     } catch (e) {
       historyEl.innerHTML = '';
       setError('dpn-templates-error', e.message);
@@ -2331,11 +2345,12 @@
     const residentPicker = document.getElementById('dpn-t-resident-picker').value;
     const resident = residentPicker || document.getElementById('dpn-t-resident-initials').value.trim().toUpperCase();
     const residentFullName = document.getElementById('dpn-t-resident-fullname').value.trim();
+    const timesCovered = document.getElementById('dpn-t-times-covered').value.trim();
     const effectiveDate = document.getElementById('dpn-t-effective-date').value;
     const lastValidDate = document.getElementById('dpn-t-last-valid-date').value || null;
 
-    if (!location || !resident || !residentFullName || !effectiveDate) {
-      setError('dpn-templates-error', 'Location, resident initials, resident full name, and an effective date are all required.');
+    if (!location || !resident || !residentFullName || !timesCovered || !effectiveDate) {
+      setError('dpn-templates-error', 'Location, resident initials, resident full name, times covered, and an effective date are all required.');
       return;
     }
     if (lastValidDate && lastValidDate < effectiveDate) {
@@ -2362,7 +2377,7 @@
       await apiFetch('/save-daily-progress-note-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, effectiveDate: effectiveDate, lastValidDate: lastValidDate, questions: questions })
+        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, timesCovered: timesCovered, effectiveDate: effectiveDate, lastValidDate: lastValidDate, questions: questions })
       });
       alert('New version published.');
       await loadDpnTResidentsForLocation(location);

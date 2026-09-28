@@ -83,6 +83,9 @@ async function buildDailyProgressNotePdf(data) {
   drawLine('Resident: ' + data.residentFullName + ' (' + data.resident + ')', { size: 12, bold: true, maxWidth: headerMaxWidth });
   drawLine('Location: ' + data.location, { size: 12, bold: true, maxWidth: headerMaxWidth });
   drawLine('Date: ' + data.date, { size: 12, bold: true, maxWidth: headerMaxWidth });
+  if (data.timesCovered) {
+    drawLine('Times Covered: ' + data.timesCovered, { size: 12, bold: true, maxWidth: headerMaxWidth });
+  }
   y -= 10;
 
   data.questions.forEach(function (q, index) {
@@ -106,7 +109,6 @@ async function buildDailyProgressNotePdf(data) {
     drawLine('Entered by: ' + data.enteredBy, { size: 11, bold: true });
   }
   drawLine('Signed by: ' + data.signedBy, { size: 11, bold: true });
-  drawLine('Signed at: ' + data.signedAt, { size: 10 });
   y -= 6;
 
   const sigBoxHeight = 70;

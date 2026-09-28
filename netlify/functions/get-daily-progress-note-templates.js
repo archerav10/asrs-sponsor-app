@@ -31,9 +31,9 @@ exports.handler = async function (event) {
     if (params.resident) {
       versions = await listVersions(location, params.resident);
     }
-    const residentFullName = versions.length && versions[versions.length - 1].questions.length
-      ? versions[versions.length - 1].questions[0].residentFullName
-      : '';
+    const latestVersionQuestions = versions.length ? versions[versions.length - 1].questions : [];
+    const residentFullName = latestVersionQuestions.length ? latestVersionQuestions[0].residentFullName : '';
+    const timesCovered = latestVersionQuestions.length ? latestVersionQuestions[0].timesCovered : '';
 
     return {
       statusCode: 200,
@@ -42,10 +42,12 @@ exports.handler = async function (event) {
         residents: residents,
         resident: params.resident || null,
         residentFullName: residentFullName,
+        timesCovered: timesCovered,
         versions: versions.map(function (v) {
           return {
             effectiveDate: v.effectiveDate,
             terminationDate: v.terminationDate,
+            timesCovered: v.questions.length ? v.questions[0].timesCovered : '',
             // Admin-facing inverse of the stored (exclusive) Termination
             // Date — the last day this version actually applies, so the
             // UI never has to show the internal off-by-one value.

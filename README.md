@@ -740,7 +740,9 @@ that admins edit themselves.
   `netlify/functions/lib/daily-progress-notes.js`.
   - **"Daily Progress Note Questions"** (`DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`)
     — one row per question per version: `Location` (select), `Resident
-    Initials` (rich_text), `Resident Full Name` (rich_text), `Effective
+    Initials` (rich_text), `Resident Full Name` (rich_text), `Times
+    Covered` (rich_text — e.g. "12:00 AM - 11:59 PM" for a note covering
+    the full day; printed on the PDF, see below), `Effective
     Date`/`Termination Date` (date), `Question Key` (rich_text, e.g.
     `q1`), `Question Text` (rich_text), `Question Type` (select:
     `Text`/`Checklist`), `Checklist Items` (rich_text, newline-delimited
@@ -749,7 +751,9 @@ that admins edit themselves.
     file, just with a `Termination Date` set).
   - **"Daily Progress Notes"** (`DAILY_PROGRESS_NOTES_DB_ID`) — the
     per-day "cover" row: `Location`, `Resident Initials`, `Resident Full
-    Name`, `Date`, `Template Effective Date` (which version answered this
+    Name`, `Times Covered` (copied from the template version in effect
+    when the cover is first created, same as `Resident Full Name`), `Date`,
+    `Template Effective Date` (which version answered this
     day), `Signed By`/`Signed At`, `Signature Strokes` (rich_text,
     JSON-encoded pen-stroke points — see below), `PDF Generated`
     (checkbox), `PDF Drive URL` (url), `Active`.
@@ -868,6 +872,16 @@ that admins edit themselves.
   backend service. Support is solid on Chrome/Android; iOS Safari's
   support is spottier, so the mic button is simply omitted when
   `SpeechRecognition` isn't available rather than showing a broken one.
+- **Times Covered**: an admin-managed, per-resident free-text field
+  (e.g. "12:00 AM - 11:59 PM" for a note covering the whole day, or a
+  narrower window for a resident whose note doesn't) set on the "Manage
+  Question Templates" form alongside the questions themselves, defaults
+  to "12:00 AM - 11:59 PM" for a new version. Follows the same
+  copy-once-at-cover-creation pattern as `Resident Full Name`
+  (`saveAnswers`) rather than being re-derived on every save, and prints
+  on the generated PDF directly under the Date line — some licensing
+  agencies require the covered time window to appear on the document
+  itself.
 - **Entered By vs Signed By**: every save (`saveAnswers`) stamps the
   cover's `Entered By` with whoever most recently saved (overwritten on
   each save, same "Last Updated By" convention MAR Review uses) —
@@ -880,9 +894,13 @@ that admins edit themselves.
   daily at 9:30am US/Eastern): finds every signed cover with `PDF
   Generated` still false, renders a PDF via `pdf-lib`
   (`lib/daily-progress-note-pdf.js`) containing the resident's name,
-  location, "DailyProgressNote," the note's date, every question and
-  answer, who entered it, who signed it, and the replayed signature,
-  then uploads it to Google Drive through the same Zapier Catch Hook ->
+  location, "DailyProgressNote," the note's date, the Times Covered
+  window, every question and answer, who entered it, who signed it
+  (without a signed-at timestamp — the PDF prints the signer's name only,
+  not `Signed At`, which is still stored on the cover row and used by the
+  oversight dashboard and the failure alert below), and the replayed
+  signature, then uploads it to Google Drive through the same Zapier
+  Catch Hook ->
   Find/Create Folder -> Upload File pattern every other document upload
   in this app already uses (see "Setting up event attachments" below
   for the general pattern). `PDF Generated` is only flipped true after a

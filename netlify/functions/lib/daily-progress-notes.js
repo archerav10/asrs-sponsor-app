@@ -34,6 +34,7 @@ function questionFromPage(page) {
     effectiveDate: getPlainText(page.properties['Effective Date']),
     terminationDate: getPlainText(page.properties['Termination Date']),
     residentFullName: getPlainText(page.properties['Resident Full Name']),
+    timesCovered: getPlainText(page.properties['Times Covered']),
     key: getPlainText(page.properties['Question Key']),
     text: getPlainText(page.properties['Question Text']),
     type: getPlainText(page.properties['Question Type']),
@@ -112,11 +113,15 @@ async function listVersions(location, resident) {
 // needs a Termination Date of Nov 1 2026, one day past its last valid day.
 //
 // questions: [{ text, type: 'Text'|'Checklist', checklistItems?: string[] }]
-// terminationDate is optional — when given, the new version is fixed-
-// duration from publication (useful for a template whose expiration is
-// already known, like an annual renewal); when omitted, it stays open-
-// ended until a future version's publish auto-terminates it.
-async function createVersion(location, resident, residentFullName, effectiveDate, questions, terminationDate) {
+// timesCovered is a free-text description of the hours this note
+// documents (e.g. "12:00 AM - 11:59 PM" for a resident whose note
+// covers the full day, or a narrower window for one who doesn't) —
+// printed on the generated PDF under the date. terminationDate is
+// optional — when given, the new version is fixed-duration from
+// publication (useful for a template whose expiration is already
+// known, like an annual renewal); when omitted, it stays open-ended
+// until a future version's publish auto-terminates it.
+async function createVersion(location, resident, residentFullName, timesCovered, effectiveDate, questions, terminationDate) {
   const versions = await listVersions(location, resident);
   const openVersion = versions.find(function (v) { return !v.terminationDate; });
 
@@ -145,6 +150,7 @@ async function createVersion(location, resident, residentFullName, effectiveDate
       'Location': { select: { name: location } },
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
+      'Times Covered': { rich_text: [{ text: { content: timesCovered || '' } }] },
       'Effective Date': { date: { start: effectiveDate } },
       'Termination Date': terminationDate ? { date: { start: terminationDate } } : { date: null },
       'Question Key': { rich_text: [{ text: { content: key } }] },
@@ -197,6 +203,7 @@ function coverFromPage(page) {
     date: getPlainText(page.properties['Date']),
     residentFullName: getPlainText(page.properties['Resident Full Name']),
     templateEffectiveDate: getPlainText(page.properties['Template Effective Date']),
+    timesCovered: getPlainText(page.properties['Times Covered']),
     enteredBy: getPlainText(page.properties['Entered By']),
     signedBy: getPlainText(page.properties['Signed By']),
     signedAt: getPlainText(page.properties['Signed At']),
@@ -459,11 +466,13 @@ async function saveAnswers(location, resident, date, questions, answers, entered
   if (!cover) {
     const templateEffectiveDate = questions.length ? questions[0].effectiveDate : '';
     const residentFullName = questions.length ? questions[0].residentFullName : '';
+    const timesCovered = questions.length ? questions[0].timesCovered : '';
     await createPage(NOTES_DB_ID, {
       'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + date } }] },
       'Location': { select: { name: location } },
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
+      'Times Covered': { rich_text: [{ text: { content: timesCovered || '' } }] },
       'Date': { date: { start: date } },
       'Template Effective Date': { rich_text: [{ text: { content: templateEffectiveDate } }] },
       'Entered By': { rich_text: enteredBy ? [{ text: { content: enteredBy } }] : [] },
