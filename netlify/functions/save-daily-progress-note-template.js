@@ -23,6 +23,7 @@ exports.handler = async function (event) {
     const location = body.location;
     const resident = (body.resident || '').trim().toUpperCase();
     const residentFullName = (body.residentFullName || '').trim();
+    const timesCoveredEditable = !!body.timesCoveredEditable;
     const timesCovered = (body.timesCovered || '').trim();
     const effectiveDate = body.effectiveDate;
     // The admin enters the LAST day this version should still apply
@@ -44,7 +45,7 @@ exports.handler = async function (event) {
     if (!residentFullName) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Resident full name is required.' }) };
     }
-    if (!timesCovered) {
+    if (!timesCoveredEditable && !timesCovered) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Times covered is required.' }) };
     }
     if (!effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
@@ -69,7 +70,7 @@ exports.handler = async function (event) {
     }
 
     const terminationDate = lastValidDate ? addDaysISO(lastValidDate, 1) : null;
-    await createVersion(location, resident, residentFullName, timesCovered, effectiveDate, questions, terminationDate);
+    await createVersion(location, resident, residentFullName, timesCovered, timesCoveredEditable, effectiveDate, questions, terminationDate);
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (err) {

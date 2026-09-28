@@ -65,6 +65,19 @@ exports.handler = async function (event) {
     }
     const answersByKey = await findAnswers(session.location, resident, date);
     const missing = missingQuestions(questions, answersByKey);
+    // For a resident whose Times Covered is provider-entered (rather
+    // than a fixed admin value), it must have actually been saved — via
+    // a prior Save Progress — before signing, same requirement as every
+    // other question. Reuses the cover resolveDayOptions already fetched
+    // as part of its day walk (isFirstEntry means no cover exists for
+    // this resident at all yet, by definition) rather than querying
+    // Notion for it again.
+    if (questions[0] && questions[0].timesCoveredEditable) {
+      const cover = options.isFirstEntry ? null : options.coverByDate[date];
+      if (!cover || !cover.timesCovered || !cover.timesCovered.trim()) {
+        missing.push('Times Covered');
+      }
+    }
     if (missing.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Still needs: ' + missing.join(', ') }) };
     }

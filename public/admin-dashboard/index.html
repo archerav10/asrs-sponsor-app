@@ -421,9 +421,17 @@
     <input type="date" id="dpn-t-last-valid-date">
     <p class="help-text" style="margin-top: -2px;">Leave blank for open-ended &mdash; it stays in effect until a newer version is published. Set this when the questionnaire's end date is already known (e.g. an annual renewal).</p>
 
-    <label for="dpn-t-times-covered">Times Covered</label>
-    <input type="text" id="dpn-t-times-covered" placeholder="e.g. 12:00 AM - 11:59 PM">
-    <p class="help-text" style="margin-top: -2px;">Printed on the generated PDF under the date. Defaults to the full day &mdash; only change it for a resident whose note covers a narrower window.</p>
+    <div id="dpn-t-times-covered-fixed-wrap">
+      <label for="dpn-t-times-covered">Times Covered</label>
+      <input type="text" id="dpn-t-times-covered" placeholder="e.g. 12:00 AM - 11:59 PM">
+      <p class="help-text" style="margin-top: -2px;">Printed on the generated PDF under the date. Defaults to the full day &mdash; only change it for a resident whose note covers a narrower window.</p>
+    </div>
+
+    <label style="display:flex; align-items:center; gap:8px; font-weight:400; margin-top:18px;">
+      <input type="checkbox" id="dpn-t-times-covered-editable" style="width:auto; margin:0;">
+      Provider enters times covered on each note instead
+    </label>
+    <p class="help-text" style="margin-top: -2px;">For a resident supported by more than one caregiver in a day &mdash; the covered window changes note to note, so whoever enters that day's note fills it in themselves rather than using a fixed value here.</p>
 
     <div id="dpn-t-questions"></div>
     <button type="button" id="dpn-t-add-question" class="secondary">+ Add Question</button>
@@ -2206,6 +2214,16 @@
     return wrap;
   }
 
+  // Hides the fixed Times Covered text field entirely once the admin
+  // opts a resident into provider-entered times (a note-by-note value
+  // the provider app collects instead) — the fixed field is then unused
+  // and shouldn't be mistaken for something that still applies.
+  function dpnTApplyTimesCoveredEditableVisibility() {
+    const editable = document.getElementById('dpn-t-times-covered-editable').checked;
+    document.getElementById('dpn-t-times-covered-fixed-wrap').style.display = editable ? 'none' : 'block';
+  }
+  document.getElementById('dpn-t-times-covered-editable').addEventListener('change', dpnTApplyTimesCoveredEditableVisibility);
+
   function resetDpnQuestionBuilder() {
     const container = document.getElementById('dpn-t-questions');
     container.innerHTML = '';
@@ -2213,6 +2231,8 @@
     document.getElementById('dpn-t-effective-date').value = '';
     document.getElementById('dpn-t-last-valid-date').value = '';
     document.getElementById('dpn-t-times-covered').value = '12:00 AM - 11:59 PM';
+    document.getElementById('dpn-t-times-covered-editable').checked = false;
+    dpnTApplyTimesCoveredEditableVisibility();
   }
 
   function renderDpnTVersionCard(v) {
@@ -2222,11 +2242,13 @@
     dates.className = 'dpn-t-version-dates';
     dates.textContent = 'Effective ' + formatDate(v.effectiveDate) + (v.lastValidDate ? ' through ' + formatDate(v.lastValidDate) : ' — current version');
     wrap.appendChild(dates);
-    if (v.timesCovered) {
+    if (v.timesCoveredEditable || v.timesCovered) {
       const times = document.createElement('p');
       times.className = 'dpn-t-version-dates';
       times.style.fontWeight = '400';
-      times.textContent = 'Times covered: ' + v.timesCovered;
+      times.textContent = v.timesCoveredEditable
+        ? 'Times covered: entered by provider on each note'
+        : 'Times covered: ' + v.timesCovered;
       wrap.appendChild(times);
     }
     const ol = document.createElement('ol');
@@ -2246,6 +2268,8 @@
       initialsInput.value = '';
       document.getElementById('dpn-t-resident-fullname').value = '';
       document.getElementById('dpn-t-times-covered').value = '12:00 AM - 11:59 PM';
+      document.getElementById('dpn-t-times-covered-editable').checked = false;
+      dpnTApplyTimesCoveredEditableVisibility();
       initialsInput.disabled = false;
     } else {
       initialsInput.value = document.getElementById('dpn-t-resident-picker').value;
@@ -2266,6 +2290,8 @@
       }
       if (data.residentFullName) document.getElementById('dpn-t-resident-fullname').value = data.residentFullName;
       document.getElementById('dpn-t-times-covered').value = data.timesCovered || '12:00 AM - 11:59 PM';
+      document.getElementById('dpn-t-times-covered-editable').checked = !!data.timesCoveredEditable;
+      dpnTApplyTimesCoveredEditableVisibility();
     } catch (e) {
       historyEl.innerHTML = '';
       setError('dpn-templates-error', e.message);
@@ -2345,12 +2371,17 @@
     const residentPicker = document.getElementById('dpn-t-resident-picker').value;
     const resident = residentPicker || document.getElementById('dpn-t-resident-initials').value.trim().toUpperCase();
     const residentFullName = document.getElementById('dpn-t-resident-fullname').value.trim();
-    const timesCovered = document.getElementById('dpn-t-times-covered').value.trim();
+    const timesCoveredEditable = document.getElementById('dpn-t-times-covered-editable').checked;
+    // Send blank rather than whatever's left in the hidden fixed field
+    // when the provider enters it instead — the fixed field goes unused
+    // in that mode, so storing its leftover default text on the
+    // template would be misleading to anyone looking at the row later.
+    const timesCovered = timesCoveredEditable ? '' : document.getElementById('dpn-t-times-covered').value.trim();
     const effectiveDate = document.getElementById('dpn-t-effective-date').value;
     const lastValidDate = document.getElementById('dpn-t-last-valid-date').value || null;
 
-    if (!location || !resident || !residentFullName || !timesCovered || !effectiveDate) {
-      setError('dpn-templates-error', 'Location, resident initials, resident full name, times covered, and an effective date are all required.');
+    if (!location || !resident || !residentFullName || !effectiveDate || (!timesCoveredEditable && !timesCovered)) {
+      setError('dpn-templates-error', 'Location, resident initials, resident full name, an effective date, and either times covered or "provider enters times covered" are all required.');
       return;
     }
     if (lastValidDate && lastValidDate < effectiveDate) {
@@ -2377,7 +2408,7 @@
       await apiFetch('/save-daily-progress-note-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, timesCovered: timesCovered, effectiveDate: effectiveDate, lastValidDate: lastValidDate, questions: questions })
+        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, timesCovered: timesCovered, timesCoveredEditable: timesCoveredEditable, effectiveDate: effectiveDate, lastValidDate: lastValidDate, questions: questions })
       });
       alert('New version published.');
       await loadDpnTResidentsForLocation(location);

@@ -35,6 +35,7 @@ function questionFromPage(page) {
     terminationDate: getPlainText(page.properties['Termination Date']),
     residentFullName: getPlainText(page.properties['Resident Full Name']),
     timesCovered: getPlainText(page.properties['Times Covered']),
+    timesCoveredEditable: !!getPlainText(page.properties['Times Covered Editable']),
     key: getPlainText(page.properties['Question Key']),
     text: getPlainText(page.properties['Question Text']),
     type: getPlainText(page.properties['Question Type']),
@@ -116,12 +117,17 @@ async function listVersions(location, resident) {
 // timesCovered is a free-text description of the hours this note
 // documents (e.g. "12:00 AM - 11:59 PM" for a resident whose note
 // covers the full day, or a narrower window for one who doesn't) —
-// printed on the generated PDF under the date. terminationDate is
-// optional — when given, the new version is fixed-duration from
-// publication (useful for a template whose expiration is already
-// known, like an annual renewal); when omitted, it stays open-ended
-// until a future version's publish auto-terminates it.
-async function createVersion(location, resident, residentFullName, timesCovered, effectiveDate, questions, terminationDate) {
+// printed on the generated PDF under the date. timesCoveredEditable
+// flips this from an admin-fixed value to one the provider enters fresh
+// on every note (for a resident supported by more than one caregiver in
+// a day, where the covered window changes day to day and person to
+// person) — timesCovered is then unused and the provider's entry is
+// what gets saved onto each day's cover instead (see saveAnswers).
+// terminationDate is optional — when given, the new version is fixed-
+// duration from publication (useful for a template whose expiration is
+// already known, like an annual renewal); when omitted, it stays open-
+// ended until a future version's publish auto-terminates it.
+async function createVersion(location, resident, residentFullName, timesCovered, timesCoveredEditable, effectiveDate, questions, terminationDate) {
   const versions = await listVersions(location, resident);
   const openVersion = versions.find(function (v) { return !v.terminationDate; });
 
@@ -151,6 +157,7 @@ async function createVersion(location, resident, residentFullName, timesCovered,
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
       'Times Covered': { rich_text: [{ text: { content: timesCovered || '' } }] },
+      'Times Covered Editable': { checkbox: !!timesCoveredEditable },
       'Effective Date': { date: { start: effectiveDate } },
       'Termination Date': terminationDate ? { date: { start: terminationDate } } : { date: null },
       'Question Key': { rich_text: [{ text: { content: key } }] },
@@ -427,8 +434,13 @@ async function findAnswers(location, resident, date) {
 // stamps the cover's "Entered By" with whoever most recently saved —
 // overwritten on every save (not just the first) so it reflects the
 // latest person to touch it, same convention as "Last Updated By"
-// elsewhere in this app (e.g. MAR Review).
-async function saveAnswers(location, resident, date, questions, answers, enteredBy) {
+// elsewhere in this app (e.g. MAR Review). timesCovered is the
+// provider's per-note entry, used only when the resolved template's
+// Times Covered Editable is on — same overwrite-every-save treatment as
+// Entered By, since who covered which hours can change from one save to
+// the next. When it's off, the cover keeps its fixed value from the
+// template, snapshotted once at cover creation as before.
+async function saveAnswers(location, resident, date, questions, answers, enteredBy, timesCovered) {
   const byKey = {};
   questions.forEach(function (q) { byKey[q.key] = q; });
   const existing = await findAnswers(location, resident, date);
@@ -463,24 +475,30 @@ async function saveAnswers(location, resident, date, questions, answers, entered
   // signing — matches Monthly Checklist's "record exists but not
   // finalized" state.
   const cover = await findCover(location, resident, date);
+  const templateTimesCoveredEditable = questions.length ? questions[0].timesCoveredEditable : false;
+  const effectiveTimesCovered = templateTimesCoveredEditable
+    ? (timesCovered || '')
+    : (questions.length ? questions[0].timesCovered : '');
   if (!cover) {
     const templateEffectiveDate = questions.length ? questions[0].effectiveDate : '';
     const residentFullName = questions.length ? questions[0].residentFullName : '';
-    const timesCovered = questions.length ? questions[0].timesCovered : '';
     await createPage(NOTES_DB_ID, {
       'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + date } }] },
       'Location': { select: { name: location } },
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
-      'Times Covered': { rich_text: [{ text: { content: timesCovered || '' } }] },
+      'Times Covered': { rich_text: [{ text: { content: effectiveTimesCovered } }] },
       'Date': { date: { start: date } },
       'Template Effective Date': { rich_text: [{ text: { content: templateEffectiveDate } }] },
       'Entered By': { rich_text: enteredBy ? [{ text: { content: enteredBy } }] : [] },
       'Active': { checkbox: true },
       'PDF Generated': { checkbox: false }
     });
-  } else if (enteredBy) {
-    await updatePage(cover.id, { 'Entered By': { rich_text: [{ text: { content: enteredBy } }] } });
+  } else {
+    const props = {};
+    if (enteredBy) props['Entered By'] = { rich_text: [{ text: { content: enteredBy } }] };
+    if (templateTimesCoveredEditable) props['Times Covered'] = { rich_text: [{ text: { content: effectiveTimesCovered } }] };
+    if (Object.keys(props).length) await updatePage(cover.id, props);
   }
 }
 

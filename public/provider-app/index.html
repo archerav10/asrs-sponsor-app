@@ -931,6 +931,11 @@
     <div id="dpn-no-template-banner" class="dpn-locked-banner" style="display:none;"></div>
     <div id="dpn-caught-up-banner" class="dpn-locked-banner" style="display:none;">You're all caught up &mdash; nothing outstanding right now. Check back tomorrow.</div>
 
+    <div class="form-field" id="dpn-times-covered-wrap" style="display:none;">
+      <label for="dpn-times-covered">Times Covered by This Note</label>
+      <input type="text" id="dpn-times-covered" placeholder="e.g. 8:00 AM - 4:00 PM">
+    </div>
+
     <div id="dpn-questions"></div>
 
     <div id="dpn-signature-section">
@@ -2482,6 +2487,7 @@
   let currentDpnDate = null;
   let currentDpnOutstandingDates = [];
   let currentDpnIsFirstEntry = false;
+  let currentDpnTimesCoveredEditable = false;
   const dpnRecognizers = {}; // keyed by question key, one SpeechRecognition instance per text question
 
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2741,6 +2747,8 @@
     const caughtUpBanner = document.getElementById('dpn-caught-up-banner');
     const signatureSection = document.getElementById('dpn-signature-section');
     const saveFinalizeBar = document.querySelector('#screen-daily-progress-notes .save-finalize-bar');
+    const timesCoveredWrap = document.getElementById('dpn-times-covered-wrap');
+    const timesCoveredInput = document.getElementById('dpn-times-covered');
     setError('dpn-error', '');
     questionsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
     document.getElementById('dpn-date-picker-wrap').style.display = 'none';
@@ -2756,6 +2764,7 @@
       currentDpnDate = data.date;
       currentDpnOutstandingDates = data.outstandingDates || [];
       currentDpnIsFirstEntry = !!data.isFirstEntry;
+      currentDpnTimesCoveredEditable = !!data.timesCoveredEditable;
       // Nothing outstanding means one of two very different things: a
       // brand-new resident with no questionnaire published at all yet
       // (isFirstEntry, blocked until an admin publishes one), or an
@@ -2783,6 +2792,7 @@
         document.getElementById('dpn-date-banner').textContent = '';
         lockedBanner.style.display = 'none';
         signatureSection.style.display = 'none';
+        timesCoveredWrap.style.display = 'none';
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
         if (currentDpnIsFirstEntry) {
           noTemplateBanner.style.display = 'block';
@@ -2792,6 +2802,15 @@
           caughtUpBanner.style.display = 'block';
         }
         return;
+      }
+
+      if (currentDpnTimesCoveredEditable) {
+        timesCoveredWrap.style.display = 'block';
+        timesCoveredInput.value = data.timesCovered || '';
+        timesCoveredInput.disabled = false;
+      } else {
+        timesCoveredWrap.style.display = 'none';
+        timesCoveredInput.value = '';
       }
 
       if (currentDpnIsFirstEntry) {
@@ -2809,11 +2828,13 @@
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
         questionsEl.querySelectorAll('textarea').forEach(function (t) { t.disabled = true; });
         questionsEl.querySelectorAll('.dpn-yn-btn').forEach(function (b) { b.disabled = true; });
+        timesCoveredInput.disabled = true;
       } else if (hasNoTemplate) {
         lockedBanner.style.display = 'none';
         noTemplateBanner.style.display = 'block';
         noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire is published for ' + formatDate(currentDpnDate) + ' yet. Contact an admin to publish one before this day can be completed.';
         signatureSection.style.display = 'none';
+        timesCoveredWrap.style.display = 'none';
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
       } else {
         lockedBanner.style.display = 'none';
@@ -2846,7 +2867,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       alert('Progress saved. Come back anytime to keep working before signing.');
     } catch (e) {
@@ -2865,6 +2886,10 @@
       setError('dpn-error', 'A signature is required before signing.');
       return;
     }
+    if (currentDpnTimesCoveredEditable && !document.getElementById('dpn-times-covered').value.trim()) {
+      setError('dpn-error', 'Times covered is required before signing.');
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = 'Submitting…';
@@ -2873,7 +2898,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       await apiFetch('/sign-daily-progress-note', {
         method: 'POST',

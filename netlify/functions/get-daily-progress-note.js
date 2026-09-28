@@ -61,6 +61,7 @@ exports.handler = async function (event) {
         : options.today;
       const questions = await findQuestionsForDate(session.location, resident, date);
       const answersByKey = await findAnswers(session.location, resident, date);
+      const timesCoveredEditable = questions.length ? !!questions[0].timesCoveredEditable : false;
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -72,6 +73,8 @@ exports.handler = async function (event) {
           initialDateMax: options.initialDateMax,
           outstandingDates: [date],
           cover: null,
+          timesCoveredEditable: timesCoveredEditable,
+          timesCovered: timesCoveredEditable ? '' : (questions.length ? questions[0].timesCovered : ''),
           questions: questions.map(function (q) {
             return { key: q.key, text: q.text, type: q.type, checklistItems: q.checklistItems };
           }),
@@ -88,6 +91,11 @@ exports.handler = async function (event) {
     const date = params.date && options.outstandingDates.indexOf(params.date) !== -1 ? params.date : options.outstandingDates[0];
     const questions = await findQuestionsForDate(session.location, resident, date);
     const answersByKey = await findAnswers(session.location, resident, date);
+    const cover = options.coverByDate[date] || null;
+    const timesCoveredEditable = questions.length ? !!questions[0].timesCoveredEditable : false;
+    const timesCovered = cover && cover.timesCovered
+      ? cover.timesCovered
+      : (timesCoveredEditable ? '' : (questions.length ? questions[0].timesCovered : ''));
 
     return {
       statusCode: 200,
@@ -99,7 +107,9 @@ exports.handler = async function (event) {
         initialDateMin: null,
         initialDateMax: null,
         outstandingDates: options.outstandingDates,
-        cover: options.coverByDate[date] || null,
+        cover: cover,
+        timesCoveredEditable: timesCoveredEditable,
+        timesCovered: timesCovered,
         questions: questions.map(function (q) {
           return { key: q.key, text: q.text, type: q.type, checklistItems: q.checklistItems };
         }),

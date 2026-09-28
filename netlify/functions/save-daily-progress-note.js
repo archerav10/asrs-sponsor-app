@@ -60,7 +60,8 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No Daily Progress Notes questionnaire is published for ' + date + ' yet. Contact an admin.' }) };
     }
     const enteredBy = session.name || session.email;
-    await saveAnswers(session.location, resident, date, questions, answers, enteredBy);
+    const timesCovered = typeof body.timesCovered === 'string' ? body.timesCovered.trim() : '';
+    await saveAnswers(session.location, resident, date, questions, answers, enteredBy, timesCovered);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, date: date }) };
   } catch (err) {

@@ -742,7 +742,10 @@ that admins edit themselves.
     — one row per question per version: `Location` (select), `Resident
     Initials` (rich_text), `Resident Full Name` (rich_text), `Times
     Covered` (rich_text — e.g. "12:00 AM - 11:59 PM" for a note covering
-    the full day; printed on the PDF, see below), `Effective
+    the full day; printed on the PDF, see below), `Times Covered
+    Editable` (checkbox — when set, `Times Covered` on this version is
+    unused and every note's covered window is entered by whoever's
+    filling it in instead; see below), `Effective
     Date`/`Termination Date` (date), `Question Key` (rich_text, e.g.
     `q1`), `Question Text` (rich_text), `Question Type` (select:
     `Text`/`Checklist`), `Checklist Items` (rich_text, newline-delimited
@@ -752,7 +755,9 @@ that admins edit themselves.
   - **"Daily Progress Notes"** (`DAILY_PROGRESS_NOTES_DB_ID`) — the
     per-day "cover" row: `Location`, `Resident Initials`, `Resident Full
     Name`, `Times Covered` (copied from the template version in effect
-    when the cover is first created, same as `Resident Full Name`), `Date`,
+    when the cover is first created, same as `Resident Full Name` — or,
+    for a `Times Covered Editable` resident, overwritten on every save
+    with whatever the provider entered), `Date`,
     `Template Effective Date` (which version answered this
     day), `Signed By`/`Signed At`, `Signature Strokes` (rich_text,
     JSON-encoded pen-stroke points — see below), `PDF Generated`
@@ -882,6 +887,26 @@ that admins edit themselves.
   on the generated PDF directly under the Date line — some licensing
   agencies require the covered time window to appear on the document
   itself.
+  - **Times Covered Editable** — for a resident supported by more than
+    one caregiver in a day, the covered window isn't fixed at all: it
+    changes note to note and person to person, so a single admin-set
+    value can't represent it. Checking "Provider enters times covered on
+    each note instead" on that resident's template version (the `Times
+    Covered` text field then hides, and is stored blank) switches the
+    provider app from showing nothing to showing a required "Times
+    Covered by This Note" field above the questions — pre-filled from
+    whatever's already saved for that day, if anything. Unlike the fixed
+    case, this value is NOT copied once and left alone: `saveAnswers`
+    overwrites the cover's `Times Covered` on every save (same treatment
+    as `Entered By`), since a different caregiver entering a later note
+    for the same day needs their own window to stick, not the first
+    caregiver's. `sign-daily-progress-note.js` blocks signing with
+    `Still needs: Times Covered` in the missing-questions message if
+    it's still blank at sign time, reusing the cover
+    `resolveDayOptions`'s day walk already fetched rather than querying
+    Notion again. The PDF and every other Times Covered consumer read
+    straight from the cover's stored value regardless of which mode
+    produced it, so nothing downstream needed to change.
 - **Entered By vs Signed By**: every save (`saveAnswers`) stamps the
   cover's `Entered By` with whoever most recently saved (overwritten on
   each save, same "Last Updated By" convention MAR Review uses) —
