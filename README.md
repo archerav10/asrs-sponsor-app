@@ -894,6 +894,26 @@ that admins edit themselves.
   static files by default. Header lines wrap narrower than the full page
   width specifically so a long resident name or location can't run text
   underneath the logo.
+- **PDF upload failure alert** (`lib/daily-progress-note-pdf-alert.js`,
+  run at the tail of the same nightly function — both on a successful
+  generation run and on the early-return path when
+  `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` isn't configured at all,
+  since that's the single most likely cause of every note getting
+  stuck): texts admins (never sponsors — filtered to `role === 'admin'`,
+  same as `window-opened-alert-check.js`) when a signed note's PDF has
+  failed to upload for 2+ nights running (`STALE_DAYS` in that file) —
+  long enough that it's a real, persistent problem (a broken Zap
+  connection, an unset webhook env var) rather than a note that simply
+  hasn't had its first nightly attempt yet. Grouped one message per
+  location, and — like `mar-alert-check.js`'s medication alerts — fires
+  every night the failure persists rather than just once, since there's
+  no separate "already alerted" state to track and clear once it's
+  fixed. Wrapped in its own try/catch at the call site so a transient
+  failure in the alert check itself can never mask or discard an
+  otherwise-successful night's actual PDF-generation results. Dry-run
+  test endpoint: `test-check-daily-progress-note-pdf-failures.js`
+  (same `NOTIFICATION_TEST_SECRET`-gated, POST-required-for-a-real-send,
+  `&asOf=` convention as every other `test-check-*.js` in this app).
 - **New env vars:** `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`,
   `DAILY_PROGRESS_NOTES_DB_ID`, `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`,
   `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL`.

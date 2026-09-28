@@ -518,6 +518,8 @@ module.exports = {
   createVersion,
   findCover,
   findAllCovers,
+  findUnrenderedSignedCovers,
+  markPdfGenerated,
   findAnswers,
   resolveTarget,
   findOutstandingDays,

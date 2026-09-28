@@ -5,6 +5,7 @@ const {
   markPdfGenerated
 } = require('./lib/daily-progress-notes');
 const { buildDailyProgressNotePdf } = require('./lib/daily-progress-note-pdf');
+const { runDailyProgressNotePdfFailureCheck } = require('./lib/daily-progress-note-pdf-alert');
 
 const WEBHOOK_URL = process.env.ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL;
 
@@ -19,10 +20,28 @@ function sanitizeForFilename(s) {
 // land in Google Drive. Marks PDF Generated only after a successful
 // upload, so a failed upload leaves the cover to retry the next night
 // rather than silently getting skipped forever.
+// Runs the failure alert and swallows any error from it — this is a
+// secondary concern layered onto a job that already does the real work
+// above it, so a transient Notion/Twilio hiccup in here must never mask
+// (or, worse, wipe out the returned/logged record of) a night's actual
+// PDF-generation results.
+async function runFailureAlertSafely() {
+  try {
+    return await runDailyProgressNotePdfFailureCheck();
+  } catch (err) {
+    console.error('Daily Progress Note PDF failure alert check itself failed', err);
+    return { error: err.message };
+  }
+}
+
 exports.handler = async function () {
   if (!WEBHOOK_URL) {
     console.error('ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL is not configured; skipping PDF generation.');
-    return { statusCode: 200, body: JSON.stringify({ skipped: true }) };
+    // Still runs the failure alert — an unconfigured webhook is exactly
+    // the case most worth texting an admin about, since every signed
+    // note is stuck until it's set.
+    const alert = await runFailureAlertSafely();
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, alert: alert }) };
   }
 
   const covers = await findUnrenderedSignedCovers();
@@ -83,5 +102,10 @@ exports.handler = async function () {
     }
   }
 
-  return { statusCode: 200, body: JSON.stringify({ found: covers.length, generated: generated, errors: errors }) };
+  // Re-checks fresh Notion state (not the pre-loop `covers` list) so a
+  // note that just succeeded above is correctly excluded — texts admins
+  // about anything that's now been failing for multiple nights in a row.
+  const alert = await runFailureAlertSafely();
+
+  return { statusCode: 200, body: JSON.stringify({ found: covers.length, generated: generated, errors: errors, alert: alert }) };
 };
