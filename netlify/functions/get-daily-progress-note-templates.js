@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { findResidentsForLocation, listVersions } = require('./lib/daily-progress-notes');
+const { findResidentsForLocation, listVersions, addDaysISO } = require('./lib/daily-progress-notes');
 
 // Self-service question-version management: lists every resident who
 // already has a template at this location (for the picker) and, when a
@@ -46,6 +46,10 @@ exports.handler = async function (event) {
           return {
             effectiveDate: v.effectiveDate,
             terminationDate: v.terminationDate,
+            // Admin-facing inverse of the stored (exclusive) Termination
+            // Date — the last day this version actually applies, so the
+            // UI never has to show the internal off-by-one value.
+            lastValidDate: v.terminationDate ? addDaysISO(v.terminationDate, -1) : null,
             questions: v.questions.map(function (q) {
               return { key: q.key, text: q.text, type: q.type, checklistItems: q.checklistItems, order: q.order };
             })

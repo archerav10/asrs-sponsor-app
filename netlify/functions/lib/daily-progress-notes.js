@@ -88,10 +88,28 @@ async function listVersions(location, resident) {
 // (Active never flips false; only its Termination Date is set), so every
 // past answer that snapshotted its own question text/type still resolves
 // against the version it was actually answered under.
+//
+// A Termination Date, wherever it comes from (passed in here, or set
+// later when a successor version is published), is the FIRST date the
+// version no longer applies — a half-open [effectiveDate, terminationDate)
+// window, matching findQuestionsForDate's `terminationDate > date` check.
+// So a version meant to be valid through, say, Oct 31 2026 inclusive
+// needs a Termination Date of Nov 1 2026, one day past its last valid day.
+//
 // questions: [{ text, type: 'Text'|'Checklist', checklistItems?: string[] }]
-async function createVersion(location, resident, residentFullName, effectiveDate, questions) {
+// terminationDate is optional — when given, the new version is fixed-
+// duration from publication (useful for a template whose expiration is
+// already known, like an annual renewal); when omitted, it stays open-
+// ended until a future version's publish auto-terminates it.
+async function createVersion(location, resident, residentFullName, effectiveDate, questions, terminationDate) {
   const versions = await listVersions(location, resident);
   const openVersion = versions.find(function (v) { return !v.terminationDate; });
+
+  if (terminationDate && terminationDate <= effectiveDate) {
+    const err = new Error('The termination date must be after the effective date.');
+    err.statusCode = 400;
+    throw err;
+  }
 
   if (openVersion) {
     if (effectiveDate <= openVersion.effectiveDate) {
@@ -113,7 +131,7 @@ async function createVersion(location, resident, residentFullName, effectiveDate
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
       'Effective Date': { date: { start: effectiveDate } },
-      'Termination Date': { date: null },
+      'Termination Date': terminationDate ? { date: { start: terminationDate } } : { date: null },
       'Question Key': { rich_text: [{ text: { content: key } }] },
       'Question Text': { rich_text: [{ text: { content: q.text } }] },
       'Question Type': { select: { name: q.type } },

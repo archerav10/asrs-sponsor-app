@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { createVersion } = require('./lib/daily-progress-notes');
+const { createVersion, addDaysISO } = require('./lib/daily-progress-notes');
 
 const VALID_TYPES = ['Text', 'Checklist'];
 
@@ -24,6 +24,11 @@ exports.handler = async function (event) {
     const resident = (body.resident || '').trim().toUpperCase();
     const residentFullName = (body.residentFullName || '').trim();
     const effectiveDate = body.effectiveDate;
+    // The admin enters the LAST day this version should still apply
+    // (inclusive, e.g. "10/31/2026") — converted here to the Termination
+    // Date's actual stored/compared meaning (the FIRST day it no longer
+    // applies), so nobody has to reason in off-by-one terms.
+    const lastValidDate = body.lastValidDate || null;
     const questions = body.questions || [];
 
     if (!location) {
@@ -41,6 +46,9 @@ exports.handler = async function (event) {
     if (!effectiveDate || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
       return { statusCode: 400, body: JSON.stringify({ error: 'A valid effective date is required.' }) };
     }
+    if (lastValidDate && (!/^\d{4}-\d{2}-\d{2}$/.test(lastValidDate) || lastValidDate < effectiveDate)) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'The last valid date must be on or after the effective date.' }) };
+    }
     if (!questions.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'At least one question is required.' }) };
     }
@@ -56,7 +64,8 @@ exports.handler = async function (event) {
       }
     }
 
-    await createVersion(location, resident, residentFullName, effectiveDate, questions);
+    const terminationDate = lastValidDate ? addDaysISO(lastValidDate, 1) : null;
+    await createVersion(location, resident, residentFullName, effectiveDate, questions, terminationDate);
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (err) {

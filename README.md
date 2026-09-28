@@ -762,19 +762,48 @@ that admins edit themselves.
 - **Versioned template, resolved per-date, not "today's version."**
   `findQuestionsForDate` (`lib/daily-progress-notes.js`) picks the LATEST
   version whose Effective Date is on or before the day in question and
-  whose Termination Date (if any) is after it. This matters because a
-  resident catching up on a day from before the question set last
-  changed must answer the wording that was actually in effect *then* —
-  otherwise a historical note would get silently reinterpreted against
-  different questions.
+  whose Termination Date (if any) is after it — a half-open
+  `[Effective Date, Termination Date)` window. This matters two ways:
+  - A resident catching up on a day from before the question set last
+    changed must answer the wording that was actually in effect *then*
+    (not whatever's active "now") — otherwise a historical note would
+    get silently reinterpreted against different questions. So catching
+    up on, say, Oct 31 2026 from the real-world date Nov 5 2026 still
+    resolves correctly against whichever version actually covered Oct 31,
+    even though today's calendar date is well past it.
+  - A day that falls **outside every version's window** — before the
+    first Effective Date, or on/after the last version's Termination
+    Date with no successor published yet — has no valid questions at
+    all. Both `save-daily-progress-note.js` and `sign-daily-progress-note.js`
+    check for this (`findQuestionsForDate` returning empty) and refuse
+    with a clear error rather than silently creating a blank cover row
+    for a date with no real questionnaire; the provider app shows this
+    proactively as a "no questionnaire published for this date" banner
+    instead of a dead blank form.
+  - **Off-by-one note on Termination Date's meaning**: the stored value
+    is the FIRST day a version no longer applies, not the last day it
+    does — so a version meant to run through Oct 31 2026 inclusive needs
+    a Termination Date of Nov 1 2026. This is also how auto-succession
+    already worked (the old version's Termination Date is set to the
+    new version's Effective Date exactly, so there's no gap or overlap).
+    Nobody has to think in those terms directly: the admin UI's "Last
+    Day This Version Applies" field takes the inclusive last day and
+    `save-daily-progress-note-template.js` converts it (`+1 day`) before
+    storing; version history displays convert it back
+    (`get-daily-progress-note-templates.js`'s `lastValidDate`) for
+    display. Only `createVersion`'s own `terminationDate` parameter and
+    the raw Notion property use the exclusive form.
 - **Self-service admin UI for question versions** (unlike Monthly
   Checklist's code-level `ITEMS`) — admin dashboard's Daily Progress
   Notes tab -> "Manage Question Templates." Publishing a new version
   (`createVersion`/`save-daily-progress-note-template.js`) automatically
   sets the currently-open version's `Termination Date` to the new
   version's `Effective Date`; past days' answers are unaffected since
-  they already snapshotted their own question text. Chosen over a
-  code-level list specifically because this questionnaire changes
+  they already snapshotted their own question text. A version can also
+  be published with its own fixed end date up front (leave "Last Day
+  This Version Applies" blank for open-ended, or set it for a template
+  whose expiration is already known — e.g. an annual renewal). Chosen
+  over a code-level list specifically because this questionnaire changes
   routinely and needs an audit trail an admin can manage without a
   deploy.
 - **No-skip-days enforcement**: `resolveTarget` (mirrors Monthly

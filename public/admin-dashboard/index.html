@@ -417,6 +417,10 @@
     <label for="dpn-t-effective-date">Effective Date</label>
     <input type="date" id="dpn-t-effective-date">
 
+    <label for="dpn-t-last-valid-date">Last Day This Version Applies (optional)</label>
+    <input type="date" id="dpn-t-last-valid-date">
+    <p class="help-text" style="margin-top: -2px;">Leave blank for open-ended &mdash; it stays in effect until a newer version is published. Set this when the questionnaire's end date is already known (e.g. an annual renewal).</p>
+
     <div id="dpn-t-questions"></div>
     <button type="button" id="dpn-t-add-question" class="secondary">+ Add Question</button>
 
@@ -2203,6 +2207,7 @@
     container.innerHTML = '';
     container.appendChild(renderDpnTQuestionRow(dpnEmptyQuestion()));
     document.getElementById('dpn-t-effective-date').value = '';
+    document.getElementById('dpn-t-last-valid-date').value = '';
   }
 
   function renderDpnTVersionCard(v) {
@@ -2210,7 +2215,7 @@
     wrap.className = 'dpn-t-version-card';
     const dates = document.createElement('p');
     dates.className = 'dpn-t-version-dates';
-    dates.textContent = 'Effective ' + formatDate(v.effectiveDate) + (v.terminationDate ? ' through ' + formatDate(v.terminationDate) : ' — current version');
+    dates.textContent = 'Effective ' + formatDate(v.effectiveDate) + (v.lastValidDate ? ' through ' + formatDate(v.lastValidDate) : ' — current version');
     wrap.appendChild(dates);
     const ol = document.createElement('ol');
     v.questions.forEach(function (q) {
@@ -2327,9 +2332,14 @@
     const resident = residentPicker || document.getElementById('dpn-t-resident-initials').value.trim().toUpperCase();
     const residentFullName = document.getElementById('dpn-t-resident-fullname').value.trim();
     const effectiveDate = document.getElementById('dpn-t-effective-date').value;
+    const lastValidDate = document.getElementById('dpn-t-last-valid-date').value || null;
 
     if (!location || !resident || !residentFullName || !effectiveDate) {
       setError('dpn-templates-error', 'Location, resident initials, resident full name, and an effective date are all required.');
+      return;
+    }
+    if (lastValidDate && lastValidDate < effectiveDate) {
+      setError('dpn-templates-error', 'The last valid date must be on or after the effective date.');
       return;
     }
 
@@ -2352,7 +2362,7 @@
       await apiFetch('/save-daily-progress-note-template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, effectiveDate: effectiveDate, questions: questions })
+        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, effectiveDate: effectiveDate, lastValidDate: lastValidDate, questions: questions })
       });
       alert('New version published.');
       await loadDpnTResidentsForLocation(location);

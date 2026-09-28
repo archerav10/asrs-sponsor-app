@@ -918,6 +918,7 @@
     <p class="error-text" id="dpn-error"></p>
 
     <div id="dpn-locked-banner" class="dpn-locked-banner" style="display:none;">This day is already signed and locked.</div>
+    <div id="dpn-no-template-banner" class="dpn-locked-banner" style="display:none;"></div>
 
     <div id="dpn-questions"></div>
 
@@ -2668,6 +2669,7 @@
   async function loadDailyProgressNote() {
     const questionsEl = document.getElementById('dpn-questions');
     const lockedBanner = document.getElementById('dpn-locked-banner');
+    const noTemplateBanner = document.getElementById('dpn-no-template-banner');
     const signatureSection = document.getElementById('dpn-signature-section');
     const saveFinalizeBar = document.querySelector('#screen-daily-progress-notes .save-finalize-bar');
     setError('dpn-error', '');
@@ -2678,6 +2680,13 @@
       const data = await apiFetch('/get-daily-progress-note?resident=' + encodeURIComponent(currentDpnResidentInitials || ''));
       currentDpnQuestions = data.questions || [];
       currentDpnLocked = !!(data.cover && data.cover.signedAt);
+      // A day the resident is stuck catching up on but that falls outside
+      // every published question version's effective/termination range
+      // (e.g. the day after a version terminates, before a successor is
+      // published) — nothing to answer, and Save/Sign are refused
+      // server-side too (see save-daily-progress-note.js), so surface
+      // that clearly rather than showing a dead blank form.
+      const hasNoTemplate = !currentDpnLocked && !currentDpnQuestions.length;
 
       document.getElementById('dpn-title').textContent = 'Daily Progress Notes — ' + (currentDpnResidentInitials || '');
       document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(data.date) + '</strong>' +
@@ -2692,12 +2701,20 @@
 
       if (currentDpnLocked) {
         lockedBanner.style.display = 'block';
+        noTemplateBanner.style.display = 'none';
         signatureSection.style.display = 'none';
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
         questionsEl.querySelectorAll('textarea').forEach(function (t) { t.disabled = true; });
         questionsEl.querySelectorAll('.dpn-yn-btn').forEach(function (b) { b.disabled = true; });
+      } else if (hasNoTemplate) {
+        lockedBanner.style.display = 'none';
+        noTemplateBanner.style.display = 'block';
+        noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire is published for ' + formatDate(data.date) + ' yet. Contact an admin to publish one before this day can be completed.';
+        signatureSection.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
       } else {
         lockedBanner.style.display = 'none';
+        noTemplateBanner.style.display = 'none';
         signatureSection.style.display = 'block';
         if (saveFinalizeBar) saveFinalizeBar.style.display = '';
         initDpnSignaturePad();

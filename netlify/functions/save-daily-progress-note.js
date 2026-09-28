@@ -31,6 +31,9 @@ exports.handler = async function (event) {
     }
 
     const questions = await findQuestionsForDate(session.location, resident, target.targetDate);
+    if (!questions.length) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'No Daily Progress Notes questionnaire is published for ' + target.targetDate + ' yet. Contact an admin.' }) };
+    }
     await saveAnswers(session.location, resident, target.targetDate, questions, answers);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, date: target.targetDate }) };
