@@ -914,11 +914,17 @@
       <button class="back-button" data-back="home">&larr; Back</button>
     </div>
     <p class="screen-title" id="dpn-title">Daily Progress Notes</p>
+
+    <div class="form-field" id="dpn-date-picker-wrap" style="display:none;">
+      <label for="dpn-date-picker">Date You're Entering Notes For</label>
+      <select id="dpn-date-picker"></select>
+    </div>
     <div class="period-banner" id="dpn-date-banner">Loading&hellip;</div>
     <p class="error-text" id="dpn-error"></p>
 
     <div id="dpn-locked-banner" class="dpn-locked-banner" style="display:none;">This day is already signed and locked.</div>
     <div id="dpn-no-template-banner" class="dpn-locked-banner" style="display:none;"></div>
+    <div id="dpn-caught-up-banner" class="dpn-locked-banner" style="display:none;">You're all caught up &mdash; nothing outstanding right now. Check back tomorrow.</div>
 
     <div id="dpn-questions"></div>
 
@@ -2468,6 +2474,8 @@
   let currentDpnResidentInitials = null;
   let currentDpnQuestions = [];
   let currentDpnLocked = false;
+  let currentDpnDate = null;
+  let currentDpnOutstandingDates = [];
   const dpnRecognizers = {}; // keyed by question key, one SpeechRecognition instance per text question
 
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2680,31 +2688,62 @@
     if (dpnCanvasCtx) dpnCanvasCtx.clearRect(0, 0, canvas.width, canvas.height);
   });
 
-  async function loadDailyProgressNote() {
+  // Fills the date picker with every currently outstanding day (oldest
+  // first) and selects whichever one is actually loaded — hidden
+  // entirely when there's only one (or zero) to choose from, since a
+  // dropdown of one option is just clutter.
+  function renderDpnDatePicker(outstandingDates, selectedDate) {
+    const wrap = document.getElementById('dpn-date-picker-wrap');
+    const select = document.getElementById('dpn-date-picker');
+    if (outstandingDates.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+    select.innerHTML = '';
+    outstandingDates.forEach(function (date) {
+      const opt = document.createElement('option');
+      opt.value = date;
+      opt.textContent = formatDate(date) + (date === TODAY_ISO() ? ' (today)' : '');
+      if (date === selectedDate) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.style.display = 'block';
+  }
+
+  function TODAY_ISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  async function loadDailyProgressNote(requestedDate) {
     const questionsEl = document.getElementById('dpn-questions');
     const lockedBanner = document.getElementById('dpn-locked-banner');
     const noTemplateBanner = document.getElementById('dpn-no-template-banner');
+    const caughtUpBanner = document.getElementById('dpn-caught-up-banner');
     const signatureSection = document.getElementById('dpn-signature-section');
     const saveFinalizeBar = document.querySelector('#screen-daily-progress-notes .save-finalize-bar');
     setError('dpn-error', '');
     questionsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    document.getElementById('dpn-date-picker-wrap').style.display = 'none';
     Object.keys(dpnRecognizers).forEach(function (key) { delete dpnRecognizers[key]; });
 
     try {
-      const data = await apiFetch('/get-daily-progress-note?resident=' + encodeURIComponent(currentDpnResidentInitials || ''));
+      let url = '/get-daily-progress-note?resident=' + encodeURIComponent(currentDpnResidentInitials || '');
+      if (requestedDate) url += '&date=' + encodeURIComponent(requestedDate);
+      const data = await apiFetch(url);
       currentDpnQuestions = data.questions || [];
       currentDpnLocked = !!(data.cover && data.cover.signedAt);
+      currentDpnDate = data.date;
+      currentDpnOutstandingDates = data.outstandingDates || [];
+      const isCaughtUp = !currentDpnOutstandingDates.length;
       // A day the resident is stuck catching up on but that falls outside
       // every published question version's effective/termination range
       // (e.g. the day after a version terminates, before a successor is
       // published) — nothing to answer, and Save/Sign are refused
       // server-side too (see save-daily-progress-note.js), so surface
       // that clearly rather than showing a dead blank form.
-      const hasNoTemplate = !currentDpnLocked && !currentDpnQuestions.length;
+      const hasNoTemplate = !isCaughtUp && !currentDpnLocked && !currentDpnQuestions.length;
 
       document.getElementById('dpn-title').textContent = 'Daily Progress Notes — ' + (currentDpnResidentInitials || '');
-      document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(data.date) + '</strong>' +
-        (data.date < new Date().toISOString().slice(0, 10) ? ' — <strong>catching up on a prior day</strong>' : '');
 
       questionsEl.innerHTML = '';
       currentDpnQuestions.forEach(function (q) {
@@ -2712,6 +2751,21 @@
         const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
         questionsEl.appendChild(el);
       });
+
+      caughtUpBanner.style.display = 'none';
+      if (isCaughtUp) {
+        document.getElementById('dpn-date-banner').textContent = '';
+        lockedBanner.style.display = 'none';
+        noTemplateBanner.style.display = 'none';
+        caughtUpBanner.style.display = 'block';
+        signatureSection.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+        return;
+      }
+
+      renderDpnDatePicker(currentDpnOutstandingDates, currentDpnDate);
+      document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(currentDpnDate) + '</strong>' +
+        (currentDpnDate < TODAY_ISO() ? ' — <strong>catching up on a prior day</strong>' : '');
 
       if (currentDpnLocked) {
         lockedBanner.style.display = 'block';
@@ -2723,7 +2777,7 @@
       } else if (hasNoTemplate) {
         lockedBanner.style.display = 'none';
         noTemplateBanner.style.display = 'block';
-        noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire is published for ' + formatDate(data.date) + ' yet. Contact an admin to publish one before this day can be completed.';
+        noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire is published for ' + formatDate(currentDpnDate) + ' yet. Contact an admin to publish one before this day can be completed.';
         signatureSection.style.display = 'none';
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
       } else {
@@ -2739,6 +2793,10 @@
     }
   }
 
+  document.getElementById('dpn-date-picker').addEventListener('change', function () {
+    loadDailyProgressNote(this.value);
+  });
+
   document.getElementById('dpn-save').addEventListener('click', async function () {
     const btn = this;
     setError('dpn-error', '');
@@ -2749,7 +2807,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, answers: gatherDpnAnswers() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers() })
       });
       alert('Progress saved. Come back anytime to keep working before signing.');
     } catch (e) {
@@ -2776,17 +2834,22 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, answers: gatherDpnAnswers() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers() })
       });
       await apiFetch('/sign-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, strokes: dpnSignatureStrokes })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, strokes: dpnSignatureStrokes })
       });
       alert('Daily Progress Note signed.');
       const stored = getStoredSession();
       if (stored) renderHome(stored.session);
-      showScreen('home');
+      const remainingOutstanding = currentDpnOutstandingDates.filter(function (d) { return d !== currentDpnDate; });
+      if (remainingOutstanding.length) {
+        loadDailyProgressNote();
+      } else {
+        showScreen('home');
+      }
     } catch (e) {
       setError('dpn-error', e.message);
     } finally {

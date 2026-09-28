@@ -806,25 +806,43 @@ that admins edit themselves.
   over a code-level list specifically because this questionnaire changes
   routinely and needs an audit trail an admin can manage without a
   deploy.
-- **No-skip-days enforcement**: `resolveTarget` (mirrors Monthly
-  Checklist's month-walking version, but day-by-day and scoped per
-  Location + Resident) finds the EARLIEST day, from the earliest one on
-  file through today, that isn't signed yet. The provider app only ever
-  renders whatever this resolves to — there's no date picker — so a
-  resident can't get to today's note until yesterday's is signed.
+- **No-skip-days enforcement, with a picker among what's actually open**:
+  `findOutstandingDays` (`lib/daily-progress-notes.js`) returns every
+  unsigned day, oldest first, from the earliest one on file through
+  today — not just a single locked target. Most days that's one day
+  (typically "yesterday," since a sponsor usually enters notes the
+  following morning once the day is actually over), but if someone's
+  fallen behind, the provider app shows a date picker across every
+  outstanding day and lets them work in whatever order they want (e.g.
+  sign today's note first, then circle back to one from last week).
+  `resolveTarget` still exists and returns just the oldest one — it's
+  what a client defaults to when it doesn't ask for a specific date.
+  What actually enforces "can't skip a day" is server-side, not the
+  picker: `save-daily-progress-note.js` and `sign-daily-progress-note.js`
+  both re-derive the outstanding set themselves and refuse any
+  client-supplied date that isn't in it — an already-signed day, or
+  anything past today, is never accepted regardless of what a request
+  claims.
 - **Save Progress / Sign & Submit**: Save Progress writes whatever's
   entered with no validation (`saveAnswers`); signing
   (`sign-daily-progress-note.js`) requires every question answered
   (`missingQuestions` — every Text question non-blank, every Checklist
   question's every item Yes/No) plus a non-empty signature, and blocks
-  with a message naming what's missing. Both re-resolve the target day
-  server-side rather than trusting a client-supplied date.
+  with a message naming what's missing.
 - **Signature is captured as vector pen strokes, not an image**
   (`Signature Strokes`, a JSON array of point arrays from the provider
   app's canvas signature pad) — chosen because this app's Google Drive
   integration is write-only via Zapier, with no way to read an uploaded
   image back out. The nightly PDF job replays the strokes as vector line
-  drawing directly into the PDF.
+  drawing directly into the PDF. A real signature's point data
+  comfortably exceeds Notion's 2000-character-per-rich_text-block limit,
+  so it's split across multiple blocks via `chunkRichText`
+  (`lib/daily-progress-notes.js`) — Notion concatenates them back into
+  one string on read with no special handling needed. The same helper
+  covers `Answer Text`/`Checklist Answers` too, in case a long dictated
+  paragraph ever hits the same ceiling. Captured points are also rounded
+  to whole pixels and thinned (skipping ones closer than 2px together)
+  to keep the stored size reasonable in the first place.
 - **Dictation**: each Text question has an optional mic button using the
   browser's built-in Web Speech API (`SpeechRecognition`) — no new
   backend service. Support is solid on Chrome/Android; iOS Safari's

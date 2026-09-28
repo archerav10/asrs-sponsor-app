@@ -253,37 +253,71 @@ async function markPdfGenerated(coverId, driveUrl) {
   await updatePage(coverId, props);
 }
 
-// Resolves which day this resident is currently working on: the
-// EARLIEST day, from the earliest one they have any note for through
-// today, that isn't signed yet — walked day by day (mirrors
-// resolveTarget in lib/monthly-checklist.js) so a day that was started,
-// or even never touched at all, but never signed stays the target
-// instead of silently getting stepped over. Nothing on file yet means
-// nothing to catch up on, so the target is just today. This is what
-// enforces "can't skip a day" — the app can only ever show/write to
-// whatever this resolves to.
-async function resolveTarget(location, resident, now) {
-  now = now || new Date();
-  const today = isoDate(now);
-  const covers = await findAllCovers(location, resident);
-
+// Every day from the earliest cover on file through today, paired with
+// whatever cover (if any) exists for it — the shared walk both
+// resolveTarget and findOutstandingDays are built on. Nothing on file
+// yet means there's nothing to catch up on, so the only day in range is
+// today itself.
+function walkAllDays(covers, today) {
   if (!covers.length) {
-    return { targetDate: today, cover: null };
+    return [{ date: today, cover: null }];
   }
-
   const byDate = {};
   covers.forEach(function (c) { byDate[c.date] = c; });
 
+  const days = [];
   let cursor = covers[0].date;
-  while (cursor < today) {
-    const cover = byDate[cursor] || null;
-    if (!cover || !cover.signedAt) {
-      return { targetDate: cursor, cover: cover };
-    }
+  while (cursor <= today) {
+    days.push({ date: cursor, cover: byDate[cursor] || null });
     cursor = addDaysISO(cursor, 1);
   }
+  return days;
+}
 
-  return { targetDate: today, cover: byDate[today] || null };
+// Fetches the covers once and does the day-by-day walk — the single
+// query both resolveTarget and findOutstandingDays are built on, and
+// that endpoints needing both the outstanding list AND a specific day's
+// cover (get-daily-progress-note.js) can call directly instead of
+// querying Notion a second time for a cover this walk already fetched.
+async function getResidentDayWalk(location, resident, now) {
+  now = now || new Date();
+  const today = isoDate(now);
+  const covers = await findAllCovers(location, resident);
+  return walkAllDays(covers, today);
+}
+
+// Resolves which day this resident should be nudged toward next: the
+// EARLIEST day, from the earliest one they have any note for through
+// today, that isn't signed yet (mirrors resolveTarget in
+// lib/monthly-checklist.js) so a day that was started, or even never
+// touched at all, but never signed stays the target instead of silently
+// getting stepped over. This is what enforces "can't skip a day" at the
+// floor — the server never lets a save/sign land on a day that isn't
+// itself unsigned (see findOutstandingDays for the full set of days
+// that's true for, since the provider app now lets someone pick among
+// more than just this single earliest one).
+async function resolveTarget(location, resident, now) {
+  const days = await getResidentDayWalk(location, resident, now);
+  const firstUnsigned = days.find(function (d) { return !d.cover || !d.cover.signedAt; });
+  if (firstUnsigned) {
+    return { targetDate: firstUnsigned.date, cover: firstUnsigned.cover };
+  }
+  const last = days[days.length - 1];
+  return { targetDate: last.date, cover: last.cover };
+}
+
+// Every day, oldest first, that's still fair game to enter/sign a note
+// for — every unsigned day from the earliest one on file through today,
+// not just the single earliest one resolveTarget nudges toward. Lets
+// the provider app offer a picker among these (e.g. sign today's note
+// first, then circle back to one from last week) while still refusing,
+// server-side, anything that isn't actually on this list — an already-
+// signed day or any date past today.
+async function findOutstandingDays(location, resident, now) {
+  const days = await getResidentDayWalk(location, resident, now);
+  return days
+    .filter(function (d) { return !d.cover || !d.cover.signedAt; })
+    .map(function (d) { return d.date; });
 }
 
 function answerFromPage(page) {
@@ -420,6 +454,8 @@ module.exports = {
   findAllCovers,
   findAnswers,
   resolveTarget,
+  findOutstandingDays,
+  getResidentDayWalk,
   saveAnswers,
   missingQuestions,
   signAndFinalize,
