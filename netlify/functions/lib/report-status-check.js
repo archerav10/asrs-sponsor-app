@@ -1,6 +1,6 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendSms } = require('./twilio');
-const { recipientsForLocation } = require('./notification-recipients');
+const { routineRecipientsForLocation } = require('./notification-recipients');
 const { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate } = require('./report-due-date');
 const { computeMarTarget } = require('./mar-period');
 
@@ -184,7 +184,7 @@ async function runReportStatusCheck(options) {
     if (!lines.length) continue;
 
     const message = 'ASRS ' + location + ' — reports needing attention:\n' + lines.join('\n');
-    const recipients = await recipientsForLocation(location);
+    const recipients = await routineRecipientsForLocation(location);
 
     if (options.dryRun) {
       results.push({ location: location, message: message, recipients: recipients.map(function (r) { return r.name + ' (' + r.role + ', ' + r.phone + ')'; }) });

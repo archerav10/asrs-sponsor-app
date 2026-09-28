@@ -1,6 +1,6 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendSms } = require('./twilio');
-const { recipientsForLocation } = require('./notification-recipients');
+const { routineRecipientsForLocation } = require('./notification-recipients');
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarters } = require('./quarterly-reporting');
 
@@ -87,7 +87,7 @@ async function runWindowOpenedAlertCheck(options) {
     const lines = [].concat.apply([], perResident);
     if (!lines.length) continue;
 
-    const recipients = (await recipientsForLocation(location)).filter(function (r) { return r.role === 'admin'; });
+    const recipients = (await routineRecipientsForLocation(location)).filter(function (r) { return r.role === 'admin'; });
     if (!recipients.length) continue;
 
     const message = 'ASRS ' + location + ' — PROCESS OPENED:\n' + lines.join('\n');

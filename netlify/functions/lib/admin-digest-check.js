@@ -277,8 +277,10 @@ function makeLocationIssuesCache(today, now) {
 
 async function buildAdminDigests(today, now) {
   const adminsResult = await queryDatabase(ADMIN_ACCOUNTS_DB_ID, null);
+  // App access and getting the weekly digest are separate switches —
+  // see the same distinction in lib/notification-recipients.js.
   const admins = (adminsResult.results || []).filter(function (p) {
-    return getPlainText(p.properties['Admin App Enabled']);
+    return getPlainText(p.properties['Admin App Enabled']) && !getPlainText(p.properties['Routine Notifications Opted Out']);
   });
 
   const issuesForLocation = makeLocationIssuesCache(today, now);

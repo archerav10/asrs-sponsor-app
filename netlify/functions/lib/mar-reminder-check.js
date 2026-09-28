@@ -1,6 +1,6 @@
 const { queryDatabase, updatePage, createPage, getPlainText } = require('./notion');
 const { sendSms } = require('./twilio');
-const { recipientsForLocation } = require('./notification-recipients');
+const { routineRecipientsForLocation } = require('./notification-recipients');
 const { computeMarWindow, findPeriodPage, MAR_PERIODS_DB_ID } = require('./mar-review-state');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
@@ -98,7 +98,7 @@ async function runMarReminderCheck(options) {
       if (alreadySent === windowState.targetPeriod) continue; // dedupe — already sent for this period
 
       const message = buildMessage(location, resident, stage, windowState);
-      const recipients = (await recipientsForLocation(location)).filter(function (r) { return r.role === 'admin'; });
+      const recipients = (await routineRecipientsForLocation(location)).filter(function (r) { return r.role === 'admin'; });
 
       if (options.dryRun) {
         results.push({

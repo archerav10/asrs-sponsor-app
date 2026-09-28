@@ -290,7 +290,38 @@ whose Granted Locations includes it (deduplicated by phone number) —
 except `check-mar-review-reminders.js`, which filters that same list
 down to admins only.
 
-Email isn't wired up yet — everything above is SMS-only for now.
+**App access vs. getting the routine notifications are two separate
+switches.** `Provider App Enabled`/`Admin App Enabled` gate login only.
+A second checkbox, `Routine Notifications Opted Out` (on both the
+Sponsors and Admin Accounts databases, added manually — this app never
+creates database schema, only rows), gates whether that person's phone
+(or, for admins, their inbox too) is included in the *routine*
+compliance channels — the combined report-status/medication texts
+above, `lib/mar-reminder-check.js`'s admin-only escalation,
+`lib/window-opened-alert-check.js`'s admin-only "process opened"
+texts, and the weekly admin email digest below. It's deliberately an
+opt-**out** flag rather than opt-in: a brand-new row, or any row this
+property is simply never touched on, reads as `false` (via `getPlainText`,
+which returns `''`/falsy for a property that's missing entirely too —
+no unguarded `.checkbox` access that could throw on a schema mismatch)
+and keeps getting routine notifications same as always. Only a row
+someone explicitly checks stops receiving them. `recipientsForLocation`
+in `lib/notification-recipients.js` attaches this as
+`routineNotificationsOptedOut` per recipient, and a second exported
+function, `routineRecipientsForLocation`, wraps it with the `!opted-out`
+filter baked in — every routine-notification call site uses that
+wrapper (not the raw function) specifically so a future check file
+can't forget to filter and accidentally reintroduce the old
+everyone-gets-everything behavior. **Serious Incident Report's
+real-time admin alert (`create-serious-incident.js`) deliberately calls
+`recipientsForLocation` directly and always fires regardless of this
+flag** — it's a different kind of notification (an actual incident
+just happened) from routine "something's due/expiring," so app access
+alone (not this opt-out) is what decides whether someone gets that one.
+
+Email isn't wired up for the three checks above yet — those are
+SMS-only for now. (The weekly admin digest below is the one exception,
+sent via EmailJS.)
 
 **New Notion properties needed on MAR Review Periods** (rich text,
 added manually — this app never creates database schema, only rows):
@@ -706,7 +737,11 @@ coverage for every location an admin has. `lib/admin-digest-check.js`
 memoizes each location's issue list per run (admins commonly share
 granted locations) and builds every admin's digest concurrently, so
 the six checks fanning out per resident/staff member don't risk the
-function's execution time limit as the roster grows.
+function's execution time limit as the roster grows. Requires
+`Admin App Enabled` checked AND `Routine Notifications Opted Out`
+unchecked on the admin's Admin Accounts row (see the notifications
+opt-out note above) — someone with dashboard access who's opted out of
+routine notifications doesn't get this email either.
 
 Sent via **EmailJS** (server-side), not Resend — reusing the account
 already used elsewhere rather than standing up a new service. Setup

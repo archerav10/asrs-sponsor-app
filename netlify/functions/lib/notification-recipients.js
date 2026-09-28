@@ -22,7 +22,20 @@ async function recipientsForLocation(location) {
     const phone = getPlainText(page.properties['Phone Number']);
     if (phone && !seenPhones.has(phone)) {
       seenPhones.add(phone);
-      recipients.push({ phone: phone, name: getPlainText(page.properties['Name']), role: 'admin' });
+      recipients.push({
+        phone: phone,
+        name: getPlainText(page.properties['Name']),
+        role: 'admin',
+        // App access (Admin App Enabled) and getting the routine
+        // compliance texts/digest are deliberately separate switches —
+        // someone can keep logging in without being on every automated
+        // blast. This is an opt-OUT flag so a brand new row (or one
+        // this property is simply never touched on) defaults to still
+        // getting routine notifications — getPlainText returns '' for
+        // a missing/unset property, which is falsy here same as an
+        // explicit unchecked box.
+        routineNotificationsOptedOut: !!getPlainText(page.properties['Routine Notifications Opted Out'])
+      });
     }
   });
 
@@ -34,11 +47,26 @@ async function recipientsForLocation(location) {
     const phone = getPlainText(page.properties['Phone Number']);
     if (enabled && phone && !seenPhones.has(phone)) {
       seenPhones.add(phone);
-      recipients.push({ phone: phone, name: getPlainText(page.properties['Name']), role: 'sponsor' });
+      recipients.push({
+        phone: phone,
+        name: getPlainText(page.properties['Name']),
+        role: 'sponsor',
+        routineNotificationsOptedOut: !!getPlainText(page.properties['Routine Notifications Opted Out'])
+      });
     }
   });
 
   return recipients;
 }
 
-module.exports = { recipientsForLocation };
+// What every routine (non-incident) notification job should call instead
+// of recipientsForLocation directly — bakes in the opt-out filter so a
+// future check file can't forget it. create-serious-incident.js is the
+// one deliberate exception: an actual incident alert isn't a "routine"
+// notice, so it calls recipientsForLocation itself and always fires
+// regardless of this flag.
+async function routineRecipientsForLocation(location) {
+  return (await recipientsForLocation(location)).filter(function (r) { return !r.routineNotificationsOptedOut; });
+}
+
+module.exports = { recipientsForLocation, routineRecipientsForLocation };
