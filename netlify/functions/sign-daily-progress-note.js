@@ -1,15 +1,16 @@
 const { requireSession } = require('./lib/session');
-const { findOutstandingDays, findQuestionsForDate, findAnswers, missingQuestions, signAndFinalize } = require('./lib/daily-progress-notes');
+const { resolveDayOptions, findQuestionsForDate, findAnswers, missingQuestions, signAndFinalize } = require('./lib/daily-progress-notes');
 
 // Validates first: every question must have a real value — mirrors every
 // other process's Finalize gate. Failing blocks signing with a message
 // naming which questions still need attention. strokes is the signature
 // pad's raw pen-stroke points, stored as-is and replayed as vector line
-// drawing when the nightly job renders the PDF. Only ever signs a day
-// that's actually outstanding (unsigned, from the earliest one through
-// today) — never whatever date a stale or tampered client request
-// happens to send — defaulting to the oldest outstanding day when none
-// is given.
+// drawing when the nightly job renders the PDF. Same dual-regime date
+// validation as save-daily-progress-note.js: a resident's very first
+// entry ever accepts any date within the questionnaire's effective
+// range, ordinary catch-up requires one of the currently outstanding
+// days — never whatever date a stale or tampered client request
+// happens to send.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -31,17 +32,31 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'A signature is required.' }) };
     }
 
-    const outstanding = await findOutstandingDays(session.location, resident);
-    if (!outstanding.length) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'Today is already signed. Come back tomorrow.' }) };
-    }
+    const options = await resolveDayOptions(session.location, resident);
 
-    let date = outstanding[0];
-    if (body.date) {
-      if (outstanding.indexOf(body.date) === -1) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'That day isn’t available to sign.' }) };
+    let date;
+    if (options.isFirstEntry) {
+      if (!options.initialDateMin) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'No Daily Progress Notes questionnaire is published yet. Contact an admin.' }) };
       }
-      date = body.date;
+      date = options.today;
+      if (body.date) {
+        if (body.date < options.initialDateMin || body.date > options.initialDateMax) {
+          return { statusCode: 400, body: JSON.stringify({ error: 'That date is outside the questionnaire’s effective range.' }) };
+        }
+        date = body.date;
+      }
+    } else {
+      if (!options.outstandingDates.length) {
+        return { statusCode: 403, body: JSON.stringify({ error: 'Today is already signed. Come back tomorrow.' }) };
+      }
+      date = options.outstandingDates[0];
+      if (body.date) {
+        if (options.outstandingDates.indexOf(body.date) === -1) {
+          return { statusCode: 400, body: JSON.stringify({ error: 'That day isn’t available to sign.' }) };
+        }
+        date = body.date;
+      }
     }
 
     const questions = await findQuestionsForDate(session.location, resident, date);

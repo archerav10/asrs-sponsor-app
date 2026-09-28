@@ -1,18 +1,19 @@
 const { requireSession } = require('./lib/session');
-const { getResidentDayWalk, findQuestionsForDate, findAnswers, missingQuestions } = require('./lib/daily-progress-notes');
+const { resolveDayOptions, findQuestionsForDate, findAnswers, missingQuestions } = require('./lib/daily-progress-notes');
 
-// Per-resident detail: resolves the full set of outstanding (unsigned)
-// days for this resident — every one from the earliest unsigned day
-// through today, oldest first — and returns the requested day's
-// questions/answers, defaulting to the oldest outstanding day when no
-// ?date= is given. An unrecognized/stale ?date= (already signed since,
-// or simply never valid) falls back to the default rather than erroring
-// — this is a read, so there's nothing destructive about silently
-// recovering; save/sign reject the same mismatch outright since that's
-// where "can't skip a day" actually has to hold. Uses one shared day
-// walk (getResidentDayWalk) for both the outstanding list and the
-// requested day's own cover, rather than querying Notion for the cover
-// a second time.
+// Per-resident detail. Two regimes, both from resolveDayOptions:
+//   - First entry ever for this resident (no cover on file at all):
+//     nothing is mandatory yet. Returns isFirstEntry:true plus
+//     initialDateMin/Max — any date in that inclusive range (the
+//     questionnaire's earliest Effective Date through today) is a valid
+//     choice for the very first day, matching "notes are usually
+//     entered the morning after" rather than forcing literally today.
+//   - Ordinary catch-up: returns the full outstandingDates list (oldest
+//     first) exactly as before.
+// An unrecognized/stale ?date= falls back to the regime's own default
+// rather than erroring — this is a read, so there's nothing destructive
+// about silently recovering; save/sign reject the same mismatch outright
+// since that's where "can't skip a day" actually has to hold.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -29,38 +30,76 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No resident on file for this account.' }) };
     }
 
-    const days = await getResidentDayWalk(session.location, resident);
-    const outstandingDays = days.filter(function (d) { return !d.cover || !d.cover.signedAt; });
-    if (!outstandingDays.length) {
+    const options = await resolveDayOptions(session.location, resident);
+
+    const emptyResponse = function (extra) {
       return {
         statusCode: 200,
-        body: JSON.stringify({
+        body: JSON.stringify(Object.assign({
           location: session.location,
           resident: resident,
           date: null,
+          isFirstEntry: options.isFirstEntry,
+          initialDateMin: options.initialDateMin,
+          initialDateMax: options.initialDateMax,
           outstandingDates: [],
           cover: null,
           questions: [],
           answers: {},
           missingQuestions: []
+        }, extra || {}))
+      };
+    };
+
+    if (options.isFirstEntry) {
+      if (!options.initialDateMin) {
+        return emptyResponse();
+      }
+      const requested = params.date;
+      const date = requested && requested >= options.initialDateMin && requested <= options.initialDateMax
+        ? requested
+        : options.today;
+      const questions = await findQuestionsForDate(session.location, resident, date);
+      const answersByKey = await findAnswers(session.location, resident, date);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          location: session.location,
+          resident: resident,
+          date: date,
+          isFirstEntry: true,
+          initialDateMin: options.initialDateMin,
+          initialDateMax: options.initialDateMax,
+          outstandingDates: [date],
+          cover: null,
+          questions: questions.map(function (q) {
+            return { key: q.key, text: q.text, type: q.type, checklistItems: q.checklistItems };
+          }),
+          answers: answersByKey,
+          missingQuestions: missingQuestions(questions, answersByKey)
         })
       };
     }
 
-    const requestedDay = params.date && outstandingDays.find(function (d) { return d.date === params.date; });
-    const day = requestedDay || outstandingDays[0];
+    if (!options.outstandingDates.length) {
+      return emptyResponse();
+    }
 
-    const questions = await findQuestionsForDate(session.location, resident, day.date);
-    const answersByKey = await findAnswers(session.location, resident, day.date);
+    const date = params.date && options.outstandingDates.indexOf(params.date) !== -1 ? params.date : options.outstandingDates[0];
+    const questions = await findQuestionsForDate(session.location, resident, date);
+    const answersByKey = await findAnswers(session.location, resident, date);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         location: session.location,
         resident: resident,
-        date: day.date,
-        outstandingDates: outstandingDays.map(function (d) { return d.date; }),
-        cover: day.cover,
+        date: date,
+        isFirstEntry: false,
+        initialDateMin: null,
+        initialDateMax: null,
+        outstandingDates: options.outstandingDates,
+        cover: options.coverByDate[date] || null,
         questions: questions.map(function (q) {
           return { key: q.key, text: q.text, type: q.type, checklistItems: q.checklistItems };
         }),

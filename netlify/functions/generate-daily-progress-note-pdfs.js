@@ -54,6 +54,7 @@ exports.handler = async function () {
         location: cover.location,
         date: cover.date,
         questions: mergedQuestions,
+        enteredBy: cover.enteredBy,
         signedBy: cover.signedBy,
         signedAt: cover.signedAt,
         signatureStrokes: signatureStrokes

@@ -197,6 +197,7 @@ function coverFromPage(page) {
     date: getPlainText(page.properties['Date']),
     residentFullName: getPlainText(page.properties['Resident Full Name']),
     templateEffectiveDate: getPlainText(page.properties['Template Effective Date']),
+    enteredBy: getPlainText(page.properties['Entered By']),
     signedBy: getPlainText(page.properties['Signed By']),
     signedAt: getPlainText(page.properties['Signed At']),
     signatureStrokes: getPlainText(page.properties['Signature Strokes']),
@@ -279,11 +280,14 @@ function walkAllDays(covers, today) {
 // that endpoints needing both the outstanding list AND a specific day's
 // cover (get-daily-progress-note.js) can call directly instead of
 // querying Notion a second time for a cover this walk already fetched.
+// isFirstEntry (no cover at all yet) is surfaced separately so callers
+// can offer the one-time "pick your very first day" flow instead of the
+// ongoing day-by-day catch-up walk — see resolveDayOptions.
 async function getResidentDayWalk(location, resident, now) {
   now = now || new Date();
   const today = isoDate(now);
   const covers = await findAllCovers(location, resident);
-  return walkAllDays(covers, today);
+  return { isFirstEntry: !covers.length, days: walkAllDays(covers, today) };
 }
 
 // Resolves which day this resident should be nudged toward next: the
@@ -297,7 +301,7 @@ async function getResidentDayWalk(location, resident, now) {
 // that's true for, since the provider app now lets someone pick among
 // more than just this single earliest one).
 async function resolveTarget(location, resident, now) {
-  const days = await getResidentDayWalk(location, resident, now);
+  const { days } = await getResidentDayWalk(location, resident, now);
   const firstUnsigned = days.find(function (d) { return !d.cover || !d.cover.signedAt; });
   if (firstUnsigned) {
     return { targetDate: firstUnsigned.date, cover: firstUnsigned.cover };
@@ -314,10 +318,65 @@ async function resolveTarget(location, resident, now) {
 // server-side, anything that isn't actually on this list — an already-
 // signed day or any date past today.
 async function findOutstandingDays(location, resident, now) {
-  const days = await getResidentDayWalk(location, resident, now);
+  const { days } = await getResidentDayWalk(location, resident, now);
   return days
     .filter(function (d) { return !d.cover || !d.cover.signedAt; })
     .map(function (d) { return d.date; });
+}
+
+// The earliest Effective Date across every version ever published for
+// this resident — null if none have been. Used to bound the one-time
+// "pick your very first day" range below: someone rolling this out
+// today for a resident whose template took effect months ago should be
+// able to start on, say, yesterday (their normal "enter it the next
+// morning" workflow) rather than being forced onto literally today, but
+// still can't reach further back than the questionnaire actually
+// existed.
+async function findEarliestEffectiveDate(location, resident) {
+  const versions = await listVersions(location, resident);
+  return versions.length ? versions[0].effectiveDate : null;
+}
+
+// The single shared "what day(s) can this request act on" resolution
+// used by get/save/sign-daily-progress-note.js. Two regimes:
+//   - isFirstEntry: no cover exists for this resident yet at all. There's
+//     no fixed list to pick from — instead, ANY date from the
+//     questionnaire's earliest Effective Date through today is a valid
+//     choice for the very first entry (bounded below by
+//     initialDateMin, above by initialDateMax/today). Once that first
+//     save actually happens, a cover exists and every future call falls
+//     into the ordinary regime below.
+//   - ordinary: outstandingDates lists every currently unsigned day,
+//     oldest first, exactly as findOutstandingDays does.
+async function resolveDayOptions(location, resident, now) {
+  now = now || new Date();
+  const today = isoDate(now);
+  const { isFirstEntry, days } = await getResidentDayWalk(location, resident, now);
+
+  if (isFirstEntry) {
+    const earliestEffectiveDate = await findEarliestEffectiveDate(location, resident);
+    const hasStarted = !!earliestEffectiveDate && earliestEffectiveDate <= today;
+    return {
+      isFirstEntry: true,
+      today: today,
+      initialDateMin: hasStarted ? earliestEffectiveDate : null,
+      initialDateMax: hasStarted ? today : null,
+      outstandingDates: [],
+      coverByDate: {}
+    };
+  }
+
+  const outstanding = days.filter(function (d) { return !d.cover || !d.cover.signedAt; });
+  const coverByDate = {};
+  days.forEach(function (d) { coverByDate[d.date] = d.cover; });
+  return {
+    isFirstEntry: false,
+    today: today,
+    initialDateMin: null,
+    initialDateMax: null,
+    outstandingDates: outstanding.map(function (d) { return d.date; }),
+    coverByDate: coverByDate
+  };
 }
 
 function answerFromPage(page) {
@@ -357,8 +416,12 @@ async function findAnswers(location, resident, date) {
 // same "Save Progress" convention as every other process. Snapshots
 // each question's own text/type at save time so the answer stays
 // self-describing even if the template changes later. answers is
-// { [questionKey]: { answerText?, checklistAnswers? } }.
-async function saveAnswers(location, resident, date, questions, answers) {
+// { [questionKey]: { answerText?, checklistAnswers? } }. enteredBy
+// stamps the cover's "Entered By" with whoever most recently saved —
+// overwritten on every save (not just the first) so it reflects the
+// latest person to touch it, same convention as "Last Updated By"
+// elsewhere in this app (e.g. MAR Review).
+async function saveAnswers(location, resident, date, questions, answers, enteredBy) {
   const byKey = {};
   questions.forEach(function (q) { byKey[q.key] = q; });
   const existing = await findAnswers(location, resident, date);
@@ -403,9 +466,12 @@ async function saveAnswers(location, resident, date, questions, answers) {
       'Resident Full Name': { rich_text: [{ text: { content: residentFullName } }] },
       'Date': { date: { start: date } },
       'Template Effective Date': { rich_text: [{ text: { content: templateEffectiveDate } }] },
+      'Entered By': { rich_text: enteredBy ? [{ text: { content: enteredBy } }] : [] },
       'Active': { checkbox: true },
       'PDF Generated': { checkbox: false }
     });
+  } else if (enteredBy) {
+    await updatePage(cover.id, { 'Entered By': { rich_text: [{ text: { content: enteredBy } }] } });
   }
 }
 
@@ -456,6 +522,8 @@ module.exports = {
   resolveTarget,
   findOutstandingDays,
   getResidentDayWalk,
+  findEarliestEffectiveDate,
+  resolveDayOptions,
   saveAnswers,
   missingQuestions,
   signAndFinalize,

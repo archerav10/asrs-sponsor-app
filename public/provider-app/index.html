@@ -919,6 +919,11 @@
       <label for="dpn-date-picker">Date You're Entering Notes For</label>
       <select id="dpn-date-picker"></select>
     </div>
+    <div class="form-field" id="dpn-first-entry-date-wrap" style="display:none;">
+      <label for="dpn-first-entry-date">Date of This First Note</label>
+      <input type="date" id="dpn-first-entry-date">
+      <p class="help-text" style="margin-top:6px;">This is a brand-new questionnaire for this resident &mdash; pick the day this first note is for (most days are entered the following morning, so "yesterday" is usually right). Every day after this one will need its own note, with no gaps.</p>
+    </div>
     <div class="period-banner" id="dpn-date-banner">Loading&hellip;</div>
     <p class="error-text" id="dpn-error"></p>
 
@@ -2476,6 +2481,7 @@
   let currentDpnLocked = false;
   let currentDpnDate = null;
   let currentDpnOutstandingDates = [];
+  let currentDpnIsFirstEntry = false;
   const dpnRecognizers = {}; // keyed by question key, one SpeechRecognition instance per text question
 
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2714,6 +2720,20 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+  // The one-time "pick your very first day" control for a resident with
+  // no prior entries at all — a native date input bounded by the
+  // questionnaire's effective range, rather than the ongoing <select>
+  // above (which would mean enumerating every day since the effective
+  // date, possibly hundreds of options).
+  function renderDpnFirstEntryDatePicker(minDate, maxDate, selectedDate) {
+    const wrap = document.getElementById('dpn-first-entry-date-wrap');
+    const input = document.getElementById('dpn-first-entry-date');
+    input.min = minDate;
+    input.max = maxDate;
+    input.value = selectedDate;
+    wrap.style.display = 'block';
+  }
+
   async function loadDailyProgressNote(requestedDate) {
     const questionsEl = document.getElementById('dpn-questions');
     const lockedBanner = document.getElementById('dpn-locked-banner');
@@ -2724,6 +2744,7 @@
     setError('dpn-error', '');
     questionsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
     document.getElementById('dpn-date-picker-wrap').style.display = 'none';
+    document.getElementById('dpn-first-entry-date-wrap').style.display = 'none';
     Object.keys(dpnRecognizers).forEach(function (key) { delete dpnRecognizers[key]; });
 
     try {
@@ -2734,14 +2755,19 @@
       currentDpnLocked = !!(data.cover && data.cover.signedAt);
       currentDpnDate = data.date;
       currentDpnOutstandingDates = data.outstandingDates || [];
-      const isCaughtUp = !currentDpnOutstandingDates.length;
+      currentDpnIsFirstEntry = !!data.isFirstEntry;
+      // Nothing outstanding means one of two very different things: a
+      // brand-new resident with no questionnaire published at all yet
+      // (isFirstEntry, blocked until an admin publishes one), or an
+      // ordinary resident who's simply fully caught up through today.
+      const nothingOutstanding = !currentDpnOutstandingDates.length;
       // A day the resident is stuck catching up on but that falls outside
       // every published question version's effective/termination range
       // (e.g. the day after a version terminates, before a successor is
       // published) — nothing to answer, and Save/Sign are refused
       // server-side too (see save-daily-progress-note.js), so surface
       // that clearly rather than showing a dead blank form.
-      const hasNoTemplate = !isCaughtUp && !currentDpnLocked && !currentDpnQuestions.length;
+      const hasNoTemplate = !nothingOutstanding && !currentDpnLocked && !currentDpnQuestions.length;
 
       document.getElementById('dpn-title').textContent = 'Daily Progress Notes — ' + (currentDpnResidentInitials || '');
 
@@ -2753,17 +2779,26 @@
       });
 
       caughtUpBanner.style.display = 'none';
-      if (isCaughtUp) {
+      if (nothingOutstanding) {
         document.getElementById('dpn-date-banner').textContent = '';
         lockedBanner.style.display = 'none';
-        noTemplateBanner.style.display = 'none';
-        caughtUpBanner.style.display = 'block';
         signatureSection.style.display = 'none';
         if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+        if (currentDpnIsFirstEntry) {
+          noTemplateBanner.style.display = 'block';
+          noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire has been published for this resident yet. Contact an admin to publish the first version.';
+        } else {
+          noTemplateBanner.style.display = 'none';
+          caughtUpBanner.style.display = 'block';
+        }
         return;
       }
 
-      renderDpnDatePicker(currentDpnOutstandingDates, currentDpnDate);
+      if (currentDpnIsFirstEntry) {
+        renderDpnFirstEntryDatePicker(data.initialDateMin, data.initialDateMax, currentDpnDate);
+      } else {
+        renderDpnDatePicker(currentDpnOutstandingDates, currentDpnDate);
+      }
       document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(currentDpnDate) + '</strong>' +
         (currentDpnDate < TODAY_ISO() ? ' — <strong>catching up on a prior day</strong>' : '');
 
@@ -2795,6 +2830,10 @@
 
   document.getElementById('dpn-date-picker').addEventListener('change', function () {
     loadDailyProgressNote(this.value);
+  });
+
+  document.getElementById('dpn-first-entry-date').addEventListener('change', function () {
+    if (this.value) loadDailyProgressNote(this.value);
   });
 
   document.getElementById('dpn-save').addEventListener('click', async function () {

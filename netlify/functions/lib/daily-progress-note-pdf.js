@@ -1,9 +1,12 @@
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const logoBase64 = require('./arch-support-logo');
 
 const PAGE_WIDTH = 612; // 8.5in @ 72dpi
 const PAGE_HEIGHT = 792; // 11in @ 72dpi
 const MARGIN = 54;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
+const LOGO_MAX_WIDTH = 70;
+const LOGO_MAX_HEIGHT = 70;
 
 function wrapText(text, font, size, maxWidth) {
   const words = (text || '').split(/\s+/).filter(Boolean);
@@ -32,9 +35,22 @@ async function buildDailyProgressNotePdf(data) {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logoImage = await doc.embedJpg(Buffer.from(logoBase64, 'base64'));
 
   let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
+
+  // Scaled down to fit within LOGO_MAX_WIDTH/HEIGHT while keeping its
+  // aspect ratio, anchored top-right of the first page only.
+  const logoScale = Math.min(LOGO_MAX_WIDTH / logoImage.width, LOGO_MAX_HEIGHT / logoImage.height);
+  const logoWidth = logoImage.width * logoScale;
+  const logoHeight = logoImage.height * logoScale;
+  page.drawImage(logoImage, {
+    x: PAGE_WIDTH - MARGIN - logoWidth,
+    y: PAGE_HEIGHT - MARGIN - logoHeight + 10,
+    width: logoWidth,
+    height: logoHeight
+  });
 
   function newPageIfNeeded(neededHeight) {
     if (y - neededHeight < MARGIN) {
@@ -47,7 +63,7 @@ async function buildDailyProgressNotePdf(data) {
     options = options || {};
     const size = options.size || 11;
     const useFont = options.bold ? boldFont : font;
-    const lines = wrapText(text, useFont, size, CONTENT_WIDTH);
+    const lines = wrapText(text, useFont, size, options.maxWidth || CONTENT_WIDTH);
     lines.forEach(function (line) {
       newPageIfNeeded(size + 4);
       page.drawText(line, { x: MARGIN, y: y - size, size: size, font: useFont, color: rgb(0, 0, 0) });
@@ -55,11 +71,18 @@ async function buildDailyProgressNotePdf(data) {
     });
   }
 
-  drawLine('DailyProgressNote', { size: 18, bold: true });
+  // Narrower than CONTENT_WIDTH so a long resident name, location, or
+  // date string wraps before it reaches under the logo, rather than
+  // running text directly beneath/behind it. Only matters for these
+  // first few header lines — everything below sits under the logo's
+  // bottom edge regardless of width.
+  const headerMaxWidth = CONTENT_WIDTH - logoWidth - 10;
+
+  drawLine('DailyProgressNote', { size: 18, bold: true, maxWidth: headerMaxWidth });
   y -= 4;
-  drawLine('Resident: ' + data.residentFullName + ' (' + data.resident + ')', { size: 12, bold: true });
-  drawLine('Location: ' + data.location, { size: 12, bold: true });
-  drawLine('Date: ' + data.date, { size: 12, bold: true });
+  drawLine('Resident: ' + data.residentFullName + ' (' + data.resident + ')', { size: 12, bold: true, maxWidth: headerMaxWidth });
+  drawLine('Location: ' + data.location, { size: 12, bold: true, maxWidth: headerMaxWidth });
+  drawLine('Date: ' + data.date, { size: 12, bold: true, maxWidth: headerMaxWidth });
   y -= 10;
 
   data.questions.forEach(function (q, index) {
@@ -78,7 +101,10 @@ async function buildDailyProgressNotePdf(data) {
   });
 
   y -= 10;
-  newPageIfNeeded(90);
+  newPageIfNeeded(110);
+  if (data.enteredBy) {
+    drawLine('Entered by: ' + data.enteredBy, { size: 11, bold: true });
+  }
   drawLine('Signed by: ' + data.signedBy, { size: 11, bold: true });
   drawLine('Signed at: ' + data.signedAt, { size: 10 });
   y -= 6;

@@ -823,6 +823,26 @@ that admins edit themselves.
   client-supplied date that isn't in it — an already-signed day, or
   anything past today, is never accepted regardless of what a request
   claims.
+- **Rollout / a resident's very first entry**: the no-skip-days walk
+  above only ever starts from the earliest cover already on file — for
+  a resident with *no* covers yet at all (a brand-new rollout, even one
+  whose questionnaire's Effective Date is many months in the past), that
+  would otherwise force literally today as the only option, which
+  doesn't fit "notes are usually entered the following morning."
+  `resolveDayOptions` (`lib/daily-progress-notes.js`) detects this case
+  (`isFirstEntry`) and instead allows ANY date within
+  `[earliest Effective Date across every version ever published,
+  today]` for that one first entry — `initialDateMin`/`initialDateMax`
+  in `get-daily-progress-note.js`'s response, rendered as a native
+  `<input type="date" min=... max=...>` in the provider app rather than
+  the ordinary outstanding-days `<select>`. The moment that first save
+  actually happens, a cover exists and every subsequent call falls into
+  the ordinary regime above, building forward day-by-day from whichever
+  date was chosen — nothing before it is ever retroactively required.
+  `save-daily-progress-note.js` and `sign-daily-progress-note.js` validate
+  a client-supplied date against whichever regime actually applies
+  (`resolveDayOptions`'s `isFirstEntry` flag), never trusting it outright
+  either way.
 - **Save Progress / Sign & Submit**: Save Progress writes whatever's
   entered with no validation (`saveAnswers`); signing
   (`sign-daily-progress-note.js`) requires every question answered
@@ -848,19 +868,32 @@ that admins edit themselves.
   backend service. Support is solid on Chrome/Android; iOS Safari's
   support is spottier, so the mic button is simply omitted when
   `SpeechRecognition` isn't available rather than showing a broken one.
+- **Entered By vs Signed By**: every save (`saveAnswers`) stamps the
+  cover's `Entered By` with whoever most recently saved (overwritten on
+  each save, same "Last Updated By" convention MAR Review uses) —
+  distinct from `Signed By`, which is stamped once, at sign time. In
+  practice they're usually the same person for this workflow, but
+  they're tracked separately so the two can be told apart if that ever
+  changes, and the PDF prints both lines.
 - **Nightly PDF generation**
   (`netlify/functions/generate-daily-progress-note-pdfs.js`, scheduled
   daily at 9:30am US/Eastern): finds every signed cover with `PDF
   Generated` still false, renders a PDF via `pdf-lib`
   (`lib/daily-progress-note-pdf.js`) containing the resident's name,
   location, "DailyProgressNote," the note's date, every question and
-  answer, and the replayed signature, then uploads it to Google Drive
-  through the same Zapier Catch Hook -> Find/Create Folder -> Upload
-  File pattern every other document upload in this app already uses
-  (see "Setting up event attachments" below for the general pattern).
-  `PDF Generated` is only flipped true after a successful upload, so a
-  failed upload retries the next night rather than getting silently
-  skipped.
+  answer, who entered it, who signed it, and the replayed signature,
+  then uploads it to Google Drive through the same Zapier Catch Hook ->
+  Find/Create Folder -> Upload File pattern every other document upload
+  in this app already uses (see "Setting up event attachments" below
+  for the general pattern). `PDF Generated` is only flipped true after a
+  successful upload, so a failed upload retries the next night rather
+  than getting silently skipped. The PDF also carries the ASRS logo,
+  top-right of the first page — embedded as a base64 JPEG in
+  `lib/arch-support-logo.js` rather than shipped as a separate asset
+  file, since Netlify's function bundler doesn't include arbitrary
+  static files by default. Header lines wrap narrower than the full page
+  width specifically so a long resident name or location can't run text
+  underneath the logo.
 - **New env vars:** `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`,
   `DAILY_PROGRESS_NOTES_DB_ID`, `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`,
   `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL`.
