@@ -51,6 +51,10 @@ workflow as your other portals.
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
 | `ADMIN_ALLOWED_EMAILS` | Existing comma-separated admin email list |
 | `APP_ENCRYPTION_KEY` | New — a 64-character hex string (32 bytes). Generate with `openssl rand -hex 32`. **Do not reuse a key from another portal.** |
+| `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID` | `cb9f1f2f-d982-425a-92f8-496758529283` |
+| `DAILY_PROGRESS_NOTES_DB_ID` | `d3c439da-f2ff-45cc-a265-0392568c1306` |
+| `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID` | `4b98a8d0-af57-421a-a68b-9ace4b28a081` |
+| `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -722,6 +726,117 @@ one that hasn't started yet.
   archive view was built for it, matching the low priority this was
   given when the feature was scoped.
 - **New env var:** `MONTHLY_CHECKLIST_DB_ID`.
+
+### Daily Progress Notes (sixth process — per resident, per day, versioned template)
+
+A daily narrative + compliance checklist per resident, entered from the
+provider app under a "Daily Progress Notes" button, signed with an
+on-screen signature, and rendered to a PDF every morning for Google
+Drive. Unlike every other process in this app, its question set isn't a
+fixed code-level list — it's versioned, resident-specific Notion data
+that admins edit themselves.
+
+- **Notion:** three new databases, all in
+  `netlify/functions/lib/daily-progress-notes.js`.
+  - **"Daily Progress Note Questions"** (`DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`)
+    — one row per question per version: `Location` (select), `Resident
+    Initials` (rich_text), `Resident Full Name` (rich_text), `Effective
+    Date`/`Termination Date` (date), `Question Key` (rich_text, e.g.
+    `q1`), `Question Text` (rich_text), `Question Type` (select:
+    `Text`/`Checklist`), `Checklist Items` (rich_text, newline-delimited
+    — only for `Checklist` questions), `Order` (number), `Active`
+    (checkbox — never flipped false; a terminated version's rows stay on
+    file, just with a `Termination Date` set).
+  - **"Daily Progress Notes"** (`DAILY_PROGRESS_NOTES_DB_ID`) — the
+    per-day "cover" row: `Location`, `Resident Initials`, `Resident Full
+    Name`, `Date`, `Template Effective Date` (which version answered this
+    day), `Signed By`/`Signed At`, `Signature Strokes` (rich_text,
+    JSON-encoded pen-stroke points — see below), `PDF Generated`
+    (checkbox), `PDF Drive URL` (url), `Active`.
+  - **"Daily Progress Note Answers"** (`DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`)
+    — one row per question per day: `Question Key`, plus its own
+    snapshotted `Question Text`/`Question Type` (so a historical answer
+    stays self-describing even after the template changes again),
+    `Answer Text` (rich_text), `Checklist Answers` (rich_text, JSON map
+    of item label -> `Yes`/`No`).
+- **Versioned template, resolved per-date, not "today's version."**
+  `findQuestionsForDate` (`lib/daily-progress-notes.js`) picks the LATEST
+  version whose Effective Date is on or before the day in question and
+  whose Termination Date (if any) is after it. This matters because a
+  resident catching up on a day from before the question set last
+  changed must answer the wording that was actually in effect *then* —
+  otherwise a historical note would get silently reinterpreted against
+  different questions.
+- **Self-service admin UI for question versions** (unlike Monthly
+  Checklist's code-level `ITEMS`) — admin dashboard's Daily Progress
+  Notes tab -> "Manage Question Templates." Publishing a new version
+  (`createVersion`/`save-daily-progress-note-template.js`) automatically
+  sets the currently-open version's `Termination Date` to the new
+  version's `Effective Date`; past days' answers are unaffected since
+  they already snapshotted their own question text. Chosen over a
+  code-level list specifically because this questionnaire changes
+  routinely and needs an audit trail an admin can manage without a
+  deploy.
+- **No-skip-days enforcement**: `resolveTarget` (mirrors Monthly
+  Checklist's month-walking version, but day-by-day and scoped per
+  Location + Resident) finds the EARLIEST day, from the earliest one on
+  file through today, that isn't signed yet. The provider app only ever
+  renders whatever this resolves to — there's no date picker — so a
+  resident can't get to today's note until yesterday's is signed.
+- **Save Progress / Sign & Submit**: Save Progress writes whatever's
+  entered with no validation (`saveAnswers`); signing
+  (`sign-daily-progress-note.js`) requires every question answered
+  (`missingQuestions` — every Text question non-blank, every Checklist
+  question's every item Yes/No) plus a non-empty signature, and blocks
+  with a message naming what's missing. Both re-resolve the target day
+  server-side rather than trusting a client-supplied date.
+- **Signature is captured as vector pen strokes, not an image**
+  (`Signature Strokes`, a JSON array of point arrays from the provider
+  app's canvas signature pad) — chosen because this app's Google Drive
+  integration is write-only via Zapier, with no way to read an uploaded
+  image back out. The nightly PDF job replays the strokes as vector line
+  drawing directly into the PDF.
+- **Dictation**: each Text question has an optional mic button using the
+  browser's built-in Web Speech API (`SpeechRecognition`) — no new
+  backend service. Support is solid on Chrome/Android; iOS Safari's
+  support is spottier, so the mic button is simply omitted when
+  `SpeechRecognition` isn't available rather than showing a broken one.
+- **Nightly PDF generation**
+  (`netlify/functions/generate-daily-progress-note-pdfs.js`, scheduled
+  daily at 9:30am US/Eastern): finds every signed cover with `PDF
+  Generated` still false, renders a PDF via `pdf-lib`
+  (`lib/daily-progress-note-pdf.js`) containing the resident's name,
+  location, "DailyProgressNote," the note's date, every question and
+  answer, and the replayed signature, then uploads it to Google Drive
+  through the same Zapier Catch Hook -> Find/Create Folder -> Upload
+  File pattern every other document upload in this app already uses
+  (see "Setting up event attachments" below for the general pattern).
+  `PDF Generated` is only flipped true after a successful upload, so a
+  failed upload retries the next night rather than getting silently
+  skipped.
+- **New env vars:** `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`,
+  `DAILY_PROGRESS_NOTES_DB_ID`, `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`,
+  `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL`.
+- **New dependency:** `pdf-lib` (pure JS, no native deps — this was the
+  first feature in this project to need any npm dependency at all; see
+  `package.json`).
+
+#### Setting up the Daily Progress Notes PDF upload (Zapier)
+
+Same pattern as event attachments, but triggered by the nightly
+scheduled function instead of the browser:
+
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the webhook
+   URL into `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` in Netlify.
+2. Action = Google Drive -> Upload File. Map the file field to the
+   webhook's incoming `file`, and the Drive filename to the incoming
+   `filename` field (built as
+   `DailyProgressNote_Location_ResidentInitials_YYYY-MM-DD.pdf`).
+3. Publish the Zap. The function marks `PDF Generated` true right after
+   a successful upload — it does not wait on or record whatever the Zap
+   does after that (a "respond immediately" Catch Hook returns before
+   the Drive upload step even runs), so `PDF Drive URL` is left blank
+   unless you build a synchronous Zap that hands one back.
 
 ## Weekly admin email digest
 

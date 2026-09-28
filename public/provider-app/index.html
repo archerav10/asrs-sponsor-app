@@ -500,6 +500,72 @@
   .numeric-row input.out-of-range {
     border-color: var(--error);
   }
+  .dpn-question { margin-bottom: 20px; }
+  .dpn-question-text { font-weight: 600; margin: 0 0 8px; }
+  .dpn-textarea-row { display: flex; gap: 8px; align-items: flex-start; }
+  .dpn-textarea-row textarea { flex: 1; }
+  .dpn-mic-button {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--forest);
+    background: #fff;
+    color: var(--forest);
+    font-size: 18px;
+    margin-top: 0;
+    padding: 0;
+  }
+  .dpn-mic-button.recording {
+    background: var(--error);
+    border-color: var(--error);
+    color: #fff;
+    animation: dotFlash 1s infinite;
+  }
+  .dpn-checklist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dpn-checklist-item:last-child { border-bottom: none; }
+  .dpn-yn-group { display: flex; gap: 8px; flex-shrink: 0; }
+  .dpn-yn-btn {
+    margin-top: 0;
+    padding: 8px 16px;
+    background: #fff;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+  }
+  .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
+  .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
+  .dpn-signature-wrap { margin-top: 8px; }
+  .dpn-signature-canvas {
+    width: 100%;
+    height: 160px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    touch-action: none;
+  }
+  .dpn-signature-clear {
+    background: transparent;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+    margin-top: 8px;
+  }
+  .dpn-locked-banner {
+    border: 1px solid var(--forest);
+    background: #eef4f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: var(--forest);
+    font-weight: 600;
+  }
 </style>
 </head>
 <body>
@@ -545,6 +611,7 @@
     </div>
 
     <div id="mar-buttons-container" class="mar-section"></div>
+    <div id="dpn-buttons-container" class="mar-section"></div>
 
     <div class="action-list">
       <button class="action-button" data-action="first-aid">
@@ -841,6 +908,33 @@
     <button id="si-submit" class="incident-button" style="border-radius:6px;">Submit Incident Report</button>
   </section>
 
+  <!-- Screen 11: Daily Progress Notes -->
+  <section id="screen-daily-progress-notes" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="dpn-title">Daily Progress Notes</p>
+    <div class="period-banner" id="dpn-date-banner">Loading&hellip;</div>
+    <p class="error-text" id="dpn-error"></p>
+
+    <div id="dpn-locked-banner" class="dpn-locked-banner" style="display:none;">This day is already signed and locked.</div>
+
+    <div id="dpn-questions"></div>
+
+    <div id="dpn-signature-section">
+      <p class="item-section-title">Signature</p>
+      <div class="dpn-signature-wrap">
+        <canvas id="dpn-signature-canvas" class="dpn-signature-canvas"></canvas>
+        <button type="button" id="dpn-signature-clear" class="dpn-signature-clear">Clear Signature</button>
+      </div>
+    </div>
+
+    <div class="save-finalize-bar">
+      <button id="dpn-save" class="secondary-save">Save Progress</button>
+      <button id="dpn-sign" class="primary-finalize">Sign &amp; Submit</button>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -858,7 +952,8 @@
     physicalEnvironment: document.getElementById('screen-physical-environment'),
     logEvent: document.getElementById('screen-log-event'),
     marReview: document.getElementById('screen-mar-review'),
-    seriousIncident: document.getElementById('screen-serious-incident')
+    seriousIncident: document.getElementById('screen-serious-incident'),
+    dailyProgressNotes: document.getElementById('screen-daily-progress-notes')
   };
 
   function getStoredSession() {
@@ -1034,6 +1129,7 @@
     loadHomePhysicalEnvironmentStatus();
     loadHomeSiteVisitStatus();
     renderMarButtons(session.residentInitials);
+    renderDpnButtons(session.residentInitials);
     loadInfoStatuses(session);
   }
 
@@ -1328,6 +1424,61 @@
         }
       }
       dotEl.className = 'status-dot ' + statusClass;
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
+  // Builds one Daily Progress Notes button per resident — same shape as
+  // renderMarButtons above, one button/status dot/screen instance per
+  // resident on the account.
+  function renderDpnButtons(residentInitialsStr) {
+    const container = document.getElementById('dpn-buttons-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(residentInitialsStr);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-dpn-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#128221; Daily Progress Notes — ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-dpn-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentDpnResidentInitials = initials;
+        showScreen('dailyProgressNotes');
+        loadDailyProgressNote();
+      });
+      container.appendChild(btn);
+      loadHomeDpnStatus(initials);
+    });
+  }
+
+  async function loadHomeDpnStatus(initials) {
+    const dotEl = document.getElementById('home-dpn-dot-' + initials);
+    const dueEl = document.getElementById('home-dpn-due-' + initials);
+    if (!dotEl) return;
+    dueEl.textContent = '';
+
+    try {
+      const data = await apiFetch('/get-daily-progress-note?resident=' + encodeURIComponent(initials));
+      const today = new Date().toISOString().slice(0, 10);
+      const isSigned = !!(data.cover && data.cover.signedAt);
+      const isOverdue = data.date < today;
+
+      if (isOverdue) {
+        dueEl.textContent = formatDate(data.date) + ': not yet signed — overdue';
+        dotEl.className = 'status-dot status-red';
+      } else if (isSigned) {
+        dueEl.textContent = 'Today (' + formatDate(data.date) + '): signed';
+        dotEl.className = 'status-dot status-green';
+      } else {
+        dueEl.textContent = 'Today (' + formatDate(data.date) + '): not yet signed';
+        dotEl.className = 'status-dot status-yellow';
+      }
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
     }
@@ -2309,6 +2460,307 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Submit Incident Report';
+    }
+  });
+
+  // --- Screen 11: Daily Progress Notes ---
+  let currentDpnResidentInitials = null;
+  let currentDpnQuestions = [];
+  let currentDpnLocked = false;
+  const dpnRecognizers = {}; // keyed by question key, one SpeechRecognition instance per text question
+
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function dpnQuestionKeyEl(key, suffix) {
+    return document.getElementById('dpn-q-' + key + (suffix ? '-' + suffix : ''));
+  }
+
+  // Question text and checklist item labels come from the admin-editable
+  // template (Notion), not a fixed code-level list — escape before
+  // inserting via innerHTML so a stray "<" in a question doesn't get
+  // interpreted as markup in every provider's session.
+  function escapeHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderDpnTextQuestion(q, answer) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question';
+    wrap.dataset.key = q.key;
+    wrap.dataset.type = 'Text';
+
+    const micButtonHtml = SpeechRecognitionCtor
+      ? '<button type="button" class="dpn-mic-button" id="dpn-mic-' + q.key + '" title="Dictate">&#127908;</button>'
+      : '';
+
+    wrap.innerHTML =
+      '<p class="dpn-question-text">' + escapeHtml(q.text) + '</p>' +
+      '<div class="dpn-textarea-row">' +
+        '<textarea id="dpn-q-' + q.key + '" rows="4"></textarea>' +
+        micButtonHtml +
+      '</div>';
+
+    const textarea = wrap.querySelector('textarea');
+    textarea.value = (answer && answer.answerText) || '';
+
+    const micBtn = wrap.querySelector('.dpn-mic-button');
+    if (micBtn) {
+      let recognizing = false;
+      const recognizer = new SpeechRecognitionCtor();
+      recognizer.continuous = true;
+      recognizer.interimResults = false;
+      recognizer.onresult = function (event) {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        textarea.value = (textarea.value ? textarea.value + ' ' : '') + transcript.trim();
+      };
+      recognizer.onend = function () {
+        recognizing = false;
+        micBtn.classList.remove('recording');
+      };
+      recognizer.onerror = function () {
+        recognizing = false;
+        micBtn.classList.remove('recording');
+      };
+      micBtn.addEventListener('click', function () {
+        if (recognizing) {
+          recognizer.stop();
+        } else {
+          recognizing = true;
+          micBtn.classList.add('recording');
+          try { recognizer.start(); } catch (e) { recognizing = false; micBtn.classList.remove('recording'); }
+        }
+      });
+      dpnRecognizers[q.key] = recognizer;
+    }
+
+    return wrap;
+  }
+
+  function renderDpnChecklistQuestion(q, answer) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question';
+    wrap.dataset.key = q.key;
+    wrap.dataset.type = 'Checklist';
+
+    const existing = (answer && answer.checklistAnswers) || {};
+    const itemsHtml = q.checklistItems.map(function (item, idx) {
+      const value = existing[item] || '';
+      return (
+        '<div class="dpn-checklist-item" data-item="' + idx + '">' +
+          '<span>' + escapeHtml(item) + '</span>' +
+          '<div class="dpn-yn-group">' +
+            '<button type="button" class="dpn-yn-btn dpn-yn-yes' + (value === 'Yes' ? ' selected-yes' : '') + '">Yes</button>' +
+            '<button type="button" class="dpn-yn-btn dpn-yn-no' + (value === 'No' ? ' selected-no' : '') + '">No</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    wrap.innerHTML = '<p class="dpn-question-text">' + escapeHtml(q.text) + '</p>' + itemsHtml;
+
+    wrap.querySelectorAll('.dpn-checklist-item').forEach(function (row, idx) {
+      const itemLabel = q.checklistItems[idx];
+      const yesBtn = row.querySelector('.dpn-yn-yes');
+      const noBtn = row.querySelector('.dpn-yn-no');
+      row.dataset.itemLabel = itemLabel;
+      yesBtn.addEventListener('click', function () {
+        yesBtn.classList.add('selected-yes');
+        noBtn.classList.remove('selected-no');
+        row.dataset.value = 'Yes';
+      });
+      noBtn.addEventListener('click', function () {
+        noBtn.classList.add('selected-no');
+        yesBtn.classList.remove('selected-yes');
+        row.dataset.value = 'No';
+      });
+      if (existing[itemLabel]) row.dataset.value = existing[itemLabel];
+    });
+
+    return wrap;
+  }
+
+  function gatherDpnAnswers() {
+    const answers = {};
+    document.querySelectorAll('#dpn-questions .dpn-question').forEach(function (wrap) {
+      const key = wrap.dataset.key;
+      if (wrap.dataset.type === 'Checklist') {
+        const checklistAnswers = {};
+        wrap.querySelectorAll('.dpn-checklist-item').forEach(function (row) {
+          if (row.dataset.value) checklistAnswers[row.dataset.itemLabel] = row.dataset.value;
+        });
+        answers[key] = { checklistAnswers: checklistAnswers };
+      } else {
+        answers[key] = { answerText: wrap.querySelector('textarea').value };
+      }
+    });
+    return answers;
+  }
+
+  // --- Signature pad: captures raw pen-stroke points (not an image) so
+  // the nightly PDF job can replay them as vector line drawing — this
+  // app's Google Drive integration is write-only via Zapier, with no way
+  // to read an uploaded image back out. ---
+  let dpnSignatureStrokes = [];
+  let dpnCurrentStroke = null;
+  let dpnCanvasCtx = null;
+
+  function dpnCanvasPoint(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function dpnRedrawSignature(canvas) {
+    dpnCanvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    dpnCanvasCtx.strokeStyle = '#16332B';
+    dpnCanvasCtx.lineWidth = 2;
+    dpnCanvasCtx.lineCap = 'round';
+    dpnSignatureStrokes.forEach(function (stroke) {
+      if (stroke.length < 2) return;
+      dpnCanvasCtx.beginPath();
+      dpnCanvasCtx.moveTo(stroke[0].x, stroke[0].y);
+      for (let i = 1; i < stroke.length; i++) dpnCanvasCtx.lineTo(stroke[i].x, stroke[i].y);
+      dpnCanvasCtx.stroke();
+    });
+  }
+
+  function initDpnSignaturePad() {
+    const canvas = document.getElementById('dpn-signature-canvas');
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    dpnCanvasCtx = canvas.getContext('2d');
+    dpnSignatureStrokes = [];
+    dpnCurrentStroke = null;
+
+    function start(evt) {
+      evt.preventDefault();
+      dpnCurrentStroke = [dpnCanvasPoint(canvas, evt)];
+      dpnSignatureStrokes.push(dpnCurrentStroke);
+    }
+    function move(evt) {
+      if (!dpnCurrentStroke) return;
+      evt.preventDefault();
+      dpnCurrentStroke.push(dpnCanvasPoint(canvas, evt));
+      dpnRedrawSignature(canvas);
+    }
+    function end() {
+      dpnCurrentStroke = null;
+    }
+
+    canvas.onmousedown = start;
+    canvas.onmousemove = move;
+    window.addEventListener('mouseup', end);
+    canvas.ontouchstart = start;
+    canvas.ontouchmove = move;
+    canvas.ontouchend = end;
+  }
+
+  document.getElementById('dpn-signature-clear').addEventListener('click', function () {
+    dpnSignatureStrokes = [];
+    const canvas = document.getElementById('dpn-signature-canvas');
+    if (dpnCanvasCtx) dpnCanvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+
+  async function loadDailyProgressNote() {
+    const questionsEl = document.getElementById('dpn-questions');
+    const lockedBanner = document.getElementById('dpn-locked-banner');
+    const signatureSection = document.getElementById('dpn-signature-section');
+    const saveFinalizeBar = document.querySelector('#screen-daily-progress-notes .save-finalize-bar');
+    setError('dpn-error', '');
+    questionsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    Object.keys(dpnRecognizers).forEach(function (key) { delete dpnRecognizers[key]; });
+
+    try {
+      const data = await apiFetch('/get-daily-progress-note?resident=' + encodeURIComponent(currentDpnResidentInitials || ''));
+      currentDpnQuestions = data.questions || [];
+      currentDpnLocked = !!(data.cover && data.cover.signedAt);
+
+      document.getElementById('dpn-title').textContent = 'Daily Progress Notes — ' + (currentDpnResidentInitials || '');
+      document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(data.date) + '</strong>' +
+        (data.date < new Date().toISOString().slice(0, 10) ? ' — <strong>catching up on a prior day</strong>' : '');
+
+      questionsEl.innerHTML = '';
+      currentDpnQuestions.forEach(function (q) {
+        const answer = (data.answers || {})[q.key];
+        const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
+        questionsEl.appendChild(el);
+      });
+
+      if (currentDpnLocked) {
+        lockedBanner.style.display = 'block';
+        signatureSection.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+        questionsEl.querySelectorAll('textarea').forEach(function (t) { t.disabled = true; });
+        questionsEl.querySelectorAll('.dpn-yn-btn').forEach(function (b) { b.disabled = true; });
+      } else {
+        lockedBanner.style.display = 'none';
+        signatureSection.style.display = 'block';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = '';
+        initDpnSignaturePad();
+      }
+    } catch (e) {
+      questionsEl.innerHTML = '';
+      setError('dpn-error', e.message);
+    }
+  }
+
+  document.getElementById('dpn-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('dpn-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      await apiFetch('/save-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, answers: gatherDpnAnswers() })
+      });
+      alert('Progress saved. Come back anytime to keep working before signing.');
+    } catch (e) {
+      setError('dpn-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Progress';
+    }
+  });
+
+  document.getElementById('dpn-sign').addEventListener('click', async function () {
+    const btn = this;
+    setError('dpn-error', '');
+
+    if (!dpnSignatureStrokes.length) {
+      setError('dpn-error', 'A signature is required before signing.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      await apiFetch('/save-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, answers: gatherDpnAnswers() })
+      });
+      await apiFetch('/sign-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, strokes: dpnSignatureStrokes })
+      });
+      alert('Daily Progress Note signed.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
+    } catch (e) {
+      setError('dpn-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign & Submit';
     }
   });
 

@@ -217,6 +217,34 @@
     background: #fff;
     font-family: inherit;
   }
+  .item-section-title { font-size: 14px; font-weight: 700; margin: 26px 0 10px; }
+  .dpn-t-version-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    background: #fff;
+    font-size: 13px;
+    color: #444;
+  }
+  .dpn-t-version-card .dpn-t-version-dates { font-weight: 600; color: var(--ink); margin: 0 0 6px; }
+  .dpn-t-version-card ol { margin: 0; padding-left: 18px; }
+  .dpn-t-question-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fff;
+  }
+  .dpn-t-question-row .remove-question {
+    width: auto;
+    margin-top: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: transparent;
+    color: var(--error);
+    border: 1px solid var(--error);
+  }
 </style>
 </head>
 <body>
@@ -267,6 +295,7 @@
       <button class="tab-button" id="tab-staff" type="button">Staff Training</button>
       <button class="tab-button" id="tab-quarterly" type="button">Quarterly Reporting</button>
       <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
+      <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
     </div>
 
     <div id="mar-tab-content">
@@ -297,6 +326,13 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">One checklist per location, due by the end of each month. Falling behind locks the next month until the missed one is caught up.</p>
       <p class="error-text" id="checklist-dashboard-error"></p>
       <div id="checklist-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="dpn-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Entered from the provider app, one per resident per day — can't skip a day. Question sets are versioned; manage them below.</p>
+      <p class="error-text" id="dpn-dashboard-error"></p>
+      <div id="dpn-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+      <button type="button" id="dpn-manage-templates-button" class="secondary" style="margin-top: 18px;">Manage Question Templates</button>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -349,6 +385,43 @@
     <p class="error-text" id="checklist-detail-error"></p>
     <div id="checklist-detail-body"></div>
   </section>
+
+  <!-- Screen 8: Daily Progress Notes — self-service question-version management -->
+  <section id="screen-dpn-templates" class="screen">
+    <button class="back-button" id="dpn-templates-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name">Daily Progress Notes &mdash; Question Templates</p>
+      <p class="meta">Each version applies from its effective date until a newer version replaces it. Publishing a new version automatically terminates whichever one is currently open-ended &mdash; past answers keep the wording they were actually answered under.</p>
+    </div>
+    <p class="error-text" id="dpn-templates-error"></p>
+
+    <label for="dpn-t-location">Location</label>
+    <select id="dpn-t-location"></select>
+
+    <label for="dpn-t-resident-picker">Resident</label>
+    <select id="dpn-t-resident-picker">
+      <option value="">&mdash; New Resident &mdash;</option>
+    </select>
+
+    <div id="dpn-t-new-resident-fields">
+      <label for="dpn-t-resident-initials">Resident Initials</label>
+      <input type="text" id="dpn-t-resident-initials" placeholder="e.g. AR">
+      <label for="dpn-t-resident-fullname">Resident Full Name</label>
+      <input type="text" id="dpn-t-resident-fullname" placeholder="e.g. Adrienne Robinson">
+    </div>
+
+    <p class="item-section-title">Version History</p>
+    <div id="dpn-t-version-history"><p class="loading-text">Select a resident to see version history.</p></div>
+
+    <p class="item-section-title">Publish a New Version</p>
+    <label for="dpn-t-effective-date">Effective Date</label>
+    <input type="date" id="dpn-t-effective-date">
+
+    <div id="dpn-t-questions"></div>
+    <button type="button" id="dpn-t-add-question" class="secondary">+ Add Question</button>
+
+    <button type="button" id="dpn-t-publish">Publish New Version</button>
+  </section>
 </main>
 
 <script>
@@ -363,7 +436,8 @@
     annualDetail: document.getElementById('screen-annual-detail'),
     staffDetail: document.getElementById('screen-staff-detail'),
     quarterlyDetail: document.getElementById('screen-quarterly-detail'),
-    checklistDetail: document.getElementById('screen-checklist-detail')
+    checklistDetail: document.getElementById('screen-checklist-detail'),
+    dpnTemplates: document.getElementById('screen-dpn-templates')
   };
 
   function showScreen(name) {
@@ -654,7 +728,8 @@
     annual: { button: document.getElementById('tab-annual'), content: document.getElementById('annual-tab-content'), load: loadAnnualDashboard },
     staff: { button: document.getElementById('tab-staff'), content: document.getElementById('staff-tab-content'), load: loadStaffDashboard },
     quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard },
-    checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard }
+    checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard },
+    dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -2012,6 +2087,286 @@
       setError('checklist-detail-error', e.message);
     }
   }
+
+  // --- Screen 3f/8: Daily Progress Notes ---
+  // Oversight is read-only (content is entered from the provider app,
+  // same as MAR Review) — the one thing admins actively manage here is
+  // the question-version history, since unlike Monthly Checklist's fixed
+  // item list, these questions are resident-specific and change often
+  // enough to need a self-service editor rather than a code change.
+  let dpnGrantedLocations = [];
+
+  function dpnStatusLabel(row) {
+    if (row.isOverdue) return 'Overdue — stuck on ' + formatDate(row.targetDate);
+    if (row.isSignedForTarget) return 'Signed for today (' + formatDate(row.targetDate) + ')';
+    return 'Not yet signed for today (' + formatDate(row.targetDate) + ')';
+  }
+
+  function renderDpnResidentRow(row) {
+    const wrap = document.createElement('div');
+    wrap.className = 'resident-card';
+
+    const residentRow = document.createElement('div');
+    residentRow.className = 'resident-row';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot ' + (row.isOverdue ? 'status-red' : (row.isSignedForTarget ? 'status-green' : 'status-yellow'));
+    const initials = document.createElement('span');
+    initials.className = 'initials';
+    initials.textContent = row.resident;
+    residentRow.appendChild(dot);
+    residentRow.appendChild(initials);
+
+    const line = document.createElement('p');
+    line.className = 'resident-line' + (row.isOverdue ? ' flagged' : '');
+    line.textContent = dpnStatusLabel(row);
+
+    wrap.appendChild(residentRow);
+    wrap.appendChild(line);
+    return wrap;
+  }
+
+  async function loadDpnDashboard() {
+    const listEl = document.getElementById('dpn-dashboard-list');
+    setError('dpn-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-daily-progress-notes-oversight');
+      const locations = data.locations || [];
+      dpnGrantedLocations = locations.map(function (l) { return l.location; });
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No Daily Progress Notes templates on file yet — add one under Manage Question Templates.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (row) { listEl.appendChild(renderDpnResidentRow(row)); });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('dpn-dashboard-error', e.message);
+    }
+  }
+
+  // --- Screen 8: Daily Progress Notes — question template management ---
+  function escapeHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function dpnEmptyQuestion() {
+    return { text: '', type: 'Text', checklistItems: [] };
+  }
+
+  function renderDpnTQuestionRow(question) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-t-question-row';
+    wrap.innerHTML =
+      '<label>Question Text</label>' +
+      '<textarea class="dpn-t-q-text" rows="2">' + escapeHtml(question.text) + '</textarea>' +
+      '<label>Type</label>' +
+      '<select class="dpn-t-q-type">' +
+        '<option value="Text"' + (question.type === 'Text' ? ' selected' : '') + '>Text</option>' +
+        '<option value="Checklist"' + (question.type === 'Checklist' ? ' selected' : '') + '>Checklist (Yes/No items)</option>' +
+      '</select>' +
+      '<div class="dpn-t-q-checklist-wrap" style="display:' + (question.type === 'Checklist' ? 'block' : 'none') + ';">' +
+        '<label>Checklist Items (one per line)</label>' +
+        '<textarea class="dpn-t-q-items" rows="3">' + escapeHtml((question.checklistItems || []).join('\n')) + '</textarea>' +
+      '</div>' +
+      '<button type="button" class="remove-question">Remove Question</button>';
+
+    wrap.querySelector('.dpn-t-q-type').addEventListener('change', function () {
+      wrap.querySelector('.dpn-t-q-checklist-wrap').style.display = this.value === 'Checklist' ? 'block' : 'none';
+    });
+    wrap.querySelector('.remove-question').addEventListener('click', function () {
+      wrap.remove();
+    });
+    return wrap;
+  }
+
+  function resetDpnQuestionBuilder() {
+    const container = document.getElementById('dpn-t-questions');
+    container.innerHTML = '';
+    container.appendChild(renderDpnTQuestionRow(dpnEmptyQuestion()));
+    document.getElementById('dpn-t-effective-date').value = '';
+  }
+
+  function renderDpnTVersionCard(v) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-t-version-card';
+    const dates = document.createElement('p');
+    dates.className = 'dpn-t-version-dates';
+    dates.textContent = 'Effective ' + formatDate(v.effectiveDate) + (v.terminationDate ? ' through ' + formatDate(v.terminationDate) : ' — current version');
+    wrap.appendChild(dates);
+    const ol = document.createElement('ol');
+    v.questions.forEach(function (q) {
+      const li = document.createElement('li');
+      li.textContent = q.text + (q.type === 'Checklist' ? ' (Checklist: ' + q.checklistItems.join(', ') + ')' : '');
+      ol.appendChild(li);
+    });
+    wrap.appendChild(ol);
+    return wrap;
+  }
+
+  function dpnTSetNewResidentMode(isNew) {
+    document.getElementById('dpn-t-new-resident-fields').style.display = isNew ? 'block' : 'none';
+    const initialsInput = document.getElementById('dpn-t-resident-initials');
+    if (isNew) {
+      initialsInput.value = '';
+      document.getElementById('dpn-t-resident-fullname').value = '';
+      initialsInput.disabled = false;
+    } else {
+      initialsInput.value = document.getElementById('dpn-t-resident-picker').value;
+      initialsInput.disabled = true;
+    }
+  }
+
+  async function loadDpnTVersionsForResident(location, resident) {
+    const historyEl = document.getElementById('dpn-t-version-history');
+    historyEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-daily-progress-note-templates?location=' + encodeURIComponent(location) + '&resident=' + encodeURIComponent(resident));
+      historyEl.innerHTML = '';
+      if (!data.versions.length) {
+        historyEl.innerHTML = '<p class="empty-text">No versions yet — publish the first one below.</p>';
+      } else {
+        data.versions.slice().reverse().forEach(function (v) { historyEl.appendChild(renderDpnTVersionCard(v)); });
+      }
+      if (data.residentFullName) document.getElementById('dpn-t-resident-fullname').value = data.residentFullName;
+    } catch (e) {
+      historyEl.innerHTML = '';
+      setError('dpn-templates-error', e.message);
+    }
+  }
+
+  async function loadDpnTResidentsForLocation(location) {
+    const picker = document.getElementById('dpn-t-resident-picker');
+    picker.innerHTML = '<option value="">— New Resident —</option>';
+    try {
+      const data = await apiFetch('/get-daily-progress-note-templates?location=' + encodeURIComponent(location));
+      (data.residents || []).forEach(function (r) {
+        const opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = r;
+        picker.appendChild(opt);
+      });
+    } catch (e) {
+      setError('dpn-templates-error', e.message);
+    }
+  }
+
+  document.getElementById('dpn-manage-templates-button').addEventListener('click', async function () {
+    setError('dpn-templates-error', '');
+    showScreen('dpnTemplates');
+
+    const locationSelect = document.getElementById('dpn-t-location');
+    locationSelect.innerHTML = '';
+    dpnGrantedLocations.forEach(function (loc) {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      opt.textContent = loc;
+      locationSelect.appendChild(opt);
+    });
+
+    resetDpnQuestionBuilder();
+    document.getElementById('dpn-t-version-history').innerHTML = '<p class="loading-text">Select a resident to see version history.</p>';
+
+    if (locationSelect.value) {
+      await loadDpnTResidentsForLocation(locationSelect.value);
+      dpnTSetNewResidentMode(true);
+    }
+  });
+
+  document.getElementById('dpn-t-location').addEventListener('change', async function () {
+    setError('dpn-templates-error', '');
+    await loadDpnTResidentsForLocation(this.value);
+    dpnTSetNewResidentMode(true);
+    document.getElementById('dpn-t-version-history').innerHTML = '<p class="loading-text">Select a resident to see version history.</p>';
+  });
+
+  document.getElementById('dpn-t-resident-picker').addEventListener('change', async function () {
+    setError('dpn-templates-error', '');
+    const location = document.getElementById('dpn-t-location').value;
+    if (!this.value) {
+      dpnTSetNewResidentMode(true);
+      document.getElementById('dpn-t-version-history').innerHTML = '<p class="empty-text">Enter the new resident’s initials and full name, then publish their first version below.</p>';
+      return;
+    }
+    dpnTSetNewResidentMode(false);
+    await loadDpnTVersionsForResident(location, this.value);
+  });
+
+  document.getElementById('dpn-t-add-question').addEventListener('click', function () {
+    document.getElementById('dpn-t-questions').appendChild(renderDpnTQuestionRow(dpnEmptyQuestion()));
+  });
+
+  document.getElementById('dpn-templates-back').addEventListener('click', function () {
+    showScreen('dashboard');
+  });
+
+  document.getElementById('dpn-t-publish').addEventListener('click', async function () {
+    const btn = this;
+    setError('dpn-templates-error', '');
+
+    const location = document.getElementById('dpn-t-location').value;
+    const residentPicker = document.getElementById('dpn-t-resident-picker').value;
+    const resident = residentPicker || document.getElementById('dpn-t-resident-initials').value.trim().toUpperCase();
+    const residentFullName = document.getElementById('dpn-t-resident-fullname').value.trim();
+    const effectiveDate = document.getElementById('dpn-t-effective-date').value;
+
+    if (!location || !resident || !residentFullName || !effectiveDate) {
+      setError('dpn-templates-error', 'Location, resident initials, resident full name, and an effective date are all required.');
+      return;
+    }
+
+    const questions = [];
+    document.querySelectorAll('#dpn-t-questions .dpn-t-question-row').forEach(function (row) {
+      const text = row.querySelector('.dpn-t-q-text').value.trim();
+      const type = row.querySelector('.dpn-t-q-type').value;
+      const checklistItems = row.querySelector('.dpn-t-q-items').value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (text) questions.push({ text: text, type: type, checklistItems: checklistItems });
+    });
+
+    if (!questions.length) {
+      setError('dpn-templates-error', 'Add at least one question.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Publishing…';
+    try {
+      await apiFetch('/save-daily-progress-note-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: location, resident: resident, residentFullName: residentFullName, effectiveDate: effectiveDate, questions: questions })
+      });
+      alert('New version published.');
+      await loadDpnTResidentsForLocation(location);
+      document.getElementById('dpn-t-resident-picker').value = resident;
+      dpnTSetNewResidentMode(false);
+      await loadDpnTVersionsForResident(location, resident);
+      resetDpnQuestionBuilder();
+    } catch (e) {
+      setError('dpn-templates-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Publish New Version';
+    }
+  });
 
   // --- Boot ---
   const stored = getStoredSession();

@@ -27,3 +27,9 @@
 
 [functions."check-window-opened-alerts"]
   schedule = "30 13 * * *"
+
+[functions."generate-daily-progress-note-pdfs"]
+  # 9:30am US/Eastern (see check-report-status's comment on the UTC/DST
+  # pin above) — generates a PDF for every Daily Progress Note signed
+  # since the last run and uploads it to Google Drive via Zapier.
+  schedule = "30 13 * * *"
