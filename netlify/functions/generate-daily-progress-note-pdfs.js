@@ -87,7 +87,14 @@ exports.handler = async function () {
       formData.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), filename);
       formData.append('location', cover.location);
       formData.append('residentInitials', cover.residentInitials);
+      // Drive's resident folders are named by full name, not initials —
+      // the Zap needs this to find the right one. yearMonth ("YYYY-MM",
+      // sliced from the always-ISO date) is handed over pre-computed too,
+      // so the Zap doesn't need its own Formatter step just to name that
+      // month's subfolder.
+      formData.append('residentFullName', cover.residentFullName);
       formData.append('date', cover.date);
+      formData.append('yearMonth', cover.date.slice(0, 7));
       formData.append('filename', filename);
 
       const uploadRes = await fetch(WEBHOOK_URL, { method: 'POST', body: formData });

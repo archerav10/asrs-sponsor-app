@@ -966,19 +966,46 @@ that admins edit themselves.
 
 #### Setting up the Daily Progress Notes PDF upload (Zapier)
 
-Same pattern as event attachments, but triggered by the nightly
-scheduled function instead of the browser:
+Same underlying pattern as event attachments (Catch Hook -> upload to
+Drive), but triggered by the nightly scheduled function instead of the
+browser, and landing several folders deep instead of at a single flat
+location — one folder per resident, one subfolder per month — so the
+Zap needs a folder-resolution chain in front of the actual upload
+rather than a single Upload File step:
 
-1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the webhook
-   URL into `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` in Netlify.
-2. Action = Google Drive -> Upload File. Map the file field to the
-   webhook's incoming `file`, and the Drive filename to the incoming
-   `filename` field (built as
-   `DailyProgressNote_Location_ResidentInitials_YYYY-MM-DD.pdf`).
-3. Publish the Zap. The function marks `PDF Generated` true right after
-   a successful upload — it does not wait on or record whatever the Zap
-   does after that (a "respond immediately" Catch Hook returns before
-   the Drive upload step even runs), so `PDF Drive URL` is left blank
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the
+   webhook URL into `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` in
+   Netlify. The webhook's incoming fields: `file` (the PDF),
+   `filename` (already built as
+   `DailyProgressNote_Location_ResidentInitials_YYYY-MM-DD.pdf`),
+   `location`, `residentInitials`, `residentFullName` (Drive's
+   resident folders are named by full name, not initials), `date`
+   (`YYYY-MM-DD`), and `yearMonth` (`YYYY-MM`, pre-sliced from `date`
+   so the Zap doesn't need its own Formatter step just to name that
+   month's subfolder).
+2. Google Drive -> Find a Folder, title = the webhook's `location`,
+   inside your facilities root folder. Find-only, no auto-create —
+   these are real, manually-maintained facility folders, and
+   auto-creating one on a typo'd/missing Location would silently
+   scatter notes into a new folder instead of surfacing the mismatch.
+3. Google Drive -> Find a Folder, title `Residents`, inside the folder
+   from step 2. Find-only, same reasoning.
+4. Google Drive -> Find a Folder, title = the webhook's
+   `residentFullName`, inside the folder from step 3. Find-only.
+5. Google Drive -> Find a Folder, title `Daily Progress Notes`, inside
+   the folder from step 4. This one *does* get "create if it doesn't
+   exist" — every resident eventually needs one, and there's no
+   pre-existing thing to typo-match against the way there is for a
+   facility or resident.
+6. Google Drive -> Find a Folder, title = the webhook's `yearMonth`,
+   inside the folder from step 5. Also create-if-missing — a fresh
+   folder is expected every new month, by design.
+7. Google Drive -> Upload File, folder = the folder from step 6, file
+   = the webhook's `file`, filename = the webhook's `filename`.
+8. Publish the Zap. The function marks `PDF Generated` true right
+   after a successful upload — it does not wait on or record whatever
+   the Zap does after that (a "respond immediately" Catch Hook returns
+   before the Drive steps even run), so `PDF Drive URL` is left blank
    unless you build a synchronous Zap that hands one back.
 
 ## Weekly admin email digest
