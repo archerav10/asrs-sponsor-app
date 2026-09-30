@@ -203,15 +203,6 @@ don't pick up env var changes until the next deploy.
   recent-only window). **Immediately texts every admin granted that
   location** (not sponsors) the moment it's submitted — this is a
   real-time send, not part of any scheduled check.
-  - **QR-code deep link**: `/provider-app/?screen=serious-incident`
-    (any query string works, not just that path — the redirect at `/`
-    only applies to a bare root request) opens straight to this screen
-    once the person is logged in, instead of always landing on Home
-    first — `maybeOpenDeepLinkedScreen()` in `public/provider-app/index.html`,
-    checked right after both a fresh login and an already-stored
-    session, since the query string survives the login/OTP round trip
-    in this single-page app either way. Built so a QR code on a printed
-    handout can take a sponsor directly to the report form.
 - **MAR Review sits right under the home card.** Its own button(s) —
   one per resident, full-size like every other report button — render
   in a dedicated block between the home card and the main action list,

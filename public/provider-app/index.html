@@ -1008,23 +1008,6 @@
     screens[name].classList.add('active');
   }
 
-  // Lets a URL like .../provider-app/?screen=serious-incident jump straight
-  // to that screen once the person is logged in, instead of always landing
-  // on home first — built for a QR code on a printed handout, so scanning
-  // it takes a sponsor directly to the report form rather than making them
-  // find the right button themselves. The query string survives the
-  // login/OTP round trip since this is a single-page app with no
-  // navigation away from it, so this same check covers both a fresh login
-  // and an already-stored session.
-  function maybeOpenDeepLinkedScreen() {
-    const requested = new URLSearchParams(window.location.search).get('screen');
-    if (requested === 'serious-incident') {
-      resetSeriousIncidentForm();
-      showScreen('seriousIncident');
-      loadSeriousIncidents();
-    }
-  }
-
   function setError(id, message) {
     const el = document.getElementById(id);
     el.textContent = message || '';
@@ -1102,7 +1085,6 @@
       }));
       renderHome(data.session);
       showScreen('home');
-      maybeOpenDeepLinkedScreen();
     } catch (e) {
       setError('otp-error', 'Could not reach the server. Check your connection and try again.');
     } finally {
@@ -2955,7 +2937,6 @@
       const parsed = JSON.parse(stored);
       renderHome(parsed.session);
       showScreen('home');
-      maybeOpenDeepLinkedScreen();
     } catch (e) {
       localStorage.removeItem(SESSION_KEY);
     }
