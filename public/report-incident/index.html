@@ -113,17 +113,6 @@
     </div>
 
     <form id="si-form">
-      <label for="si-location">Facility</label>
-      <select id="si-location" required>
-        <option value="">Select facility&hellip;</option>
-        <option value="Longstreet">Longstreet</option>
-        <option value="Mylan">Mylan</option>
-        <option value="Reigel">Reigel</option>
-        <option value="Janeway">Janeway</option>
-        <option value="BlossomView">BlossomView</option>
-        <option value="Philray">Philray</option>
-      </select>
-
       <label for="si-resident">Resident (initials)</label>
       <input type="text" id="si-resident" placeholder="e.g. AR" required>
 
@@ -159,6 +148,7 @@
     <div class="success-box" id="si-success" style="display:none;">
       <h2>Report submitted</h2>
       <p>Management has been notified. Thank you.</p>
+      <p style="margin-top:16px; color:#666; font-size:13px;">You may now close this window.</p>
     </div>
   </main>
 
@@ -183,7 +173,6 @@
     evt.preventDefault();
     setError('');
 
-    var location = document.getElementById('si-location').value;
     var residentInvolved = document.getElementById('si-resident').value.trim();
     var incidentDateTime = document.getElementById('si-datetime').value;
     var incidentLocation = document.getElementById('si-incident-location').value.trim();
@@ -192,7 +181,7 @@
     var reportedBy = document.getElementById('si-reported-by').value.trim();
     var honeypot = document.getElementById('si-hp').value;
 
-    if (!location || !residentInvolved || !incidentDateTime || !incidentName || !reportedBy) {
+    if (!residentInvolved || !incidentDateTime || !incidentName || !reportedBy) {
       setError('Please fill in every required field.');
       return;
     }
@@ -206,7 +195,6 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          location: location,
           residentInvolved: residentInvolved,
           incidentDateTime: incidentDateTime,
           incidentLocation: incidentLocation,
@@ -225,6 +213,14 @@
       }
       document.getElementById('si-form').style.display = 'none';
       document.getElementById('si-success').style.display = 'block';
+      // A real popup, acknowledged with a tap, rather than just the
+      // success text sitting on the page. window.close() only actually
+      // closes a tab the script itself opened — most browsers silently
+      // ignore it on a tab reached by scanning the QR code directly, so
+      // the success message stays visible underneath as the fallback
+      // when the tab doesn't close itself.
+      alert('Report submitted. Management has been notified.');
+      window.close();
     } catch (e) {
       setError('Could not reach the server. Check your connection and try again.');
       btn.disabled = false;

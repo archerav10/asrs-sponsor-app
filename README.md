@@ -208,20 +208,34 @@ don't pick up env var changes until the next deploy.
     separate from the provider app, that anyone can reach by scanning a
     printed QR code and submit a report from with no account or login at
     all: the same trust model as the paper form it replaces (physical
-    presence at the facility is the boundary, not a password). It's the
-    one write endpoint in this app without `requireSession`, on purpose,
-    and submit-only by design — unlike the in-app screen, it never reads
-    back incident history, since anyone with the URL could load it, not
-    just that facility's staff. Since there's no session to derive
-    either value from, the page asks for **Facility** (a fixed
-    dropdown of the six locations, so a typo can't create a report
-    nobody at the right facility ever sees) and **Your Name** (there's
-    no session identity to stamp `Submitted By` with) as explicit
-    fields; every other field matches the in-app screen. Writes to the
-    exact same Notion database and fires the exact same immediate admin
-    SMS alert as the in-app screen, with `Submitted By` suffixed " (via
-    public QR form, no login)" so a reviewer can always tell which path
-    a given report came through. **Nothing here actually verifies
+    presence wherever the code is posted is the boundary, not a
+    password). It's the one write endpoint in this app without
+    `requireSession`, on purpose, and submit-only by design — unlike the
+    in-app screen, it never reads back incident history, since anyone
+    with the URL could load it. Deliberately independent of the app's
+    six residential facilities — this reporting path isn't tied to any
+    of them, so the page asks nothing about location at all; the
+    function stamps every record's `Location` with a fixed placeholder
+    (`Headquarters`, the `LOCATION` constant in
+    `public-create-serious-incident.js`) purely so the Notion row is
+    shaped like every other Serious Incident record. It also asks for
+    **Your Name** explicitly, since there's no session identity to
+    stamp `Submitted By` with; every other field matches the in-app
+    screen. Writes to the exact same Notion database, with
+    `Submitted By` suffixed " (via public QR form, no login)" so a
+    reviewer can always tell which path a given report came through —
+    and fires the same immediate SMS alert, but to **every enabled
+    admin regardless of granted location** (`allEnabledAdmins` in
+    `lib/notification-recipients.js`), not the location-filtered
+    `recipientsForLocation` the in-app screen uses — location-based
+    filtering would reach nobody here unless an admin happened to be
+    granted the `Headquarters` placeholder specifically. After a
+    successful submit, the page pops a confirmation `alert()` and then
+    calls `window.close()` — that actually closes the tab only when the
+    browser opened it via script, which a tab reached by scanning a QR
+    code generally isn't, so the on-page success message stays visible
+    underneath as the fallback ("You may now close this window") when
+    the tab doesn't close itself. **Nothing here actually verifies
     physical presence** — the QR code just encodes a plain URL, so
     anyone who obtains it (photographs it, has it forwarded, or finds
     the function's path some other way) can submit from anywhere, and

@@ -1,25 +1,25 @@
 const { createPage } = require('./lib/notion');
 const { sendSms } = require('./lib/twilio');
-const { recipientsForLocation } = require('./lib/notification-recipients');
+const { allEnabledAdmins } = require('./lib/notification-recipients');
 
 const SERIOUS_INCIDENT_DB_ID = process.env.SERIOUS_INCIDENT_DB_ID;
 
-// Same six facilities used elsewhere in this app's Notion schemas
-// (Daily Progress Notes, Monthly Checklist, etc.) — kept as a fixed list
-// here too, even though this endpoint takes no session to derive it from,
-// so a typo in the submitted location can't silently create a report
-// nobody at the right facility ever sees.
-const VALID_LOCATIONS = ['Longstreet', 'Mylan', 'Reigel', 'Janeway', 'BlossomView', 'Philray'];
+// This form isn't tied to any of the six residential facilities — it's
+// used independently of them — so there's no real "Location" to ask the
+// public submitter for, and no reason to show them the internal facility
+// list. A fixed placeholder keeps the Notion record shaped the same as
+// every other Serious Incident row (which all have a Location) without
+// asking a question that has no real answer here.
+const LOCATION = 'Headquarters';
 
 // Unauthenticated counterpart to create-serious-incident.js — reachable
-// from a QR code posted at each facility with no login required, same as
-// the paper form it replaces (physical presence at the facility is the
-// only trust boundary, exactly as it was for the paper form). Submit-only
-// by design: unlike the in-app screen, this never reads back any
-// incident history, since anyone with the URL — not just this facility's
-// staff — could load this page. requireSession is deliberately absent;
-// every other write endpoint in this app has one, and this is the one
-// exception, made on purpose.
+// from a QR code with no login required, same as the paper form it
+// replaces (physical presence wherever the code is posted is the only
+// trust boundary, exactly as it was for the paper form). Submit-only by
+// design: unlike the in-app screen, this never reads back any incident
+// history, since anyone with the URL could load this page. requireSession
+// is deliberately absent; every other write endpoint in this app has
+// one, and this is the one exception, made on purpose.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -38,7 +38,6 @@ exports.handler = async function (event) {
       return { statusCode: 200, body: JSON.stringify({ success: true }) };
     }
 
-    const location = body.location || '';
     const residentInvolved = (body.residentInvolved || '').trim().slice(0, 200);
     const incidentDateTime = body.incidentDateTime; // "YYYY-MM-DDTHH:MM"
     const incidentLocation = (body.incidentLocation || '').trim().slice(0, 200);
@@ -46,9 +45,6 @@ exports.handler = async function (event) {
     const details = (body.details || '').trim().slice(0, 5000);
     const reportedBy = (body.reportedBy || '').trim().slice(0, 200);
 
-    if (VALID_LOCATIONS.indexOf(location) === -1) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Choose a valid facility.' }) };
-    }
     if (!residentInvolved) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Resident is required.' }) };
     }
@@ -67,7 +63,7 @@ exports.handler = async function (event) {
 
     await createPage(SERIOUS_INCIDENT_DB_ID, {
       'Name': { title: [{ text: { content: incidentName } }] },
-      'Location': { rich_text: [{ text: { content: location } }] },
+      'Location': { rich_text: [{ text: { content: LOCATION } }] },
       'Resident Involved': { rich_text: [{ text: { content: residentInvolved } }] },
       'Date of Incident': { date: { start: incidentDateTime } },
       'Location of Incident': { rich_text: [{ text: { content: incidentLocation } }] },
@@ -77,14 +73,16 @@ exports.handler = async function (event) {
     });
 
     // Immediate notification — not batched into any scheduled check.
-    // Administration only, not sponsors, same as the authenticated path.
+    // Every admin, not filtered by granted location — this form isn't
+    // tied to a facility, so location-based filtering would reach nobody
+    // unless an admin happened to be granted the LOCATION placeholder
+    // specifically.
     try {
-      const recipients = await recipientsForLocation(location);
-      const admins = recipients.filter(function (r) { return r.role === 'admin'; });
+      const admins = await allEnabledAdmins();
       const dateLabel = new Date(incidentDateTime).toLocaleString('en-US', {
         month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
       });
-      const message = 'ASRS SERIOUS INCIDENT — ' + location + '\n' +
+      const message = 'ASRS SERIOUS INCIDENT (public form)\n' +
         incidentName + '\n' +
         'Resident: ' + residentInvolved + '\n' +
         'When: ' + dateLabel + '\n' +

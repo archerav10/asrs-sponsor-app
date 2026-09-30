@@ -59,6 +59,28 @@ async function recipientsForLocation(location) {
   return recipients;
 }
 
+// Every admin with app access, regardless of which locations they're
+// granted — for the public Serious Incident QR form, which isn't tied
+// to any one of the six facilities (see public-create-serious-incident.js),
+// so filtering by Granted Locations the way recipientsForLocation does
+// wouldn't reach anyone unless an admin happened to be granted the
+// dummy "Headquarters" location specifically.
+async function allEnabledAdmins() {
+  const recipients = [];
+  const seenPhones = new Set();
+  const adminsResult = await queryDatabase(ADMIN_ACCOUNTS_DB_ID, null);
+  (adminsResult.results || []).forEach(function (page) {
+    const enabled = getPlainText(page.properties['Admin App Enabled']);
+    if (!enabled) return;
+    const phone = getPlainText(page.properties['Phone Number']);
+    if (phone && !seenPhones.has(phone)) {
+      seenPhones.add(phone);
+      recipients.push({ phone: phone, name: getPlainText(page.properties['Name']), role: 'admin' });
+    }
+  });
+  return recipients;
+}
+
 // What every routine (non-incident) notification job should call instead
 // of recipientsForLocation directly — bakes in the opt-out filter so a
 // future check file can't forget it. create-serious-incident.js is the
@@ -69,4 +91,4 @@ async function routineRecipientsForLocation(location) {
   return (await recipientsForLocation(location)).filter(function (r) { return !r.routineNotificationsOptedOut; });
 }
 
-module.exports = { recipientsForLocation, routineRecipientsForLocation };
+module.exports = { recipientsForLocation, routineRecipientsForLocation, allEnabledAdmins };
