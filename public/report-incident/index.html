@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Report a Serious Incident</title>
+<meta name="theme-color" content="#16332B">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --forest: #16332B;
+    --forest-light: #2F5D45;
+    --cream: #F6F3EC;
+    --ink: #1C1C1A;
+    --border: #D8D2C2;
+    --error: #B3261E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--forest);
+    color: var(--cream);
+    padding: 20px 24px 18px;
+  }
+  header .wordmark {
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    opacity: 0.85;
+    margin: 0 0 2px;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 0;
+    font-weight: 600;
+  }
+  main {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 20px 20px 60px;
+  }
+  .notice {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .notice strong { color: var(--forest); }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 18px 0 6px;
+  }
+  input[type="text"], input[type="datetime-local"], select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    background: #fff;
+    color: var(--ink);
+  }
+  textarea { resize: vertical; }
+  .error-text {
+    color: var(--error);
+    font-size: 14px;
+    margin: 14px 0 0;
+    display: none;
+  }
+  button {
+    width: 100%;
+    margin-top: 26px;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    background: var(--forest);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; }
+  .success-box {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 20px;
+    text-align: center;
+  }
+  .success-box h2 { color: var(--forest); margin-top: 0; }
+</style>
+</head>
+<body>
+  <header>
+    <p class="wordmark">ARCH SUPPORT RESIDENTIAL SERVICES</p>
+    <h1>Report a Serious Incident</h1>
+  </header>
+  <main>
+    <div class="notice">
+      A serious incident is any event or circumstance that causes or could cause harm to an individual's
+      health, safety, or well-being. <strong>Submitting this form immediately notifies management</strong> —
+      no login is required, and there is nothing else to call or email.
+    </div>
+
+    <form id="si-form">
+      <label for="si-location">Facility</label>
+      <select id="si-location" required>
+        <option value="">Select facility&hellip;</option>
+        <option value="Longstreet">Longstreet</option>
+        <option value="Mylan">Mylan</option>
+        <option value="Reigel">Reigel</option>
+        <option value="Janeway">Janeway</option>
+        <option value="BlossomView">BlossomView</option>
+        <option value="Philray">Philray</option>
+      </select>
+
+      <label for="si-resident">Resident (initials)</label>
+      <input type="text" id="si-resident" placeholder="e.g. AR" required>
+
+      <label for="si-datetime">Date and Time of Incident</label>
+      <input type="datetime-local" id="si-datetime" required>
+
+      <label for="si-incident-location">Location of Incident</label>
+      <input type="text" id="si-incident-location" placeholder="e.g. Kitchen, Bedroom 2">
+
+      <label for="si-name">Name the Incident</label>
+      <input type="text" id="si-name" placeholder="One sentence, for referencing" required>
+
+      <label for="si-details">Details</label>
+      <textarea id="si-details" rows="6" placeholder="Who witnessed it, what occurred, and what happened after"></textarea>
+
+      <label for="si-reported-by">Your Name</label>
+      <input type="text" id="si-reported-by" placeholder="Whoever is submitting this report" required>
+
+      <!-- Honeypot: hidden from real visitors (off-screen, never focusable
+           or announced), left blank by them. A simple bot that fills
+           every field it finds tends to fill this too — a submission
+           with it non-empty is quietly dropped, no error shown, so the
+           bot can't tell it failed. Not a defense against a targeted
+           human attacker, just cheap deterrence against drive-by spam,
+           matching how little friction the paper form this replaces had. -->
+      <input type="text" id="si-hp" name="company" tabindex="-1" autocomplete="off"
+             style="position:absolute; left:-9999px; width:1px; height:1px; opacity:0;">
+
+      <p class="error-text" id="si-error"></p>
+      <button type="submit" id="si-submit">Submit Incident Report</button>
+    </form>
+
+    <div class="success-box" id="si-success" style="display:none;">
+      <h2>Report submitted</h2>
+      <p>Management has been notified. Thank you.</p>
+    </div>
+  </main>
+
+<script>
+(function () {
+  // Defaults to right now, in the visitor's own local time — most
+  // reports are filed within minutes of the incident, and datetime-local
+  // has no timezone info of its own, so this keeps the common case a
+  // one-tap confirm instead of a fully manual entry.
+  var dtInput = document.getElementById('si-datetime');
+  var now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  dtInput.value = now.toISOString().slice(0, 16);
+
+  function setError(message) {
+    var el = document.getElementById('si-error');
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+  }
+
+  document.getElementById('si-form').addEventListener('submit', async function (evt) {
+    evt.preventDefault();
+    setError('');
+
+    var location = document.getElementById('si-location').value;
+    var residentInvolved = document.getElementById('si-resident').value.trim();
+    var incidentDateTime = document.getElementById('si-datetime').value;
+    var incidentLocation = document.getElementById('si-incident-location').value.trim();
+    var incidentName = document.getElementById('si-name').value.trim();
+    var details = document.getElementById('si-details').value.trim();
+    var reportedBy = document.getElementById('si-reported-by').value.trim();
+    var honeypot = document.getElementById('si-hp').value;
+
+    if (!location || !residentInvolved || !incidentDateTime || !incidentName || !reportedBy) {
+      setError('Please fill in every required field.');
+      return;
+    }
+
+    var btn = document.getElementById('si-submit');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      var res = await fetch('/.netlify/functions/public-create-serious-incident', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: location,
+          residentInvolved: residentInvolved,
+          incidentDateTime: incidentDateTime,
+          incidentLocation: incidentLocation,
+          incidentName: incidentName,
+          details: details,
+          reportedBy: reportedBy,
+          company: honeypot
+        })
+      });
+      var data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Submit Incident Report';
+        return;
+      }
+      document.getElementById('si-form').style.display = 'none';
+      document.getElementById('si-success').style.display = 'block';
+    } catch (e) {
+      setError('Could not reach the server. Check your connection and try again.');
+      btn.disabled = false;
+      btn.textContent = 'Submit Incident Report';
+    }
+  });
+})();
+</script>
+</body>
+</html>

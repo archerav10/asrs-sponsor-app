@@ -203,6 +203,38 @@ don't pick up env var changes until the next deploy.
   recent-only window). **Immediately texts every admin granted that
   location** (not sponsors) the moment it's submitted — this is a
   real-time send, not part of any scheduled check.
+  - **QR-code, no-login public reporting** (`public/report-incident/`,
+    `public-create-serious-incident.js`) — a standalone page, entirely
+    separate from the provider app, that anyone can reach by scanning a
+    printed QR code and submit a report from with no account or login at
+    all: the same trust model as the paper form it replaces (physical
+    presence at the facility is the boundary, not a password). It's the
+    one write endpoint in this app without `requireSession`, on purpose,
+    and submit-only by design — unlike the in-app screen, it never reads
+    back incident history, since anyone with the URL could load it, not
+    just that facility's staff. Since there's no session to derive
+    either value from, the page asks for **Facility** (a fixed
+    dropdown of the six locations, so a typo can't create a report
+    nobody at the right facility ever sees) and **Your Name** (there's
+    no session identity to stamp `Submitted By` with) as explicit
+    fields; every other field matches the in-app screen. Writes to the
+    exact same Notion database and fires the exact same immediate admin
+    SMS alert as the in-app screen, with `Submitted By` suffixed " (via
+    public QR form, no login)" so a reviewer can always tell which path
+    a given report came through. **Nothing here actually verifies
+    physical presence** — the QR code just encodes a plain URL, so
+    anyone who obtains it (photographs it, has it forwarded, or finds
+    the function's path some other way) can submit from anywhere, and
+    there's no per-caller rate limiting. A hidden honeypot field
+    (`si-hp` in the page, checked as `company` in the function) quietly
+    no-ops a simple bot that fills in every field it finds, and every
+    free-text field is length-capped server-side — but neither of those
+    stops a deliberate, targeted abuser. That trade-off (the same one
+    the paper form already had — a stranger could always fill one out
+    and drop it in the box) was chosen on purpose for zero-friction
+    reporting; add real rate limiting (e.g. Netlify's own, or a
+    signed/expiring token baked into the QR code) if that stops being
+    an acceptable risk.
 - **MAR Review sits right under the home card.** Its own button(s) —
   one per resident, full-size like every other report button — render
   in a dedicated block between the home card and the main action list,

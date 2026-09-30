@@ -2408,15 +2408,18 @@
       ' \u2022 ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
+  // Escaped — incident.name can now come from the public, no-login
+  // report form (public-create-serious-incident.js), so this is no
+  // longer text only someone with facility credentials could have typed.
   function renderIncidentRow(incident) {
     const wrap = document.createElement('div');
     wrap.className = 'incident-row';
     wrap.innerHTML =
       '<div class="incident-main">' +
-        '<p class="incident-name">' + incident.name + '</p>' +
+        '<p class="incident-name">' + escapeHtml(incident.name) + '</p>' +
         '<p class="incident-date">' + formatIncidentDate(incident.dateOfIncident) + '</p>' +
       '</div>' +
-      '<span class="status-badge">' + (incident.status || 'Submitted') + '</span>';
+      '<span class="status-badge">' + escapeHtml(incident.status || 'Submitted') + '</span>';
     return wrap;
   }
 
