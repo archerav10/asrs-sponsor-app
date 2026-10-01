@@ -33,3 +33,12 @@
   # pin above) — generates a PDF for every Daily Progress Note signed
   # since the last run and uploads it to Google Drive via Zapier.
   schedule = "30 13 * * *"
+
+[functions."generate-medication-reports"]
+  # 9:30am US/Eastern, the 3rd of every month (see check-report-status's
+  # comment on the UTC/DST pin above) — generates every location/
+  # resident's Medication Administration Report for the month that just
+  # ended and uploads it to Google Drive via Zapier. The 3rd rather than
+  # the 1st gives Give Medications' 14-day catch-up window a couple of
+  # days' room to close out the month first.
+  schedule = "30 13 3 * *"

@@ -82,12 +82,32 @@
     <button id="add-btn">Add Medication</button>
     <p class="msg" id="add-msg"></p>
   </div>
+
+  <h2>Medication Administration Report</h2>
+  <div class="med-card">
+    <p class="help-text" style="font-size:13px; color:#666; margin:0 0 10px;">Generates and uploads the selected resident's Medication Administration Report PDF for the chosen month to Google Drive &mdash; the same report that also generates automatically for the previous month on the 3rd of every month.</p>
+    <label>Month</label>
+    <input type="month" id="report-month">
+    <button id="report-btn">Generate &amp; Upload to Drive</button>
+    <p class="msg" id="report-msg"></p>
+  </div>
 </main>
 
 <script src="/admin/admin-auth.js"></script>
 <script>
 requireAdminSession();
 document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
+
+// Defaults to last month, since that's the report most often wanted on
+// demand (checking/printing before or instead of waiting for the
+// automatic run on the 3rd) — never today's partial, still-in-progress
+// month.
+(function () {
+  const now = new Date();
+  now.setDate(1);
+  now.setMonth(now.getMonth() - 1);
+  document.getElementById('report-month').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+})();
 
 const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
 
@@ -268,6 +288,55 @@ document.getElementById('add-btn').addEventListener('click', async function () {
     msg.textContent = 'Could not reach the server.';
   } finally {
     btn.disabled = false;
+  }
+});
+
+document.getElementById('report-btn').addEventListener('click', async function () {
+  const location = document.getElementById('location').value;
+  const resident = document.getElementById('resident').value.trim();
+  const yearMonth = document.getElementById('report-month').value;
+  const msg = document.getElementById('report-msg');
+  msg.className = 'msg';
+  msg.style.display = 'none';
+
+  if (!resident) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Enter resident initials at the top first.';
+    return;
+  }
+  if (!yearMonth) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Pick a month.';
+    return;
+  }
+
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const res = await adminFetch('/.netlify/functions/admin-generate-medication-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: location, resident: resident, yearMonth: yearMonth })
+    });
+    const data = await res.json();
+    msg.style.display = 'block';
+    if (!res.ok) {
+      msg.classList.add('error');
+      msg.textContent = data.error || 'Something went wrong.';
+    } else {
+      msg.classList.add('ok');
+      msg.textContent = 'Uploaded ' + data.filename + ' to Google Drive.';
+    }
+  } catch (e) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Could not reach the server.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate & Upload to Drive';
   }
 });
 </script>

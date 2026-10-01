@@ -56,6 +56,7 @@ workflow as your other portals.
 | `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID` | `4b98a8d0-af57-421a-a68b-9ace4b28a081` |
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
+| `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Reports" Zap — see setup steps below |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -307,6 +308,47 @@ don't pick up env var changes until the next deploy.
     scope decision — add a scheduled check later, mirroring
     `check-mar-medication-alerts.js`, if silent gaps turn out to be a
     real problem in practice).
+- **Medication Administration Reports** (`generate-medication-reports.js`,
+  scheduled on the 3rd of every month; `admin-generate-medication-report.js`,
+  on-demand; both built on `lib/medication-report.js` +
+  `lib/medication-report-pdf.js`) — a printable monthly MAR chart per
+  resident, modeled on Therap's own MAR Monthly View: one block per
+  scheduled medication/time-of-day pair, a day-of-month grid (landscape
+  letter, since a 31-column grid doesn't fit portrait), the sponsor's
+  initials filled in for a Given dose, a red circle around the initials
+  for Refused, an amber circle for Held, and a solid grey cell (no
+  initials) for a day that was due but never logged at all — the one
+  state meant to visually stand out as a real gap, distinct from a
+  documented Refused/Held. PRN doses have no fixed schedule to grid
+  against, so they're listed separately underneath as a dated list
+  (date, medication, initials, reason).
+  - **Resolved per day, not from "today's" medication list** — reuses
+    `medicationsInEffectOn`/`fetchMedicationsRaw` from
+    `lib/medication-administration.js`, the same Effective/Termination
+    Date machinery Give Medications itself is built on, so a medication
+    changed mid-month shows correctly on each side of the switch here
+    too, and a day before a medication's Effective Date renders blank
+    (not a false "missing") rather than grey.
+  - **Scheduled for the 3rd, not the 1st** — covers the full PREVIOUS
+    calendar month, every location/resident, uploaded to Drive the same
+    Catch Hook -> Find/Create Folder -> Upload File pattern the Daily
+    Progress Note PDFs use (see the setup section below) — but waits
+    until the 3rd specifically so Give Medications' own 14-day catch-up
+    window has a couple of days' room to close out the month's last few
+    days before the report is generated and treated as final.
+  - **On-demand admin button** (`manage-medications.html`, bottom of the
+    page) generates and uploads any resident/month's report immediately
+    — printing on request, or spot-checking a month before the
+    automatic run reaches it. Defaults to last month in the UI, since
+    the current month is still in progress.
+  - **Resident Full Name** for the Drive upload is sourced from that
+    resident's Daily Progress Notes template (the MAR database has no
+    full-name field of its own) — falls back to initials if the
+    resident has no DPN template on file at all, a known gap for a
+    resident set up in Give Medications but not yet in Daily Progress
+    Notes.
+  - **New env var:** `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` — see the
+    setup section below.
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
@@ -1181,6 +1223,34 @@ rather than a single Upload File step:
    the Zap does after that (a "respond immediately" Catch Hook returns
    before the Drive steps even run), so `PDF Drive URL` is left blank
    unless you build a synchronous Zap that hands one back.
+
+#### Setting up the Medication Administration Report upload (Zapier)
+
+Same pattern again, one folder shallower than Daily Progress Notes —
+one report file per resident per MONTH (not per day), so there's no
+need for a yearMonth subfolder; `yearMonth` is already baked into the
+filename instead:
+
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the
+   webhook URL into `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` in Netlify.
+   Incoming fields: `file` (the PDF), `filename` (already built as
+   `MedicationReport_Location_ResidentInitials_YYYY-MM.pdf`),
+   `location`, `residentInitials`, `residentFullName`, and `yearMonth`
+   (`YYYY-MM`).
+2. Google Drive -> Find a Folder, title = the webhook's `location`,
+   inside your facilities root folder. Find-only, same reasoning as the
+   Daily Progress Notes Zap — don't silently scatter a report into a
+   new folder over a typo'd Location.
+3. Google Drive -> Find a Folder, title `Residents`, inside the folder
+   from step 2. Find-only.
+4. Google Drive -> Find a Folder, title = the webhook's
+   `residentFullName`, inside the folder from step 3. Find-only.
+5. Google Drive -> Find a Folder, title `Medication Administration
+   Reports`, inside the folder from step 4 — a sibling of that
+   resident's `Daily Progress Notes` folder. Create-if-missing.
+6. Google Drive -> Upload File, folder = the folder from step 5, file =
+   the webhook's `file`, filename = the webhook's `filename`.
+7. Publish the Zap.
 
 ## Weekly admin email digest
 
