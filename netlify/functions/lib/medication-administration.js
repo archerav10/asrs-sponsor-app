@@ -18,11 +18,12 @@ function getMultiSelect(prop) {
   return prop && prop.multi_select ? prop.multi_select.map(function (o) { return o.name; }) : [];
 }
 
-// Every active medication on file for this resident — Regular and PRN
-// both included (Info rows, like Allergy Info/General Notes, are never
-// relevant here and are filtered out), each with its own Times of Day
-// list (empty for PRN, since an as-needed dose has no fixed slot).
-async function activeMedicationsForResident(location, resident) {
+// Every active medication row on file for this resident — Regular and
+// PRN both included (Info rows, like Allergy Info/General Notes, are
+// never relevant here and are filtered out) — UNFILTERED by Effective/
+// Termination Date, so callers can slice the same fetch by date
+// themselves (medicationsInEffectOn) without re-querying Notion per day.
+async function fetchMedicationsRaw(location, resident) {
   const result = await queryDatabase(MAR_DB_ID, {
     and: [
       { property: 'Location', select: { equals: location } },
@@ -37,9 +38,38 @@ async function activeMedicationsForResident(location, resident) {
       itemName: getPlainText(page.properties['Item Name']),
       dosage: getPlainText(page.properties['Dosage']),
       medicationType: getPlainText(page.properties['Medication Type']), // Regular | PRN
-      timesOfDay: getMultiSelect(page.properties['Times of Day'])
+      timesOfDay: getMultiSelect(page.properties['Times of Day']),
+      effectiveDate: getPlainText(page.properties['Effective Date']),
+      terminationDate: getPlainText(page.properties['Termination Date'])
     };
   }).sort(function (a, b) { return a.itemName.localeCompare(b.itemName); });
+}
+
+// Which of an already-fetched set of medication rows actually applied on
+// a given date — a half-open [Effective Date, Termination Date) window,
+// same convention as Daily Progress Notes' own template versioning. A
+// blank Effective Date means "has always applied" (no backfill needed
+// for rows entered before this field existed); a blank Termination Date
+// means "still applies." This is what lets a medication change mid-month
+// show the OLD medication's schedule on days before the switch and the
+// NEW one from the switch day forward, instead of today's medication
+// list being silently applied to every day in the lookback window.
+function medicationsInEffectOn(allMeds, date) {
+  return allMeds.filter(function (m) {
+    if (m.effectiveDate && m.effectiveDate > date) return false;
+    if (m.terminationDate && date >= m.terminationDate) return false;
+    return true;
+  });
+}
+
+// Convenience wrapper for a single date — used by the dose-logging
+// endpoints, which only ever need one date's answer, not a whole
+// lookback window's worth (resolveMedicationDayOptions below does its
+// own single fetchMedicationsRaw + per-day filtering instead of calling
+// this in a loop, to avoid re-querying Notion once per day).
+async function medicationsForResidentOnDate(location, resident, date) {
+  const all = await fetchMedicationsRaw(location, resident);
+  return medicationsInEffectOn(all, date);
 }
 
 // Every (medication, slot) pair a complete day needs a log entry for —
@@ -121,6 +151,18 @@ async function requiresStrictOrder(location, resident, today) {
   return !questions[0].timesCoveredEditable;
 }
 
+// Splits an already-fetched raw medication list into what applied on one
+// specific date: Regular vs. PRN, plus that date's own expected slots —
+// a medication that was discontinued or hadn't started yet on that date
+// simply doesn't appear, so a day's completeness is judged against what
+// was ACTUALLY prescribed that day, not whatever's prescribed today.
+function medicationsForDate(allMeds, date) {
+  const meds = medicationsInEffectOn(allMeds, date);
+  const regularMeds = meds.filter(function (m) { return m.medicationType === 'Regular'; });
+  const prnMeds = meds.filter(function (m) { return m.medicationType === 'PRN'; });
+  return { regularMeds: regularMeds, prnMeds: prnMeds, expectedSlots: expectedSlotsForMedications(regularMeds) };
+}
+
 // The single entry point get/save-medication-dose.js both go through to
 // resolve which date(s) are currently valid to act on, mirroring
 // resolveDayOptions in daily-progress-notes.js:
@@ -129,26 +171,27 @@ async function requiresStrictOrder(location, resident, today) {
 //   - strict:true -> every day in the last LOOKBACK_DAYS that isn't yet
 //     complete, oldest first (today always included even if complete,
 //     so there's still something to show/re-view).
+// medicationsByDate holds each walked day's OWN medication list (see
+// medicationsForDate) — not one list reused across every day — so a
+// medication change mid-window is reflected correctly on each side of
+// the change.
 async function resolveMedicationDayOptions(location, resident, now) {
   now = now || new Date();
   const today = isoDate(now);
   const strict = await requiresStrictOrder(location, resident, today);
-  const medications = await activeMedicationsForResident(location, resident);
-  const regularMeds = medications.filter(function (m) { return m.medicationType === 'Regular'; });
-  const prnMeds = medications.filter(function (m) { return m.medicationType === 'PRN'; });
-  const expectedSlots = expectedSlotsForMedications(regularMeds);
+  const allMeds = await fetchMedicationsRaw(location, resident);
 
   if (!strict) {
     const todaysLogs = await logsInRange(location, resident, today, today);
     const logsByDate = {};
     logsByDate[today] = todaysLogs;
+    const medicationsByDate = {};
+    medicationsByDate[today] = medicationsForDate(allMeds, today);
     return {
       strict: false,
       today: today,
       outstandingDates: [today],
-      regularMeds: regularMeds,
-      prnMeds: prnMeds,
-      expectedSlots: expectedSlots,
+      medicationsByDate: medicationsByDate,
       logsByDate: logsByDate
     };
   }
@@ -159,12 +202,15 @@ async function resolveMedicationDayOptions(location, resident, now) {
   const walkStart = earliestLogged && earliestLogged > windowFloor ? earliestLogged : windowFloor;
 
   const logsByDate = {};
+  const medicationsByDate = {};
   const days = [];
   let cursor = walkStart;
   while (cursor <= today) {
     const dayLogs = logsForDate(allLogs, cursor);
+    const dayMeds = medicationsForDate(allMeds, cursor);
     logsByDate[cursor] = dayLogs;
-    days.push({ date: cursor, complete: isDayComplete(expectedSlots, dayLogs) });
+    medicationsByDate[cursor] = dayMeds;
+    days.push({ date: cursor, complete: isDayComplete(dayMeds.expectedSlots, dayLogs) });
     cursor = addDaysISO(cursor, 1);
   }
 
@@ -175,9 +221,7 @@ async function resolveMedicationDayOptions(location, resident, now) {
     strict: true,
     today: today,
     outstandingDates: outstandingDates,
-    regularMeds: regularMeds,
-    prnMeds: prnMeds,
-    expectedSlots: expectedSlots,
+    medicationsByDate: medicationsByDate,
     logsByDate: logsByDate
   };
 }
@@ -229,7 +273,9 @@ async function logPrnDose(location, resident, medication, reason, givenBy) {
 
 module.exports = {
   TIME_SLOTS,
-  activeMedicationsForResident,
+  fetchMedicationsRaw,
+  medicationsInEffectOn,
+  medicationsForResidentOnDate,
   expectedSlotsForMedications,
   logsInRange,
   logsForDate,

@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { activeMedicationsForResident, logPrnDose } = require('./lib/medication-administration');
+const { medicationsForResidentOnDate, logPrnDose, isoDate } = require('./lib/medication-administration');
 
 // Logs an as-needed dose, always "now" — no date/slot picking, no
 // day-walk gating (PRN doses are never part of what makes a scheduled
@@ -28,10 +28,10 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'A reason is required for an as-needed dose.' }) };
     }
 
-    const medications = await activeMedicationsForResident(session.location, resident);
+    const medications = await medicationsForResidentOnDate(session.location, resident, isoDate(new Date()));
     const medication = medications.find(function (m) { return m.id === medicationId && m.medicationType === 'PRN'; });
     if (!medication) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'That medication is not an active as-needed medication for this resident.' }) };
+      return { statusCode: 400, body: JSON.stringify({ error: 'That medication is not an active as-needed medication for this resident today.' }) };
     }
 
     const givenBy = session.name || session.email;

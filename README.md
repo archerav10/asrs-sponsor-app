@@ -200,6 +200,29 @@ don't pick up env var changes until the next deploy.
     replaces trying to parse the free-text Frequency field, which isn't
     structured enough to drive a checklist reliably. PRN medications
     don't get one — there's no fixed schedule to assign.
+  - **Effective Date / Termination Date** — also new, also set in
+    `manage-medications.html`, on every medication (Regular and PRN
+    alike). A half-open window, same convention as Daily Progress
+    Notes' own template versioning: blank Effective Date means "has
+    always applied" (so nothing already on file needed backfilling when
+    this field was added), blank Termination Date means "still
+    applies." This is what lets a medication change mid-month — or at a
+    month boundary — resolve correctly: **to change a medication,
+    set the OLD row's Termination Date to the switch day and give the
+    REPLACEMENT row (new or edited) an Effective Date of that same
+    day** — rather than editing the existing row's Dosage/Frequency in
+    place, which would silently rewrite history (every earlier day in
+    the lookback window would then show the NEW dosage as if it had
+    applied all along). `medicationsInEffectOn` in
+    `lib/medication-administration.js` resolves, for any single date,
+    exactly which medications applied THEN — `resolveMedicationDayOptions`
+    calls it once per day in the walk (`medicationsForDate`), so each
+    day's expected slots and completeness are judged against what was
+    actually prescribed that day, never against today's medication list
+    applied uniformly backwards. Distinct from **Active**, which stays
+    a soft-delete for a mistakenly-entered row (matching every other
+    "Active" checkbox in this app) — a real, intentional medication
+    change is recorded with dates, never by flipping Active off.
   - **One button per resident**, same pattern as MAR Review/Daily
     Progress Notes. The screen groups that resident's active Regular
     medications by time of day and lets staff mark each dose **Given**,
@@ -229,11 +252,11 @@ don't pick up env var changes until the next deploy.
     brand-new resident on a template that doesn't exist yet would only
     get in the way.
   - **Bounded 14-day lookback**, not an unbounded walk back to whenever
-    this resident's medications were first set up — there's no
-    "effective date" concept for a medication's schedule the way Daily
-    Progress Notes has one for its questionnaire, so a resident with a
-    long history doesn't get asked to backfill doses from before this
-    feature even existed. `LOOKBACK_DAYS` in
+    this resident's medications were first set up — even with Effective
+    Date now in place, a resident with a long history doesn't get asked
+    to backfill doses from before this feature even existed (and every
+    extra day in the walk is one more day's worth of medication-list
+    resolution and completeness checking). `LOOKBACK_DAYS` in
     `lib/medication-administration.js`.
   - **Home button's status dot**: green once today's expected slots are
     all logged (or nothing's scheduled at all); yellow if today still
@@ -1263,7 +1286,12 @@ been granted.
   medication also has **Times of Day** checkboxes (AM/Noon/Afternoon/PM)
   — what the Give Medications screen groups that dose under; shown for
   every medication type, though only Regular ones are actually read by
-  it (PRN has no fixed schedule).
+  it (PRN has no fixed schedule) — and **Effective Date**/**Termination
+  Date** fields. To change a medication mid-month (or at a month
+  boundary): set the current row's Termination Date to the switch day,
+  then set the replacement's Effective Date to that same day, rather
+  than editing the existing row's Dosage/Frequency in place (which would
+  silently apply the new value to every earlier day too).
 
   **This is also how you add a brand-new resident to a location** —
   there's no separate "add resident" screen anywhere in this app.

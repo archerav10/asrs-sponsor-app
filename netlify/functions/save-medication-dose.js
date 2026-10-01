@@ -47,7 +47,8 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'That day isn’t available to log doses for.' }) };
     }
 
-    const medication = options.regularMeds.find(function (m) { return m.id === medicationId; });
+    const medsForDay = options.medicationsByDate[date] || { regularMeds: [] };
+    const medication = medsForDay.regularMeds.find(function (m) { return m.id === medicationId; });
     if (!medication) {
       return { statusCode: 400, body: JSON.stringify({ error: 'That medication is not an active scheduled medication for this resident.' }) };
     }

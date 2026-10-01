@@ -24,9 +24,13 @@ exports.handler = async function (event) {
     const options = await resolveMedicationDayOptions(session.location, resident);
     const date = params.date && options.outstandingDates.indexOf(params.date) !== -1 ? params.date : options.outstandingDates[0];
     const logsForDay = options.logsByDate[date] || [];
+    // Which medications were actually prescribed on THIS specific day —
+    // not whatever's prescribed today — so a mid-window medication
+    // change shows the right schedule on each side of the switch.
+    const medsForDay = options.medicationsByDate[date] || { regularMeds: [], prnMeds: [] };
 
     const slots = TIME_SLOTS.map(function (slot) {
-      const meds = options.regularMeds.filter(function (m) { return m.timesOfDay.indexOf(slot) !== -1; });
+      const meds = medsForDay.regularMeds.filter(function (m) { return m.timesOfDay.indexOf(slot) !== -1; });
       return {
         slot: slot,
         medications: meds.map(function (m) {
@@ -46,6 +50,10 @@ exports.handler = async function (event) {
     }).filter(function (s) { return s.medications.length; });
 
     const todaysPrnLogs = (options.logsByDate[options.today] || []).filter(function (l) { return l.timeOfDay === 'PRN'; });
+    // PRN dosing always happens "right now," regardless of which past
+    // day is being caught up on above — so the PRN list reflects today's
+    // medications specifically, not medsForDay.
+    const todaysMeds = options.medicationsByDate[options.today] || { prnMeds: [] };
 
     return {
       statusCode: 200,
@@ -57,7 +65,7 @@ exports.handler = async function (event) {
         strict: options.strict,
         outstandingDates: options.outstandingDates,
         slots: slots,
-        prnMedications: options.prnMeds.map(function (m) { return { id: m.id, itemName: m.itemName, dosage: m.dosage }; }),
+        prnMedications: todaysMeds.prnMeds.map(function (m) { return { id: m.id, itemName: m.itemName, dosage: m.dosage }; }),
         todaysPrnLogs: todaysPrnLogs
       })
     };

@@ -74,6 +74,11 @@
       <option value="PRN">PRN</option>
     </select>
     <div id="new-tod-container"></div>
+    <div class="field-row">
+      <div><label>Effective Date</label><input type="date" id="new-effective"></div>
+      <div><label>Termination Date</label><input type="date" id="new-termination"></div>
+    </div>
+    <p class="help-text" style="font-size:12px; color:#666; margin:4px 0 0;">Leave Effective Date blank unless this medication is replacing another one mid-month (then set it to the switch day, and set the OLD medication's Termination Date to that same day).</p>
     <button id="add-btn">Add Medication</button>
     <p class="msg" id="add-msg"></p>
   </div>
@@ -122,6 +127,11 @@ function medCardHtml(med) {
       '<option value="PRN"' + (med.medicationType === 'PRN' ? ' selected' : '') + '>PRN</option>' +
     '</select>' +
     timesOfDayHtml(med.timesOfDay) +
+    '<div class="field-row">' +
+      '<div><label>Effective Date</label><input type="date" class="f-effective" value="' + (med.effectiveDate || '') + '"></div>' +
+      '<div><label>Termination Date</label><input type="date" class="f-termination" value="' + (med.terminationDate || '') + '"></div>' +
+    '</div>' +
+    '<p class="help-text" style="font-size:12px; color:#666; margin:4px 0 0;">Blank Effective Date = has always applied. Blank Termination Date = still applies. To change a medication mid-month: set this row\'s Termination Date to the switch day, then add the replacement below with that same Effective Date.</p>' +
     '<div class="checkbox-row"><input type="checkbox" class="f-active"' + (med.active ? ' checked' : '') + '><label style="margin:0;">Active</label></div>' +
     '<button class="save-btn">Save</button>' +
     '<p class="msg"></p>';
@@ -148,7 +158,9 @@ function attachSaveHandler(card, med, location, resident) {
           purpose: card.querySelector('.f-purpose').value,
           medicationType: card.querySelector('.f-type').value,
           active: card.querySelector('.f-active').checked,
-          timesOfDay: readTimesOfDay(card)
+          timesOfDay: readTimesOfDay(card),
+          effectiveDate: card.querySelector('.f-effective').value,
+          terminationDate: card.querySelector('.f-termination').value
         })
       });
       const data = await res.json();
@@ -229,7 +241,9 @@ document.getElementById('add-btn').addEventListener('click', async function () {
         purpose: document.getElementById('new-purpose').value,
         medicationType: document.getElementById('new-type').value,
         active: true,
-        timesOfDay: readTimesOfDay(document.getElementById('new-med-card'))
+        timesOfDay: readTimesOfDay(document.getElementById('new-med-card')),
+        effectiveDate: document.getElementById('new-effective').value,
+        terminationDate: document.getElementById('new-termination').value
       })
     });
     const data = await res.json();
@@ -245,6 +259,8 @@ document.getElementById('add-btn').addEventListener('click', async function () {
       document.getElementById('new-frequency').value = '';
       document.getElementById('new-purpose').value = '';
       document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
+      document.getElementById('new-effective').value = '';
+      document.getElementById('new-termination').value = '';
     }
   } catch (e) {
     msg.style.display = 'block';

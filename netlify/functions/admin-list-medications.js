@@ -35,7 +35,9 @@ exports.handler = async function (event) {
         purpose: getPlainText(page.properties['Purpose']),
         medicationType: getPlainText(page.properties['Medication Type']),
         active: getPlainText(page.properties['Active']),
-        timesOfDay: (page.properties['Times of Day'].multi_select || []).map(function (o) { return o.name; })
+        timesOfDay: (page.properties['Times of Day'].multi_select || []).map(function (o) { return o.name; }),
+        effectiveDate: getPlainText(page.properties['Effective Date']),
+        terminationDate: getPlainText(page.properties['Termination Date'])
       };
     }).sort(function (a, b) { return a.itemName.localeCompare(b.itemName); });
 
