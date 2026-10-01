@@ -1,10 +1,25 @@
 const { queryDatabase, createPage, getPlainText } = require('./notion');
-const { findQuestionsForDate, isoDate, addDaysISO } = require('./daily-progress-notes');
+const { findQuestionsForDate, addDaysISO, facilityNow, facilityToday } = require('./daily-progress-notes');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 const LOG_DB_ID = process.env.MEDICATION_ADMIN_LOG_DB_ID;
 
 const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
+
+// The earliest facility-local hour (0-23) each slot can be logged for
+// TODAY specifically — a dose can't be marked given hours before it was
+// actually due (e.g. a PM/evening dose at 8am). Only applies to today:
+// a past day being backfilled under requiresStrictOrder is already
+// over, so every slot on that day is fair game regardless of the
+// current clock. Adjust freely — these are a reasonable default spacing
+// for a four-times-daily schedule, not a clinical requirement.
+const SLOT_START_HOUR = { AM: 0, Noon: 10, Afternoon: 13, PM: 17 };
+const SLOT_START_LABEL = { AM: 'midnight', Noon: '10:00 AM', Afternoon: '1:00 PM', PM: '5:00 PM' };
+
+function isSlotOpenNow(slot, date, today, nowHour) {
+  if (date !== today) return true;
+  return nowHour >= SLOT_START_HOUR[slot];
+}
 
 // How far back a resident whose doses can't be skipped (see
 // requiresStrictOrder below) is ever asked to catch up — bounds the
@@ -177,7 +192,8 @@ function medicationsForDate(allMeds, date) {
 // the change.
 async function resolveMedicationDayOptions(location, resident, now) {
   now = now || new Date();
-  const today = isoDate(now);
+  const nowParts = facilityNow(now);
+  const today = nowParts.date;
   const strict = await requiresStrictOrder(location, resident, today);
   const allMeds = await fetchMedicationsRaw(location, resident);
 
@@ -190,6 +206,7 @@ async function resolveMedicationDayOptions(location, resident, now) {
     return {
       strict: false,
       today: today,
+      nowHour: nowParts.hour,
       outstandingDates: [today],
       medicationsByDate: medicationsByDate,
       logsByDate: logsByDate
@@ -220,6 +237,7 @@ async function resolveMedicationDayOptions(location, resident, now) {
   return {
     strict: true,
     today: today,
+    nowHour: nowParts.hour,
     outstandingDates: outstandingDates,
     medicationsByDate: medicationsByDate,
     logsByDate: logsByDate
@@ -253,7 +271,7 @@ async function logScheduledDose(location, resident, date, medication, slot, stat
 // (there's no scheduled expectation to mark Refused/Held against), and
 // always Slot "PRN" rather than one of the four fixed times.
 async function logPrnDose(location, resident, medication, reason, givenBy) {
-  const today = isoDate(new Date());
+  const today = facilityToday();
   const recordTitle = location + ' - ' + resident + ' - ' + today + ' - PRN - ' + medication.itemName;
   await createPage(LOG_DB_ID, {
     'Record Title': { title: [{ text: { content: recordTitle } }] },
@@ -273,6 +291,9 @@ async function logPrnDose(location, resident, medication, reason, givenBy) {
 
 module.exports = {
   TIME_SLOTS,
+  SLOT_START_HOUR,
+  SLOT_START_LABEL,
+  isSlotOpenNow,
   fetchMedicationsRaw,
   medicationsInEffectOn,
   medicationsForResidentOnDate,
@@ -285,6 +306,7 @@ module.exports = {
   resolveMedicationDayOptions,
   logScheduledDose,
   logPrnDose,
-  isoDate,
-  addDaysISO
+  addDaysISO,
+  facilityNow,
+  facilityToday
 };

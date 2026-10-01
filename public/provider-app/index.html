@@ -595,6 +595,12 @@
     resize: vertical;
   }
   .gm-reason-wrap .gm-reason-confirm { margin-top: 8px; padding: 9px 14px; font-size: 13px; }
+  .gm-dose-row.gm-staged { background: #F2F7F4; border-color: var(--forest); }
+  .gm-staged-line { font-size: 13px; font-weight: 600; color: var(--forest); margin: 0; }
+  .gm-staged-undo { margin-top: 6px; padding: 6px 12px; font-size: 12px; background: transparent; color: #777; border: 1px solid var(--border); }
+  .gm-dose-row.gm-not-open { opacity: 0.55; }
+  .gm-not-open-line { font-size: 13px; color: #777; margin: 0; font-style: italic; }
+  .gm-slot-title-note { font-weight: 400; text-transform: none; color: #999; font-style: italic; }
 </style>
 </head>
 <body>
@@ -1001,6 +1007,10 @@
     </div>
 
     <div id="gm-slots"></div>
+
+    <div class="save-finalize-bar" id="gm-submit-bar" style="display:none;">
+      <button type="button" id="gm-submit-doses" class="primary-finalize">Submit Doses</button>
+    </div>
 
     <div id="gm-prn-section" style="display:none;">
       <p class="item-section-title">As-Needed (PRN)</p>
@@ -3045,6 +3055,11 @@
   let currentGmResidentInitials = null;
   let currentGmDate = null;
   let currentGmOutstandingDates = [];
+  // Doses the sponsor has picked but not yet submitted — keyed by
+  // "medicationId|slot" so re-staging the same row replaces rather than
+  // duplicates. Cleared on every load/reload and after a submit, so
+  // switching dates or reloading never carries stale picks forward.
+  let gmStagedDoses = {};
 
   function gmFormatLoggedAt(iso) {
     if (!iso) return '';
@@ -3052,13 +3067,30 @@
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
 
+  function gmStageKey(medicationId, slot) { return medicationId + '|' + slot; }
+
+  function updateGmSubmitBar() {
+    const bar = document.getElementById('gm-submit-bar');
+    const btn = document.getElementById('gm-submit-doses');
+    const count = Object.keys(gmStagedDoses).length;
+    if (!count) { bar.style.display = 'none'; return; }
+    btn.textContent = 'Submit ' + count + ' Dose' + (count === 1 ? '' : 's');
+    bar.style.display = 'block';
+  }
+
   // Already-logged state is read-only (append-only record — a mis-logged
-  // entry is corrected directly in Notion, not re-editable here); not yet
-  // logged shows Given/Refused/Held, with Refused/Held revealing a
-  // required-reason box before anything is actually submitted.
-  function renderGmDoseRow(med, slot) {
+  // entry is corrected directly in Notion, not re-editable here). A slot
+  // that hasn't opened yet for TODAY (see isOpen/opensAtLabel from
+  // get-medication-administration.js) shows no action buttons at all —
+  // re-validated server-side regardless, this is just saving a wasted
+  // round trip. Otherwise: tapping Given stages it immediately; Refused/
+  // Held reveal a required-reason box first — either way nothing is sent
+  // to the server until "Submit N Doses" below is pressed, so several
+  // rows can be picked in one pass instead of a save per tap.
+  function renderGmDoseRow(med, slot, isOpen, opensAtLabel) {
     const row = document.createElement('div');
     row.className = 'item-row gm-dose-row';
+    const key = gmStageKey(med.id, slot);
 
     if (med.logged) {
       row.innerHTML =
@@ -3071,6 +3103,29 @@
       return row;
     }
 
+    const staged = gmStagedDoses[key];
+    if (staged) {
+      row.className += ' gm-staged';
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-staged-line">Staged: ' + escapeHtml(staged.status) + (staged.reason ? ' — ' + escapeHtml(staged.reason) : '') + '</p>' +
+        '<button type="button" class="gm-staged-undo">Undo</button>';
+      row.querySelector('.gm-staged-undo').addEventListener('click', function () {
+        delete gmStagedDoses[key];
+        updateGmSubmitBar();
+        row.replaceWith(renderGmDoseRow(med, slot, isOpen, opensAtLabel));
+      });
+      return row;
+    }
+
+    if (!isOpen) {
+      row.className += ' gm-not-open';
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-not-open-line">Opens at ' + escapeHtml(opensAtLabel) + '</p>';
+      return row;
+    }
+
     row.innerHTML =
       '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
       '<div class="gm-status-group">' +
@@ -3080,7 +3135,7 @@
       '</div>' +
       '<div class="gm-reason-wrap">' +
         '<textarea rows="2" placeholder="Reason (required)"></textarea>' +
-        '<button type="button" class="gm-reason-confirm">Save</button>' +
+        '<button type="button" class="gm-reason-confirm">Stage</button>' +
       '</div>';
 
     const reasonWrap = row.querySelector('.gm-reason-wrap');
@@ -3088,31 +3143,13 @@
     const confirmBtn = reasonWrap.querySelector('.gm-reason-confirm');
     let pendingStatus = null;
 
-    function submitDose(status, reason) {
-      setError('gm-error', '');
-      confirmBtn.disabled = true;
-      apiFetch('/save-medication-dose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resident: currentGmResidentInitials,
-          date: currentGmDate,
-          medicationId: med.id,
-          slot: slot,
-          status: status,
-          reason: reason
-        })
-      }).then(function () {
-        loadGiveMedications(currentGmDate);
-        const stored = getStoredSession();
-        if (stored) renderHome(stored.session);
-      }).catch(function (e) {
-        setError('gm-error', e.message);
-        confirmBtn.disabled = false;
-      });
+    function stage(status, reason) {
+      gmStagedDoses[key] = { medicationId: med.id, slot: slot, status: status, reason: reason, itemName: med.itemName };
+      updateGmSubmitBar();
+      row.replaceWith(renderGmDoseRow(med, slot, isOpen, opensAtLabel));
     }
 
-    row.querySelector('.gm-given').addEventListener('click', function () { submitDose('Given', ''); });
+    row.querySelector('.gm-given').addEventListener('click', function () { stage('Given', ''); });
     row.querySelector('.gm-refused').addEventListener('click', function () {
       pendingStatus = 'Refused';
       reasonWrap.style.display = 'block';
@@ -3126,7 +3163,8 @@
     confirmBtn.addEventListener('click', function () {
       const reason = textarea.value.trim();
       if (!reason) { setError('gm-error', 'A reason is required for Refused or Held.'); return; }
-      submitDose(pendingStatus, reason);
+      setError('gm-error', '');
+      stage(pendingStatus, reason);
     });
 
     return row;
@@ -3208,6 +3246,11 @@
     emptyBanner.style.display = 'none';
     dateBanner.style.display = 'none';
     document.getElementById('gm-date-picker-wrap').style.display = 'none';
+    // A fresh load always starts from a clean slate — switching dates or
+    // reloading shouldn't carry forward picks the sponsor hasn't
+    // submitted yet (the server never saw them anyway).
+    gmStagedDoses = {};
+    updateGmSubmitBar();
 
     try {
       let url = '/get-medication-administration?resident=' + encodeURIComponent(currentGmResidentInitials || '');
@@ -3235,10 +3278,16 @@
           const title = document.createElement('p');
           title.className = 'item-section-title';
           title.textContent = group.slot;
+          if (!group.isOpen) {
+            const note = document.createElement('span');
+            note.className = 'gm-slot-title-note';
+            note.textContent = ' (opens at ' + group.opensAtLabel + ')';
+            title.appendChild(note);
+          }
           slotsEl.appendChild(title);
           const list = document.createElement('div');
           list.className = 'item-list';
-          group.medications.forEach(function (med) { list.appendChild(renderGmDoseRow(med, group.slot)); });
+          group.medications.forEach(function (med) { list.appendChild(renderGmDoseRow(med, group.slot, group.isOpen, group.opensAtLabel)); });
           slotsEl.appendChild(list);
         });
       }
@@ -3271,6 +3320,41 @@
 
   document.getElementById('gm-date-picker').addEventListener('change', function () {
     loadGiveMedications(this.value);
+  });
+
+  // One request logs every staged dose together — see save-medication-
+  // dose.js, which validates and writes the whole batch or none of it.
+  document.getElementById('gm-submit-doses').addEventListener('click', async function () {
+    const doses = Object.keys(gmStagedDoses).map(function (key) {
+      const d = gmStagedDoses[key];
+      return { medicationId: d.medicationId, slot: d.slot, status: d.status, reason: d.reason };
+    });
+    if (!doses.length) return;
+
+    const btn = this;
+    setError('gm-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      await apiFetch('/save-medication-dose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentGmResidentInitials, date: currentGmDate, doses: doses })
+      });
+      await loadGiveMedications(currentGmDate);
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+    } catch (e) {
+      // Something in the batch no longer applies (e.g. someone else
+      // already logged one of these doses) — reload fresh truth from
+      // the server rather than leaving stale staged picks on screen.
+      // loadGiveMedications clears gm-error itself, so the message has
+      // to be set AFTER it finishes, not before.
+      await loadGiveMedications(currentGmDate);
+      setError('gm-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   document.getElementById('logout').addEventListener('click', function () {

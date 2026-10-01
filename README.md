@@ -251,6 +251,47 @@ don't pick up env var changes until the next deploy.
     the no-gate behavior: there's no signal either way, and blocking a
     brand-new resident on a template that doesn't exist yet would only
     get in the way.
+  - **"Today" means the facility's calendar day, not the server's.**
+    Netlify Functions run with their system clock in UTC, and
+    `new Date().getDate()` reads whatever day it is *for the process*,
+    not for the facility — Eastern is 4-5 hours behind UTC, so from
+    roughly 7-8pm onward the server's own "today" had already rolled
+    over to tomorrow while it was still today locally (this is what let
+    doses get logged dated a day ahead of the actual calendar day).
+    `facilityNow`/`facilityToday` in `lib/daily-progress-notes.js`
+    resolve "now" against `America/New_York` explicitly instead of
+    reading the server process's own local time fields, and every place
+    that needs to know "what day is it right now" — both here and in
+    Daily Progress Notes' own day-walk, which had the identical bug —
+    goes through them now. (`isoDate`/`addDaysISO` themselves stay
+    exactly as they were: pure calendar-string arithmetic on dates
+    already known, not real-time resolution, so they don't need — and
+    must not get — this timezone correction.)
+  - **Time-of-day gate, today only.** A slot can't be logged before its
+    facility-local start hour on the day it's actually due —
+    `SLOT_START_HOUR` in `lib/medication-administration.js`
+    (AM: midnight, Noon: 10am, Afternoon: 1pm, PM: 5pm; adjust freely,
+    these are a reasonable default spacing, not a clinical requirement).
+    Enforced server-side in `save-medication-dose.js` via
+    `isSlotOpenNow`, and surfaced to the client as `isOpen`/
+    `opensAtLabel` per slot group so the screen shows "Opens at 5:00 PM"
+    and omits the action buttons entirely rather than letting someone
+    tap Given and then fail server-side. Only applies to TODAY — a past
+    day being backfilled under the day-walk above is already over, so
+    every slot on it is fair game regardless of the current clock.
+  - **Stage several doses, then submit once.** Tapping Given/Refused/
+    Held no longer saves immediately — it stages that row locally (with
+    an Undo), and a "Submit N Doses" bar appears once at least one is
+    staged. `save-medication-dose.js` takes a `doses` array and
+    validates every entry against a freshly-resolved day-walk *before*
+    writing any of them, so a batch either all lands or none of it does
+    — one bad entry (e.g. someone else already logged it) never leaves
+    a partial mix of saved/unsaved doses. Switching the date picker or
+    reloading the screen clears whatever's staged but not yet
+    submitted, same as leaving a form without saving elsewhere in this
+    app. PRN dosing is unaffected — it's logged immediately on confirm,
+    since it's normally one ad hoc entry at a time, each with its own
+    reason, not a batch of several checked off together.
   - **Bounded 14-day lookback**, not an unbounded walk back to whenever
     this resident's medications were first set up — even with Effective
     Date now in place, a resident with a long history doesn't get asked

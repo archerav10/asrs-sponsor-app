@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { resolveMedicationDayOptions, isSlotLogged, TIME_SLOTS } = require('./lib/medication-administration');
+const { resolveMedicationDayOptions, isSlotLogged, isSlotOpenNow, SLOT_START_LABEL, TIME_SLOTS } = require('./lib/medication-administration');
 
 // Per-resident detail for the Give Medications screen. Mirrors
 // get-daily-progress-note.js's shape: resolveMedicationDayOptions does
@@ -31,8 +31,11 @@ exports.handler = async function (event) {
 
     const slots = TIME_SLOTS.map(function (slot) {
       const meds = medsForDay.regularMeds.filter(function (m) { return m.timesOfDay.indexOf(slot) !== -1; });
+      const isOpen = isSlotOpenNow(slot, date, options.today, options.nowHour);
       return {
         slot: slot,
+        isOpen: isOpen,
+        opensAtLabel: SLOT_START_LABEL[slot],
         medications: meds.map(function (m) {
           const log = logsForDay.find(function (l) { return l.itemName === m.itemName && l.timeOfDay === slot; });
           return {

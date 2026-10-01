@@ -13,6 +13,41 @@ function addDaysISO(dateStr, days) {
   return isoDate(d);
 }
 
+// Netlify Functions run with the server process's own local time set to
+// UTC, so isoDate(new Date())/d.getDate() silently reads the UTC
+// calendar day, not the facility's. Eastern is 4-5 hours behind UTC, so
+// anywhere from 7-8pm onward the server's "today" has already rolled
+// over to tomorrow while it's still today at the facility — e.g. a
+// resident's note (or medication dose) for "today" would actually get
+// dated tomorrow, and a day could appear "skippable" well before it was
+// actually over locally. FACILITY_TIME_ZONE is the one place that
+// offset is corrected; isoDate/addDaysISO above stay pure calendar-
+// string arithmetic on dates already known (never repointed at this
+// zone), since dateToDate's round trip only has to be self-consistent
+// with isoDate's own field reads, not with any real-world clock.
+const FACILITY_TIME_ZONE = 'America/New_York';
+
+// What moment it actually is at the facility right now — both the
+// calendar date AND the hour-of-day, since a few things (Give
+// Medications' time-of-day gate) need to know not just which day it is
+// but how far into it. hour12:false can format local midnight as "24"
+// in some ICU builds, hence the normalization back to 0.
+function facilityNow(now) {
+  now = now || new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: FACILITY_TIME_ZONE,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(now);
+  const map = {};
+  parts.forEach(function (p) { map[p.type] = p.value; });
+  const hour = map.hour === '24' ? 0 : parseInt(map.hour, 10);
+  return { date: map.year + '-' + map.month + '-' + map.day, hour: hour, minute: parseInt(map.minute, 10) };
+}
+
+function facilityToday(now) {
+  return facilityNow(now).date;
+}
+
 // Notion caps a single rich_text block at 2000 characters — splits
 // longer content (signature stroke JSON especially, but also a long
 // dictated answer) across multiple blocks in the same array. Reading it
@@ -299,7 +334,7 @@ function walkAllDays(covers, today) {
 // ongoing day-by-day catch-up walk — see resolveDayOptions.
 async function getResidentDayWalk(location, resident, now) {
   now = now || new Date();
-  const today = isoDate(now);
+  const today = facilityToday(now);
   const covers = await findAllCovers(location, resident);
   return { isFirstEntry: !covers.length, days: walkAllDays(covers, today) };
 }
@@ -364,7 +399,7 @@ async function findEarliestEffectiveDate(location, resident) {
 //     oldest first, exactly as findOutstandingDays does.
 async function resolveDayOptions(location, resident, now) {
   now = now || new Date();
-  const today = isoDate(now);
+  const today = facilityToday(now);
   const { isFirstEntry, days } = await getResidentDayWalk(location, resident, now);
 
   if (isFirstEntry) {
@@ -557,5 +592,7 @@ module.exports = {
   missingQuestions,
   signAndFinalize,
   isoDate,
-  addDaysISO
+  addDaysISO,
+  facilityNow,
+  facilityToday
 };
