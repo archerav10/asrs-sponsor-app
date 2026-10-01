@@ -96,6 +96,14 @@
 <script src="/admin/admin-auth.js"></script>
 <script>
 requireAdminSession();
+
+const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
+
+// Placed after TIME_SLOTS/timesOfDayHtml are declared below (function
+// declarations hoist, but TIME_SLOTS is a const — calling this any
+// earlier throws "Cannot access 'TIME_SLOTS' before initialization" and
+// silently aborts the rest of this script, including every button's
+// event listener further down).
 document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
 
 // Defaults to last month, since that's the report most often wanted on
@@ -108,8 +116,6 @@ document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
   now.setMonth(now.getMonth() - 1);
   document.getElementById('report-month').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
 })();
-
-const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
 
 // Only meaningful for Regular medications — PRN/Info have no fixed
 // schedule, so Give Medications never looks at this for them. Shown for
