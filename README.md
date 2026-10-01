@@ -56,7 +56,7 @@ workflow as your other portals.
 | `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID` | `4b98a8d0-af57-421a-a68b-9ace4b28a081` |
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
-| `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Reports" Zap — see setup steps below |
+| `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -335,12 +335,28 @@ don't pick up env var changes until the next deploy.
     Progress Note PDFs use (see the setup section below) — but waits
     until the 3rd specifically so Give Medications' own 14-day catch-up
     window has a couple of days' room to close out the month's last few
-    days before the report is generated and treated as final.
+    days before the report is generated and treated as final. Named
+    `YYYY-MM_MedicationReport_Location_ResidentInitials.pdf` — the
+    year-month PREFIX is what sorts a resident's reports chronologically
+    in their Drive folder (`generateScheduledMedicationReport` in
+    `lib/medication-report.js`).
   - **On-demand admin button** (`manage-medications.html`, bottom of the
-    page) generates and uploads any resident/month's report immediately
-    — printing on request, or spot-checking a month before the
-    automatic run reaches it. Defaults to last month in the UI, since
-    the current month is still in progress.
+    page) generates and uploads any resident's report for any date
+    range immediately — printing on request, spot-checking before the
+    automatic run reaches it, or a genuinely partial month (e.g. a
+    resident discharged mid-month). Start and end date must fall in the
+    same calendar month (`resolveDateRange` rejects a range that
+    crosses a month boundary — the grid's day-of-month columns are
+    built around one month's numbering); the grid itself only draws the
+    requested days, not a full 1-31 grid with the rest misleadingly
+    blank, and the PDF's own header prints the exact range ("Sep 10 –
+    Sep 20, 2026") instead of a month name whenever it isn't the full
+    month. Defaults to the full previous month in the UI. Named
+    `Adhoc_MedicationReport_Location_ResidentInitials_StartDate_to_EndDate.pdf`
+    — deliberately a different convention from the scheduled report's
+    (`generateAdhocMedicationReport`), since an on-demand pull is never
+    safe to assume covers a full month the way the automatic one always
+    does.
   - **Resident Full Name** for the Drive upload is sourced from that
     resident's Daily Progress Notes template (the MAR database has no
     full-name field of its own) — falls back to initials if the
@@ -1227,16 +1243,19 @@ rather than a single Upload File step:
 #### Setting up the Medication Administration Report upload (Zapier)
 
 Same pattern again, one folder shallower than Daily Progress Notes —
-one report file per resident per MONTH (not per day), so there's no
-need for a yearMonth subfolder; `yearMonth` is already baked into the
-filename instead:
+every report (scheduled or on-demand) is one file, landing flat in a
+single per-resident folder with no month/date subfolder, since the
+report's own date range is already baked into its filename:
 
 1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the
    webhook URL into `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` in Netlify.
-   Incoming fields: `file` (the PDF), `filename` (already built as
-   `MedicationReport_Location_ResidentInitials_YYYY-MM.pdf`),
-   `location`, `residentInitials`, `residentFullName`, and `yearMonth`
-   (`YYYY-MM`).
+   Incoming fields: `file` (the PDF), `filename` (already built —
+   `YYYY-MM_MedicationReport_Location_ResidentInitials.pdf` for the
+   automatic monthly report, or
+   `Adhoc_MedicationReport_Location_ResidentInitials_StartDate_to_EndDate.pdf`
+   for an on-demand one), `location`, `residentInitials`,
+   `residentFullName`, and `yearMonth` (`YYYY-MM` — the month the
+   report's range falls in, even for a partial/ad hoc one).
 2. Google Drive -> Find a Folder, title = the webhook's `location`,
    inside your facilities root folder. Find-only, same reasoning as the
    Daily Progress Notes Zap — don't silently scatter a report into a
@@ -1246,8 +1265,12 @@ filename instead:
 4. Google Drive -> Find a Folder, title = the webhook's
    `residentFullName`, inside the folder from step 3. Find-only.
 5. Google Drive -> Find a Folder, title `Medication Administration
-   Reports`, inside the folder from step 4 — a sibling of that
-   resident's `Daily Progress Notes` folder. Create-if-missing.
+   Records`, inside the folder from step 4 — a sibling of that
+   resident's `Daily Progress Notes` folder. Create-if-missing. No
+   further subfolder — every month's (and every ad hoc) report for this
+   resident lands directly in this one folder; the year-month PREFIX on
+   the scheduled report's own filename is what keeps them sorted
+   chronologically within it.
 6. Google Drive -> Upload File, folder = the folder from step 5, file =
    the webhook's `file`, filename = the webhook's `filename`.
 7. Publish the Zap.

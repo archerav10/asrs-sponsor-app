@@ -85,9 +85,11 @@
 
   <h2>Medication Administration Report</h2>
   <div class="med-card">
-    <p class="help-text" style="font-size:13px; color:#666; margin:0 0 10px;">Generates and uploads the selected resident's Medication Administration Report PDF for the chosen month to Google Drive &mdash; the same report that also generates automatically for the previous month on the 3rd of every month.</p>
-    <label>Month</label>
-    <input type="month" id="report-month">
+    <p class="help-text" style="font-size:13px; color:#666; margin:0 0 10px;">Generates and uploads the selected resident's Medication Administration Report PDF for this date range to Google Drive &mdash; a full calendar month also generates automatically for the previous month on the 3rd of every month. Start and end date must fall in the same month; for a partial month (e.g. a resident discharged mid-month), just narrow the range.</p>
+    <div class="field-row">
+      <div><label>Start Date</label><input type="date" id="report-start"></div>
+      <div><label>End Date</label><input type="date" id="report-end"></div>
+    </div>
     <button id="report-btn">Generate &amp; Upload to Drive</button>
     <p class="msg" id="report-msg"></p>
   </div>
@@ -106,15 +108,20 @@ const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
 // event listener further down).
 document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
 
-// Defaults to last month, since that's the report most often wanted on
-// demand (checking/printing before or instead of waiting for the
-// automatic run on the 3rd) — never today's partial, still-in-progress
-// month.
+// Defaults to the full previous month, since that's the report most
+// often wanted on demand (checking/printing before or instead of
+// waiting for the automatic run on the 3rd) — never today's partial,
+// still-in-progress month. Narrow either date for a partial-month pull.
 (function () {
-  const now = new Date();
-  now.setDate(1);
-  now.setMonth(now.getMonth() - 1);
-  document.getElementById('report-month').value = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  const firstOfThisMonth = new Date();
+  firstOfThisMonth.setDate(1);
+  const lastOfPrevMonth = new Date(firstOfThisMonth);
+  lastOfPrevMonth.setDate(0);
+  const firstOfPrevMonth = new Date(lastOfPrevMonth);
+  firstOfPrevMonth.setDate(1);
+  document.getElementById('report-start').value = iso(firstOfPrevMonth);
+  document.getElementById('report-end').value = iso(lastOfPrevMonth);
 })();
 
 // Only meaningful for Regular medications — PRN/Info have no fixed
@@ -300,7 +307,8 @@ document.getElementById('add-btn').addEventListener('click', async function () {
 document.getElementById('report-btn').addEventListener('click', async function () {
   const location = document.getElementById('location').value;
   const resident = document.getElementById('resident').value.trim();
-  const yearMonth = document.getElementById('report-month').value;
+  const startDate = document.getElementById('report-start').value;
+  const endDate = document.getElementById('report-end').value;
   const msg = document.getElementById('report-msg');
   msg.className = 'msg';
   msg.style.display = 'none';
@@ -311,10 +319,22 @@ document.getElementById('report-btn').addEventListener('click', async function (
     msg.textContent = 'Enter resident initials at the top first.';
     return;
   }
-  if (!yearMonth) {
+  if (!startDate || !endDate) {
     msg.style.display = 'block';
     msg.classList.add('error');
-    msg.textContent = 'Pick a month.';
+    msg.textContent = 'Pick a start and end date.';
+    return;
+  }
+  if (endDate < startDate) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'End date must be on or after the start date.';
+    return;
+  }
+  if (startDate.slice(0, 7) !== endDate.slice(0, 7)) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Start and end date must be in the same month.';
     return;
   }
 
@@ -325,7 +345,7 @@ document.getElementById('report-btn').addEventListener('click', async function (
     const res = await adminFetch('/.netlify/functions/admin-generate-medication-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ location: location, resident: resident, yearMonth: yearMonth })
+      body: JSON.stringify({ location: location, resident: resident, startDate: startDate, endDate: endDate })
     });
     const data = await res.json();
     msg.style.display = 'block';

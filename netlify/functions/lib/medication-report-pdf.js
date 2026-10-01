@@ -25,6 +25,18 @@ function monthLabel(yearMonth) {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
+// "September 2026" for a full-month report; "Sep 10 – Sep 20, 2026" for
+// a partial (ad hoc) one — printed right on the PDF so a partial report
+// is never mistaken for covering the whole month at a glance.
+function rangeLabel(yearMonth, startDay, endDay, totalDays) {
+  if (startDay === 1 && endDay === totalDays) return monthLabel(yearMonth);
+  const parts = yearMonth.split('-').map(Number);
+  function fmt(day) {
+    return new Date(parts[0], parts[1] - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+  return fmt(startDay) + ' – ' + fmt(endDay) + ', ' + parts[0];
+}
+
 // "Ovetis Cooper" -> "OC" (first + last initial), matching the
 // initials-in-a-cell style of the Therap MAR report this is modeled on.
 // A single-word name just takes its first two letters, since there's no
@@ -56,7 +68,10 @@ async function buildMedicationReportPdf(data) {
   const logoImage = await doc.embedJpg(Buffer.from(logoBase64, 'base64'));
 
   const totalDays = daysInMonth(data.yearMonth);
-  const dayColWidth = (CONTENT_WIDTH - LABEL_WIDTH) / totalDays;
+  const startDay = data.startDay || 1;
+  const endDay = data.endDay || totalDays;
+  const rangeDays = endDay - startDay + 1;
+  const dayColWidth = (CONTENT_WIDTH - LABEL_WIDTH) / rangeDays;
   const logoScale = Math.min(LOGO_MAX / logoImage.width, LOGO_MAX / logoImage.height);
   const logoWidth = logoImage.width * logoScale;
   const logoHeight = logoImage.height * logoScale;
@@ -73,7 +88,7 @@ async function buildMedicationReportPdf(data) {
     });
     page.drawText('Medication Administration Report', { x: MARGIN, y: y - 14, size: 14, font: boldFont, color: rgb(0, 0, 0) });
     page.drawText(
-      data.residentFullName + ' (' + data.residentInitials + ')  ·  ' + data.location + '  ·  ' + monthLabel(data.yearMonth),
+      data.residentFullName + ' (' + data.residentInitials + ')  ·  ' + data.location + '  ·  ' + rangeLabel(data.yearMonth, startDay, endDay, totalDays),
       { x: MARGIN, y: y - 30, size: 10, font: font, color: rgb(0.25, 0.25, 0.25) }
     );
     y -= 44;
@@ -91,10 +106,12 @@ async function buildMedicationReportPdf(data) {
 
   addPage();
 
+  function dayColX(d) { return MARGIN + LABEL_WIDTH + (d - startDay) * dayColWidth; }
+
   function drawDayHeaderRow(topY) {
     page.drawRectangle({ x: MARGIN, y: topY - ROW_HEIGHT, width: LABEL_WIDTH, height: ROW_HEIGHT, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
-    for (let d = 1; d <= totalDays; d++) {
-      const cx = MARGIN + LABEL_WIDTH + (d - 1) * dayColWidth;
+    for (let d = startDay; d <= endDay; d++) {
+      const cx = dayColX(d);
       page.drawRectangle({ x: cx, y: topY - ROW_HEIGHT, width: dayColWidth, height: ROW_HEIGHT, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
       const label = String(d);
       const textWidth = boldFont.widthOfTextAtSize(label, 6.5);
@@ -143,8 +160,8 @@ async function buildMedicationReportPdf(data) {
     y -= 13;
     drawDayHeaderRow(y);
     y -= ROW_HEIGHT;
-    for (let d = 1; d <= totalDays; d++) {
-      drawCell(MARGIN + LABEL_WIDTH + (d - 1) * dayColWidth, y, row.cellsByDay[d]);
+    for (let d = startDay; d <= endDay; d++) {
+      drawCell(dayColX(d), y, row.cellsByDay[d]);
     }
     page.drawRectangle({ x: MARGIN, y: y - ROW_HEIGHT, width: LABEL_WIDTH, height: ROW_HEIGHT, borderColor: rgb(0.65, 0.65, 0.65), borderWidth: 0.5 });
     page.drawText(row.slot, { x: MARGIN + 5, y: y - ROW_HEIGHT / 2 - 3, size: 7.5, font: font, color: rgb(0, 0, 0) });

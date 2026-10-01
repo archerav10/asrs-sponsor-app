@@ -1,10 +1,14 @@
 const { requireSuperAdmin } = require('./lib/super-admin-session');
-const { generateAndUploadMedicationReport } = require('./lib/medication-report');
+const { generateAdhocMedicationReport } = require('./lib/medication-report');
 
 // On-demand counterpart to the scheduled generate-medication-reports.js —
-// lets an admin generate (or re-generate) any resident/month's report
-// immediately, e.g. to print on request or spot-check a month before
-// the automatic run on the 3rd picks it up.
+// lets an admin generate any resident's report for an arbitrary date
+// range immediately (printing on request, spot-checking before the
+// automatic run reaches it, or a partial-month range a resident's
+// situation calls for — e.g. discharged mid-month). Always uploaded
+// under the "Adhoc" filename convention (see generateAdhocMedicationReport),
+// distinct from the scheduled report's month-prefixed one, since an
+// on-demand report is never safe to assume covers a full month.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -16,13 +20,14 @@ exports.handler = async function (event) {
     const body = JSON.parse(event.body || '{}');
     const location = body.location;
     const resident = body.resident;
-    const yearMonth = body.yearMonth; // "YYYY-MM"
+    const startDate = body.startDate; // "YYYY-MM-DD"
+    const endDate = body.endDate; // "YYYY-MM-DD"
 
-    if (!location || !resident || !/^\d{4}-\d{2}$/.test(yearMonth || '')) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Location, resident, and a year-month (YYYY-MM) are required.' }) };
+    if (!location || !resident || !/^\d{4}-\d{2}-\d{2}$/.test(startDate || '') || !/^\d{4}-\d{2}-\d{2}$/.test(endDate || '')) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Location, resident, a start date, and an end date (YYYY-MM-DD) are required.' }) };
     }
 
-    const result = await generateAndUploadMedicationReport(location, resident, yearMonth);
+    const result = await generateAdhocMedicationReport(location, resident, startDate, endDate);
     return { statusCode: 200, body: JSON.stringify({ success: true, filename: result.filename }) };
   } catch (err) {
     console.error(err);

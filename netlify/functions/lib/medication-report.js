@@ -43,27 +43,48 @@ async function residentFullNameFor(location, resident) {
   return (rows.length && rows[0].residentFullName) ? rows[0].residentFullName : resident;
 }
 
-// Builds this resident's full-month data: a grid row per scheduled
-// (Regular, Time-of-Day-set) medication/slot pair, each day resolved as
-// not-applicable (medication wasn't in effect that day — see
-// medicationsInEffectOn), missing (in effect, nothing logged), or the
-// logged Status/Given By — plus every PRN dose in the month as a flat
-// list. One query for the whole month's logs, not one per day.
-async function gatherMedicationReportData(location, resident, yearMonth) {
-  const total = daysInMonth(yearMonth);
-  const monthStart = yearMonth + '-01';
-  const monthEnd = yearMonth + '-' + pad2(total);
+// A report's date range must fall within a single calendar month — the
+// grid's day-of-month columns and header (see medication-report-pdf.js)
+// are built around one month's numbering, not a rolling window that
+// could cross a month boundary. Returns the shared month label plus the
+// first/last day-of-month to actually draw columns for, so a partial
+// (ad hoc) range only shows the days it actually covers rather than a
+// full 1-31 grid with the uncovered days misleadingly blank.
+function resolveDateRange(startDate, endDate) {
+  const startMonth = startDate.slice(0, 7);
+  const endMonth = endDate.slice(0, 7);
+  if (startMonth !== endMonth) {
+    const err = new Error('Start and end date must be in the same month.');
+    err.statusCode = 400;
+    throw err;
+  }
+  if (endDate < startDate) {
+    const err = new Error('End date must be on or after the start date.');
+    err.statusCode = 400;
+    throw err;
+  }
+  return { yearMonth: startMonth, startDay: Number(startDate.slice(8, 10)), endDay: Number(endDate.slice(8, 10)) };
+}
+
+// Builds this resident's data for [startDate, endDate]: a grid row per
+// scheduled (Regular, Time-of-Day-set) medication/slot pair, each day in
+// range resolved as not-applicable (medication wasn't in effect that
+// day — see medicationsInEffectOn), missing (in effect, nothing
+// logged), or the logged Status/Given By — plus every PRN dose in range
+// as a flat list. One query for the whole range's logs, not one per day.
+async function gatherMedicationReportData(location, resident, startDate, endDate) {
+  const range = resolveDateRange(startDate, endDate);
 
   const allMeds = await fetchMedicationsRaw(location, resident);
   const regularMeds = allMeds.filter(function (m) { return m.medicationType === 'Regular' && m.timesOfDay.length; });
-  const logs = await logsInRange(location, resident, monthStart, monthEnd);
+  const logs = await logsInRange(location, resident, startDate, endDate);
 
   const medicationRows = [];
   regularMeds.forEach(function (med) {
     med.timesOfDay.forEach(function (slot) {
       const cellsByDay = {};
-      for (let day = 1; day <= total; day++) {
-        const date = yearMonth + '-' + pad2(day);
+      for (let day = range.startDay; day <= range.endDay; day++) {
+        const date = range.yearMonth + '-' + pad2(day);
         if (!medicationsInEffectOn([med], date).length) {
           cellsByDay[day] = { status: 'not-applicable' };
           continue;
@@ -84,40 +105,40 @@ async function gatherMedicationReportData(location, resident, yearMonth) {
 
   const residentFullName = await residentFullNameFor(location, resident);
 
-  return { medicationRows: medicationRows, prnLogs: prnLogs, residentFullName: residentFullName };
+  return { medicationRows: medicationRows, prnLogs: prnLogs, residentFullName: residentFullName, range: range };
 }
 
-// The single entry point both the scheduled monthly job and the
-// on-demand admin button go through — gathers this resident's month,
-// renders the PDF, and hands it to the same Zapier Catch Hook -> Find/
-// Create Folder -> Upload File pattern the Daily Progress Note PDFs
-// already use, landing in a sibling "Medication Administration Reports"
-// Drive folder.
-async function generateAndUploadMedicationReport(location, resident, yearMonth) {
+// Shared core both naming conventions below go through — gathers the
+// range, renders the PDF, and hands it to the same Zapier Catch Hook ->
+// Find/Create Folder -> Upload File pattern the Daily Progress Note
+// PDFs already use, landing in that resident's flat "Medication
+// Administration Records" Drive folder (no month subfolder — one file
+// per report, already named with its own date range).
+async function buildAndUploadReport(location, resident, startDate, endDate, filename) {
   if (!WEBHOOK_URL) {
     const err = new Error('ZAPIER_MEDICATION_REPORT_WEBHOOK_URL is not configured.');
     err.statusCode = 500;
     throw err;
   }
 
-  const data = await gatherMedicationReportData(location, resident, yearMonth);
+  const data = await gatherMedicationReportData(location, resident, startDate, endDate);
   const pdfBytes = await buildMedicationReportPdf({
     location: location,
     residentInitials: resident,
     residentFullName: data.residentFullName,
-    yearMonth: yearMonth,
+    yearMonth: data.range.yearMonth,
+    startDay: data.range.startDay,
+    endDay: data.range.endDay,
     medicationRows: data.medicationRows,
     prnLogs: data.prnLogs
   });
-
-  const filename = 'MedicationReport_' + sanitizeForFilename(location) + '_' + sanitizeForFilename(resident) + '_' + yearMonth + '.pdf';
 
   const formData = new FormData();
   formData.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), filename);
   formData.append('location', location);
   formData.append('residentInitials', resident);
   formData.append('residentFullName', data.residentFullName);
-  formData.append('yearMonth', yearMonth);
+  formData.append('yearMonth', data.range.yearMonth);
   formData.append('filename', filename);
 
   const uploadRes = await fetch(WEBHOOK_URL, { method: 'POST', body: formData });
@@ -126,6 +147,26 @@ async function generateAndUploadMedicationReport(location, resident, yearMonth) 
   }
 
   return { filename: filename };
+}
+
+// The automatic monthly report — always a full calendar month, filename
+// prefixed by that month so it sorts chronologically in Drive
+// alongside every other month's report for that resident.
+async function generateScheduledMedicationReport(location, resident, yearMonth) {
+  const startDate = yearMonth + '-01';
+  const endDate = yearMonth + '-' + pad2(daysInMonth(yearMonth));
+  const filename = yearMonth + '_MedicationReport_' + sanitizeForFilename(location) + '_' + sanitizeForFilename(resident) + '.pdf';
+  return buildAndUploadReport(location, resident, startDate, endDate, filename);
+}
+
+// The on-demand admin report — any range an admin picks, which may be a
+// partial month (e.g. a resident discharged mid-month, or spot-checking
+// before the month is over). Named distinctly from the scheduled
+// report's convention, and always carries its own exact date range in
+// the filename, since it's never safe to assume it covers a full month.
+async function generateAdhocMedicationReport(location, resident, startDate, endDate) {
+  const filename = 'Adhoc_MedicationReport_' + sanitizeForFilename(location) + '_' + sanitizeForFilename(resident) + '_' + startDate + '_to_' + endDate + '.pdf';
+  return buildAndUploadReport(location, resident, startDate, endDate, filename);
 }
 
 function previousYearMonth(today) {
@@ -149,7 +190,7 @@ async function generateAllMedicationReportsForPreviousMonth(now) {
     const residents = await residentsForLocation(location);
     for (const resident of residents) {
       try {
-        const result = await generateAndUploadMedicationReport(location, resident, yearMonth);
+        const result = await generateScheduledMedicationReport(location, resident, yearMonth);
         results.push({ location: location, resident: resident, yearMonth: yearMonth, success: true, filename: result.filename });
       } catch (err) {
         results.push({ location: location, resident: resident, yearMonth: yearMonth, success: false, error: err.message });
@@ -162,8 +203,10 @@ async function generateAllMedicationReportsForPreviousMonth(now) {
 module.exports = {
   residentsForLocation,
   residentFullNameFor,
+  resolveDateRange,
   gatherMedicationReportData,
-  generateAndUploadMedicationReport,
+  generateScheduledMedicationReport,
+  generateAdhocMedicationReport,
   previousYearMonth,
   generateAllMedicationReportsForPreviousMonth
 };
