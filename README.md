@@ -55,6 +55,7 @@ workflow as your other portals.
 | `DAILY_PROGRESS_NOTES_DB_ID` | `d3c439da-f2ff-45cc-a265-0392568c1306` |
 | `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID` | `4b98a8d0-af57-421a-a68b-9ace4b28a081` |
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
+| `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -179,6 +180,69 @@ don't pick up env var changes until the next deploy.
     screen instance (pass `?resident=XX` to `get-mar-review`, or
     `resident` in the POST body for confirm/finalize, to scope to one
     specific resident).
+- **Give Medications** (`get-medication-administration.js`,
+  `save-medication-dose.js`, `save-prn-dose.js`,
+  `lib/medication-administration.js`) — a genuinely separate process
+  from MAR Review: MAR Review is a monthly compliance check that the
+  medication **orders on file** are current (expiration dates, delivery
+  date); Give Medications is a same-day record of whether each
+  **scheduled dose was actually given**. Writes to its own database
+  (`MEDICATION_ADMIN_LOG_DB_ID`, "Medication Administration Log") rather
+  than the MAR Review Master List, since it's a fundamentally different
+  kind of record (one row per dose event, not one row per medication) —
+  append-only, nothing here is ever edited after the fact; a mis-logged
+  entry is corrected directly in Notion, the same tradeoff this app
+  already makes for other soft-delete-only data.
+  - **Times of Day** — a new multi-select field (AM/Noon/Afternoon/PM)
+    on each medication in the MAR database itself, set by an admin in
+    `manage-medications.html` to match the physician's order (a
+    four-times-daily medication just gets all four checked). This
+    replaces trying to parse the free-text Frequency field, which isn't
+    structured enough to drive a checklist reliably. PRN medications
+    don't get one — there's no fixed schedule to assign.
+  - **One button per resident**, same pattern as MAR Review/Daily
+    Progress Notes. The screen groups that resident's active Regular
+    medications by time of day and lets staff mark each dose **Given**,
+    **Refused**, or **Held** (the latter two require a short reason) —
+    any of the three resolves that slot; a slot is either logged or it
+    isn't, there's no "unresolved but acknowledged" state. **PRN**
+    (as-needed) medications get their own section — logged any time,
+    always Status Given (there's no scheduled expectation to mark
+    Refused/Held against), always with a required reason, since there's
+    no physician-ordered time it was expected at to explain why it was
+    given.
+  - **Can't skip a day — but only for some residents.** Tied to that
+    same resident's current Daily Progress Notes template: a fixed-
+    window template (`Times Covered Editable` off — one caregiver
+    covering the whole day) means Give Medications enforces the same
+    "finish yesterday before touching today" gate Daily Progress Notes
+    already does, walking forward from the earliest incomplete day (a
+    day is "complete" once every expected medication/slot pair has
+    **some** log entry — Given, Refused, or Held are all valid
+    resolutions, the same way a Missing medication is exempt from MAR
+    Review's own expiration check). An editable-window template
+    (multiple caregivers splitting shifts in one day) is exempted from
+    that gate — forcing one caregiver to finish another's unfinished
+    slots isn't realistic — and always shows just today. A resident with
+    **no** Daily Progress Notes template on file at all also defaults to
+    the no-gate behavior: there's no signal either way, and blocking a
+    brand-new resident on a template that doesn't exist yet would only
+    get in the way.
+  - **Bounded 14-day lookback**, not an unbounded walk back to whenever
+    this resident's medications were first set up — there's no
+    "effective date" concept for a medication's schedule the way Daily
+    Progress Notes has one for its questionnaire, so a resident with a
+    long history doesn't get asked to backfill doses from before this
+    feature even existed. `LOOKBACK_DAYS` in
+    `lib/medication-administration.js`.
+  - **Home button's status dot**: green once today's expected slots are
+    all logged (or nothing's scheduled at all); yellow if today still
+    has unlogged slots; red only for a strict-order resident with an
+    *earlier* day still incomplete, not just today — logging purely
+    informational, no SMS alerting on a missed dose yet (a deliberate v1
+    scope decision — add a scheduled check later, mirroring
+    `check-mar-medication-alerts.js`, if silent gaps turn out to be a
+    real problem in practice).
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
@@ -1195,7 +1259,11 @@ been granted.
   silent-typo risk of editing Notion directly), edit any field inline,
   toggle Active to deactivate (soft delete, matching the same pattern
   as First Aid/Emergency Supplies/Physical Environment — history stays
-  in Notion), or add a brand new medication at the bottom.
+  in Notion), or add a brand new medication at the bottom. Each
+  medication also has **Times of Day** checkboxes (AM/Noon/Afternoon/PM)
+  — what the Give Medications screen groups that dose under; shown for
+  every medication type, though only Regular ones are actually read by
+  it (PRN has no fixed schedule).
 
   **This is also how you add a brand-new resident to a location** —
   there's no separate "add resident" screen anywhere in this app.

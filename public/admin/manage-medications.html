@@ -73,6 +73,7 @@
       <option value="Regular">Regular</option>
       <option value="PRN">PRN</option>
     </select>
+    <div id="new-tod-container"></div>
     <button id="add-btn">Add Medication</button>
     <p class="msg" id="add-msg"></p>
   </div>
@@ -81,6 +82,29 @@
 <script src="/admin/admin-auth.js"></script>
 <script>
 requireAdminSession();
+document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
+
+const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
+
+// Only meaningful for Regular medications — PRN/Info have no fixed
+// schedule, so Give Medications never looks at this for them. Shown for
+// every type anyway (simpler than toggling visibility on Type change)
+// since leftover checked boxes on a PRN row are simply never read.
+function timesOfDayHtml(timesOfDay) {
+  timesOfDay = timesOfDay || [];
+  return '<label>Times of Day (for Give Medications)</label>' +
+    '<div class="checkbox-row" style="flex-wrap:wrap; gap:16px;">' +
+    TIME_SLOTS.map(function (slot) {
+      return '<label style="display:flex; align-items:center; gap:6px; font-weight:400; margin:0;">' +
+        '<input type="checkbox" class="f-tod" value="' + slot + '"' + (timesOfDay.indexOf(slot) !== -1 ? ' checked' : '') + '> ' + slot +
+        '</label>';
+    }).join('') +
+    '</div>';
+}
+
+function readTimesOfDay(card) {
+  return Array.prototype.slice.call(card.querySelectorAll('.f-tod:checked')).map(function (el) { return el.value; });
+}
 
 function medCardHtml(med) {
   return '' +
@@ -97,6 +121,7 @@ function medCardHtml(med) {
       '<option value="Regular"' + (med.medicationType === 'Regular' ? ' selected' : '') + '>Regular</option>' +
       '<option value="PRN"' + (med.medicationType === 'PRN' ? ' selected' : '') + '>PRN</option>' +
     '</select>' +
+    timesOfDayHtml(med.timesOfDay) +
     '<div class="checkbox-row"><input type="checkbox" class="f-active"' + (med.active ? ' checked' : '') + '><label style="margin:0;">Active</label></div>' +
     '<button class="save-btn">Save</button>' +
     '<p class="msg"></p>';
@@ -122,7 +147,8 @@ function attachSaveHandler(card, med, location, resident) {
           frequency: card.querySelector('.f-frequency').value,
           purpose: card.querySelector('.f-purpose').value,
           medicationType: card.querySelector('.f-type').value,
-          active: card.querySelector('.f-active').checked
+          active: card.querySelector('.f-active').checked,
+          timesOfDay: readTimesOfDay(card)
         })
       });
       const data = await res.json();
@@ -202,7 +228,8 @@ document.getElementById('add-btn').addEventListener('click', async function () {
         frequency: document.getElementById('new-frequency').value,
         purpose: document.getElementById('new-purpose').value,
         medicationType: document.getElementById('new-type').value,
-        active: true
+        active: true,
+        timesOfDay: readTimesOfDay(document.getElementById('new-med-card'))
       })
     });
     const data = await res.json();
@@ -217,6 +244,7 @@ document.getElementById('add-btn').addEventListener('click', async function () {
       document.getElementById('new-dosage').value = '';
       document.getElementById('new-frequency').value = '';
       document.getElementById('new-purpose').value = '';
+      document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
     }
   } catch (e) {
     msg.style.display = 'block';

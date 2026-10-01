@@ -21,6 +21,10 @@ exports.handler = async function (event) {
     const purpose = body.purpose || '';
     const medicationType = body.medicationType;
     const active = body.active !== false;
+    // Only meaningful for Regular medications (PRN/Info have no fixed
+    // schedule) but harmless to store either way — the admin UI just
+    // doesn't show the checkboxes for those types.
+    const timesOfDay = Array.isArray(body.timesOfDay) ? body.timesOfDay.filter(function (t) { return ['AM', 'Noon', 'Afternoon', 'PM'].indexOf(t) !== -1; }) : [];
 
     if (!location || !resident || !itemName || !medicationType) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Location, resident, item name, and medication type are required.' }) };
@@ -34,7 +38,8 @@ exports.handler = async function (event) {
       'Frequency': { rich_text: [{ text: { content: frequency } }] },
       'Purpose': { rich_text: [{ text: { content: purpose } }] },
       'Medication Type': { select: { name: medicationType } },
-      'Active': { checkbox: active }
+      'Active': { checkbox: active },
+      'Times of Day': { multi_select: timesOfDay.map(function (t) { return { name: t }; }) }
     };
 
     if (id) {

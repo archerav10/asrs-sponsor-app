@@ -34,7 +34,8 @@ exports.handler = async function (event) {
         frequency: getPlainText(page.properties['Frequency']),
         purpose: getPlainText(page.properties['Purpose']),
         medicationType: getPlainText(page.properties['Medication Type']),
-        active: getPlainText(page.properties['Active'])
+        active: getPlainText(page.properties['Active']),
+        timesOfDay: (page.properties['Times of Day'].multi_select || []).map(function (o) { return o.name; })
       };
     }).sort(function (a, b) { return a.itemName.localeCompare(b.itemName); });
 

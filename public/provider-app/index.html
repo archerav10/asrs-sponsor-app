@@ -566,6 +566,35 @@
     color: var(--forest);
     font-weight: 600;
   }
+  .gm-dose-row .item-name { margin-bottom: 2px; }
+  .gm-dose-row .item-meta { margin: 0 0 10px; }
+  .gm-status-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gm-status-btn {
+    margin-top: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    background: #fff;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+  }
+  .gm-status-btn.gm-refused { color: var(--error); border-color: var(--error); }
+  .gm-status-btn.gm-held { color: #9C7A00; border-color: #C9A227; }
+  .gm-logged-line { font-size: 13px; margin: 0; font-weight: 600; }
+  .gm-logged-line.gm-status-Given { color: #1B7A3D; }
+  .gm-logged-line.gm-status-Refused { color: var(--error); }
+  .gm-logged-line.gm-status-Held { color: #9C7A00; }
+  .gm-logged-reason { font-size: 12px; color: #777; margin: 4px 0 0; }
+  .gm-reason-wrap { margin-top: 10px; display: none; }
+  .gm-reason-wrap textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .gm-reason-wrap .gm-reason-confirm { margin-top: 8px; padding: 9px 14px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -612,6 +641,7 @@
 
     <div id="mar-buttons-container" class="mar-section"></div>
     <div id="dpn-buttons-container" class="mar-section"></div>
+    <div id="gm-buttons-container" class="mar-section"></div>
 
     <div class="action-list">
       <button class="action-button" data-action="first-aid">
@@ -952,6 +982,32 @@
     </div>
   </section>
 
+  <!-- Screen 11: Give Medications -->
+  <section id="screen-give-meds" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="gm-title">Give Medications</p>
+
+    <div class="form-field" id="gm-date-picker-wrap" style="display:none;">
+      <label for="gm-date-picker">Date</label>
+      <select id="gm-date-picker"></select>
+    </div>
+    <div class="period-banner" id="gm-date-banner" style="display:none;"></div>
+    <p class="error-text" id="gm-error"></p>
+
+    <div id="gm-empty-banner" class="dpn-locked-banner" style="display:none;">
+      No active medications have a time of day set yet &mdash; ask an admin to set each medication's schedule in Manage Medications.
+    </div>
+
+    <div id="gm-slots"></div>
+
+    <div id="gm-prn-section" style="display:none;">
+      <p class="item-section-title">As-Needed (PRN)</p>
+      <div id="gm-prn-list" class="item-list"></div>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -970,7 +1026,8 @@
     logEvent: document.getElementById('screen-log-event'),
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
-    dailyProgressNotes: document.getElementById('screen-daily-progress-notes')
+    dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
+    giveMeds: document.getElementById('screen-give-meds')
   };
 
   function getStoredSession() {
@@ -1147,6 +1204,7 @@
     loadHomeSiteVisitStatus();
     renderMarButtons(session.residentInitials);
     renderDpnButtons(session.residentInitials);
+    renderGiveMedsButtons(session.residentInitials);
     loadInfoStatuses(session);
   }
 
@@ -1495,6 +1553,64 @@
       } else {
         dueEl.textContent = 'Today (' + formatDate(data.date) + '): not yet signed';
         dotEl.className = 'status-dot status-yellow';
+      }
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
+  // Builds one Give Medications button per resident — same shape as
+  // renderMarButtons/renderDpnButtons above.
+  function renderGiveMedsButtons(residentInitialsStr) {
+    const container = document.getElementById('gm-buttons-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(residentInitialsStr);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-gm-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#128138; Give Medications — ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-gm-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentGmResidentInitials = initials;
+        showScreen('giveMeds');
+        loadGiveMedications();
+      });
+      container.appendChild(btn);
+      loadHomeGmStatus(initials);
+    });
+  }
+
+  // Green: today's complete (or nothing is scheduled). Yellow: today has
+  // doses still unlogged. Red: a resident whose log can't skip days (see
+  // requiresStrictOrder server-side) has an incomplete day from BEFORE
+  // today still outstanding, not just today.
+  async function loadHomeGmStatus(initials) {
+    const dotEl = document.getElementById('home-gm-dot-' + initials);
+    const dueEl = document.getElementById('home-gm-due-' + initials);
+    if (!dotEl) return;
+    dueEl.textContent = '';
+
+    try {
+      const data = await apiFetch('/get-medication-administration?resident=' + encodeURIComponent(initials));
+      const outstanding = data.outstandingDates || [];
+      const hasPastBacklog = outstanding.some(function (d) { return d !== data.today; });
+      const todayOutstanding = outstanding.indexOf(data.today) !== -1;
+
+      if (hasPastBacklog) {
+        dueEl.textContent = outstanding.length + ' day(s) with unlogged doses';
+        dotEl.className = 'status-dot status-red';
+      } else if (todayOutstanding) {
+        dueEl.textContent = 'Today: doses still unlogged';
+        dotEl.className = 'status-dot status-yellow';
+      } else {
+        dueEl.textContent = 'Today: all logged';
+        dotEl.className = 'status-dot status-green';
       }
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
@@ -2923,6 +3039,238 @@
       btn.disabled = false;
       btn.textContent = 'Sign & Submit';
     }
+  });
+
+  // --- Screen 11: Give Medications ---
+  let currentGmResidentInitials = null;
+  let currentGmDate = null;
+  let currentGmOutstandingDates = [];
+
+  function gmFormatLoggedAt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  // Already-logged state is read-only (append-only record — a mis-logged
+  // entry is corrected directly in Notion, not re-editable here); not yet
+  // logged shows Given/Refused/Held, with Refused/Held revealing a
+  // required-reason box before anything is actually submitted.
+  function renderGmDoseRow(med, slot) {
+    const row = document.createElement('div');
+    row.className = 'item-row gm-dose-row';
+
+    if (med.logged) {
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-logged-line gm-status-' + med.status + '">' + escapeHtml(med.status) + '</p>' +
+        '<p class="gm-logged-reason">' +
+          (med.givenBy ? escapeHtml(med.givenBy) : '') + (med.loggedAt ? ' · ' + gmFormatLoggedAt(med.loggedAt) : '') +
+        '</p>' +
+        (med.reason ? '<p class="gm-logged-reason">' + escapeHtml(med.reason) + '</p>' : '');
+      return row;
+    }
+
+    row.innerHTML =
+      '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+      '<div class="gm-status-group">' +
+        '<button type="button" class="gm-status-btn gm-given">Given</button>' +
+        '<button type="button" class="gm-status-btn gm-refused">Refused</button>' +
+        '<button type="button" class="gm-status-btn gm-held">Held</button>' +
+      '</div>' +
+      '<div class="gm-reason-wrap">' +
+        '<textarea rows="2" placeholder="Reason (required)"></textarea>' +
+        '<button type="button" class="gm-reason-confirm">Save</button>' +
+      '</div>';
+
+    const reasonWrap = row.querySelector('.gm-reason-wrap');
+    const textarea = reasonWrap.querySelector('textarea');
+    const confirmBtn = reasonWrap.querySelector('.gm-reason-confirm');
+    let pendingStatus = null;
+
+    function submitDose(status, reason) {
+      setError('gm-error', '');
+      confirmBtn.disabled = true;
+      apiFetch('/save-medication-dose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resident: currentGmResidentInitials,
+          date: currentGmDate,
+          medicationId: med.id,
+          slot: slot,
+          status: status,
+          reason: reason
+        })
+      }).then(function () {
+        loadGiveMedications(currentGmDate);
+        const stored = getStoredSession();
+        if (stored) renderHome(stored.session);
+      }).catch(function (e) {
+        setError('gm-error', e.message);
+        confirmBtn.disabled = false;
+      });
+    }
+
+    row.querySelector('.gm-given').addEventListener('click', function () { submitDose('Given', ''); });
+    row.querySelector('.gm-refused').addEventListener('click', function () {
+      pendingStatus = 'Refused';
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    row.querySelector('.gm-held').addEventListener('click', function () {
+      pendingStatus = 'Held';
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    confirmBtn.addEventListener('click', function () {
+      const reason = textarea.value.trim();
+      if (!reason) { setError('gm-error', 'A reason is required for Refused or Held.'); return; }
+      submitDose(pendingStatus, reason);
+    });
+
+    return row;
+  }
+
+  // PRN doses are always "Given" (there's no scheduled expectation to
+  // mark Refused/Held against) and always need a reason, since there's
+  // no physician-ordered time this was expected at.
+  function renderGmPrnRow(med) {
+    const row = document.createElement('div');
+    row.className = 'item-row gm-dose-row';
+    row.innerHTML =
+      '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+      '<div class="gm-status-group">' +
+        '<button type="button" class="gm-status-btn gm-log-prn">Log a Dose</button>' +
+      '</div>' +
+      '<div class="gm-reason-wrap">' +
+        '<textarea rows="2" placeholder="Reason this was given (required)"></textarea>' +
+        '<button type="button" class="gm-reason-confirm">Save</button>' +
+      '</div>';
+
+    const reasonWrap = row.querySelector('.gm-reason-wrap');
+    const textarea = reasonWrap.querySelector('textarea');
+    const confirmBtn = reasonWrap.querySelector('.gm-reason-confirm');
+
+    row.querySelector('.gm-log-prn').addEventListener('click', function () {
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    confirmBtn.addEventListener('click', function () {
+      const reason = textarea.value.trim();
+      if (!reason) { setError('gm-error', 'A reason is required for an as-needed dose.'); return; }
+      setError('gm-error', '');
+      confirmBtn.disabled = true;
+      apiFetch('/save-prn-dose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentGmResidentInitials, medicationId: med.id, reason: reason })
+      }).then(function () {
+        loadGiveMedications(currentGmDate);
+      }).catch(function (e) {
+        setError('gm-error', e.message);
+        confirmBtn.disabled = false;
+      });
+    });
+
+    return row;
+  }
+
+  // Same shape as renderDpnDatePicker — hidden entirely when there's only
+  // one (or zero) outstanding day to choose from.
+  function renderGmDatePicker(outstandingDates, selectedDate, today) {
+    const wrap = document.getElementById('gm-date-picker-wrap');
+    const select = document.getElementById('gm-date-picker');
+    if (outstandingDates.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+    select.innerHTML = '';
+    outstandingDates.forEach(function (date) {
+      const opt = document.createElement('option');
+      opt.value = date;
+      opt.textContent = formatDate(date) + (date === today ? ' (today)' : '');
+      if (date === selectedDate) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.style.display = 'block';
+  }
+
+  async function loadGiveMedications(requestedDate) {
+    setError('gm-error', '');
+    const slotsEl = document.getElementById('gm-slots');
+    const prnSection = document.getElementById('gm-prn-section');
+    const prnList = document.getElementById('gm-prn-list');
+    const emptyBanner = document.getElementById('gm-empty-banner');
+    const dateBanner = document.getElementById('gm-date-banner');
+    slotsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    prnSection.style.display = 'none';
+    emptyBanner.style.display = 'none';
+    dateBanner.style.display = 'none';
+    document.getElementById('gm-date-picker-wrap').style.display = 'none';
+
+    try {
+      let url = '/get-medication-administration?resident=' + encodeURIComponent(currentGmResidentInitials || '');
+      if (requestedDate) url += '&date=' + encodeURIComponent(requestedDate);
+      const data = await apiFetch(url);
+      currentGmDate = data.date;
+      currentGmOutstandingDates = data.outstandingDates || [];
+
+      document.getElementById('gm-title').textContent = 'Give Medications — ' + (currentGmResidentInitials || '');
+
+      renderGmDatePicker(currentGmOutstandingDates, currentGmDate, data.today);
+      if (data.strict && currentGmDate !== data.today) {
+        dateBanner.textContent = 'Catching up: ' + formatDate(currentGmDate) + ' still has unlogged doses.';
+        dateBanner.style.display = 'block';
+      } else if (data.strict && currentGmOutstandingDates.length > 1) {
+        dateBanner.textContent = 'Today, ' + formatDate(currentGmDate) + '. Earlier days still need doses logged too — pick one above.';
+        dateBanner.style.display = 'block';
+      }
+
+      slotsEl.innerHTML = '';
+      if (!data.slots.length) {
+        emptyBanner.style.display = 'block';
+      } else {
+        data.slots.forEach(function (group) {
+          const title = document.createElement('p');
+          title.className = 'item-section-title';
+          title.textContent = group.slot;
+          slotsEl.appendChild(title);
+          const list = document.createElement('div');
+          list.className = 'item-list';
+          group.medications.forEach(function (med) { list.appendChild(renderGmDoseRow(med, group.slot)); });
+          slotsEl.appendChild(list);
+        });
+      }
+
+      if (data.prnMedications && data.prnMedications.length) {
+        prnSection.style.display = 'block';
+        prnList.innerHTML = '';
+        data.prnMedications.forEach(function (med) { prnList.appendChild(renderGmPrnRow(med)); });
+        if (data.todaysPrnLogs && data.todaysPrnLogs.length) {
+          const logTitle = document.createElement('p');
+          logTitle.className = 'item-section-title';
+          logTitle.textContent = 'Today’s As-Needed Doses';
+          prnList.appendChild(logTitle);
+          data.todaysPrnLogs.forEach(function (log) {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML =
+              '<p class="item-name">' + escapeHtml(log.itemName) + '</p>' +
+              '<p class="gm-logged-reason">' + escapeHtml(log.givenBy || '') + (log.loggedAt ? ' · ' + gmFormatLoggedAt(log.loggedAt) : '') + '</p>' +
+              '<p class="gm-logged-reason">' + escapeHtml(log.reason || '') + '</p>';
+            prnList.appendChild(row);
+          });
+        }
+      }
+    } catch (e) {
+      slotsEl.innerHTML = '';
+      setError('gm-error', e.message);
+    }
+  }
+
+  document.getElementById('gm-date-picker').addEventListener('change', function () {
+    loadGiveMedications(this.value);
   });
 
   document.getElementById('logout').addEventListener('click', function () {
