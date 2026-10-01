@@ -3204,6 +3204,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resident: currentGmResidentInitials, medicationId: med.id, reason: reason })
       }).then(function () {
+        alert('Dose logged.');
         loadGiveMedications(currentGmDate);
       }).catch(function (e) {
         setError('gm-error', e.message);
@@ -3341,6 +3342,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resident: currentGmResidentInitials, date: currentGmDate, doses: doses })
       });
+      alert(doses.length + ' dose' + (doses.length === 1 ? '' : 's') + ' logged.');
       await loadGiveMedications(currentGmDate);
       const stored = getStoredSession();
       if (stored) renderHome(stored.session);
