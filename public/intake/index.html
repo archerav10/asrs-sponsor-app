@@ -81,6 +81,7 @@
 
   function itemPill(item) {
     switch (item.state) {
+      case 'not-applicable': return pill('Not applicable', 'na');
       case 'complete': return pill(item.completedDate ? 'Done ' + formatShortDate(item.completedDate) : 'Done', 'done');
       case 'under-review': return pill('Received', 'review');
       case 'action-needed': return pill('Waiting on you', 'action');
@@ -166,8 +167,15 @@
       const items = el('div', 'stage-items');
       if (s.items.length) {
         s.items.forEach(function (item) {
-          const row = el('div', 'row compact');
-          row.appendChild(el('span', 'row-title', item.label));
+          const row = el('div', 'row compact' + (item.state === 'not-applicable' ? ' na' : ''));
+          if (item.naReason) {
+            const text = el('div', 'row-text');
+            text.appendChild(el('span', 'row-title', item.label));
+            text.appendChild(el('span', 'row-sub', item.naReason));
+            row.appendChild(text);
+          } else {
+            row.appendChild(el('span', 'row-title', item.label));
+          }
           row.appendChild(itemPill(item));
           items.appendChild(row);
         });

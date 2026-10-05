@@ -63,6 +63,9 @@ exports.handler = async function (event) {
       } else if (status === STATUS.RECEIVED) {
         info.canUpload = false;
         info.message = 'We\'ve received this item and it\'s being reviewed. There\'s nothing else you need to do.';
+      } else if (status === STATUS.NOT_APPLICABLE) {
+        info.canUpload = false;
+        info.message = 'This item doesn\'t apply to you' + (item.naReason ? ': ' + item.naReason : '.') ;
       } else if (status === STATUS.COMPLETE) {
         info.canUpload = false;
         info.message = 'This item is complete. Thank you!';

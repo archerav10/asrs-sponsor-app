@@ -40,7 +40,7 @@ exports.handler = async function (event) {
     };
 
     if (ticket.role === 'sponsor') {
-      if (!item || item.status !== STATUS.COMPLETE) {
+      if (!item || item.status !== STATUS.COMPLETE && item.status !== STATUS.NOT_APPLICABLE) {
         props['Status'] = statusProp(STATUS.RECEIVED);
         props['Return Reason'] = richText('');
       }

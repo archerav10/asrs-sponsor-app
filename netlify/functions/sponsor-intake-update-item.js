@@ -12,6 +12,7 @@ const TIME_RE = /^\d{2}:\d{2}$/;
 //   reopen                 — undo complete
 //   accept                 — sponsor item Received -> Complete
 //   return {reason}        — send a sponsor item back; goes out on the next request
+//   na {reason}            — mark Not Applicable; the reason is shown to the sponsor
 //   notes {notes}          — admin-only notes
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
@@ -50,6 +51,7 @@ exports.handler = async function (event) {
         if (!DATE_RE.test(date)) return json(400, { error: 'Date must be YYYY-MM-DD.' });
         props['Status'] = statusProp(STATUS.COMPLETE);
         props['Completed Date'] = dateProp(date);
+        props['Not Applicable Reason'] = richText('');
         if (step.type === 'event' && !(item && item.eventDate)) props['Event Date'] = dateProp(date);
         break;
       }
@@ -59,6 +61,15 @@ exports.handler = async function (event) {
         else if (step.type === 'event' && item && item.eventDate) next = STATUS.SCHEDULED;
         props['Status'] = statusProp(next);
         props['Completed Date'] = dateProp(null);
+        props['Not Applicable Reason'] = richText('');
+        break;
+      }
+      case 'na': {
+        const reason = (body.reason || '').trim();
+        if (!reason) return json(400, { error: 'Enter a reason. The sponsor sees it on their status page.' });
+        props['Status'] = statusProp(STATUS.NOT_APPLICABLE);
+        props['Not Applicable Reason'] = richText(reason);
+        props['Completed Date'] = dateProp(today);
         break;
       }
       case 'accept': {

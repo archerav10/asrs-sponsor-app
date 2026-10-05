@@ -42,6 +42,9 @@ exports.handler = async function (event) {
       if (status === STATUS.RECEIVED || status === STATUS.COMPLETE) {
         return json(400, { error: step.key + ' ' + step.label + ' was already received — accept or return it instead.' });
       }
+      if (status === STATUS.NOT_APPLICABLE) {
+        return json(400, { error: step.key + ' ' + step.label + ' is marked Not Applicable — reopen it first to request it.' });
+      }
       selected.push({ step: step, stepKey: step.key, item: item || null, returnReason: status === STATUS.RETURNED ? item.returnReason : '' });
     }
 

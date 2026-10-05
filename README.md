@@ -587,7 +587,10 @@ They only ever see:
 **Item lifecycle.** Sponsor items go Requested → Received → Complete
 (Accept), or Received → Returned with a reason. The reason shows on the
 status page and in the next request email, and the item stays Returned
-until the sponsor resubmits. Events go Scheduled (date and optional time)
+until the sponsor resubmits. An admin can mark **any** step **Not
+Applicable** with a required reason. It's greyed out, counts as done for
+stage progress, and the reason shows on the sponsor's status page. It's
+the one admin-entered note a sponsor ever sees. Reopen undoes it. Events go Scheduled (date and optional time)
 → Complete. Admin documents and trainings go straight to Complete, by
 upload or by date. Any item can be reopened. Rows are created lazily, one
 per intake and step, the same way Staff Training works. A stage is
@@ -613,14 +616,18 @@ shows on the next reload.
   Unchecking Active on a stage also retires its steps.
 - **Intake Steps**: one row per step, with these fields:
   - **Label**: the step's name.
-  - **Key**: e.g. `2.3a`.
+  - **Key**: e.g. `2.3`, `2.3a`, or `2.A1` for an admin-only step.
   - **Stage**: the stage's Number.
   - **Order**: sort order within the stage. Values are 10, 20, 30… so
     there's room to insert.
   - **Type**: Sponsor Upload, Sponsor Form, Meeting / Event, ASRS
     Document, or Training.
-  - **Visible to Sponsor**, **Licensing**, and **Certificate** (training
-    only).
+  - **Admin Only**: the step never appears on the sponsor's status page.
+    In the master list these are the unnumbered "999" rows, keyed `3.A1`,
+    `4.A2`, and so on. A Sponsor Upload/Form step can't be admin only.
+  - **Instructions**: guidance for ASRS staff. It shows on the admin page
+    and on printed sheets, never to the sponsor.
+  - **Licensing** and **Certificate** (training only).
   - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
     sponsor gets an upload link instead.
   - **Includes** and **Agenda**: one line each.
@@ -641,6 +648,23 @@ Rules:
 **Who can use it:** any admin-dashboard session, narrowed to
 `SPONSOR_INTAKE_ADMIN_EMAILS` if that's set, because intake folders hold
 background check results.
+
+#### Printing (binder sheets)
+
+`/admin-dashboard/print.html` renders a letter-size sheet and opens the
+browser's print dialog, where "Save as PDF" produces the file. There are
+three ways in:
+- **Print progress sheet** on an intake: the current status, dates and
+  initials. Admin-only steps are marked ADMIN, N/A rows are greyed with
+  their reason, and each stage ends with its meetings and agendas.
+- **Print blank checklist** on an intake: the same layout with every
+  row empty, for handwriting.
+- **Print all active intakes** on the Sponsor Intake tab: every
+  unfinished intake, each starting on a new page.
+
+Every sheet ends with a signature block (completed by, reviewed by,
+sponsor acknowledgment). The logo is `public/intake/logo.png`. If that
+file is missing, the header simply leaves it out.
 
 #### Notion: two new databases
 
@@ -669,13 +693,14 @@ intake and step, created as needed:
 | Record Title | Title |
 | Intake ID | Text |
 | Step Key | Text (e.g. `1.3`, `2.3a`) |
-| Status | Select: Requested, Received, Returned, Scheduled, Complete |
+| Status | Select: Requested, Received, Returned, Scheduled, Complete, Not Applicable |
 | Event Date | Date (with time for meetings) |
 | Requested Date | Date |
 | Received Date | Date |
 | Completed Date | Date |
 | Filename | Text |
 | Return Reason | Text |
+| Not Applicable Reason | Text (required for Not Applicable; shown to the sponsor) |
 | Notes | Text |
 | Last Updated By | Text |
 
@@ -684,8 +709,8 @@ intake and step, created as needed:
 | Variable | Value |
 |---|---|
 | `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
-| `SPONSOR_INTAKE_STAGES_DB_ID` | `b35ea149-5ec3-4796-b593-8a3b9cab764e` (Intake Stages) |
-| `SPONSOR_INTAKE_STEPS_DB_ID` | `a84f9277-bece-4bad-8fb7-1939f2d79452` (Intake Steps) |
+| `SPONSOR_INTAKE_STAGES_DB_ID` | `813f9810-4bfb-45e5-9782-bbb21d90a9bc` (Intake Stages) |
+| `SPONSOR_INTAKE_STEPS_DB_ID` | `446736ee-ef52-4068-8c06-411513ff3492` (Intake Steps, Master 3.3) |
 | `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
 | `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |

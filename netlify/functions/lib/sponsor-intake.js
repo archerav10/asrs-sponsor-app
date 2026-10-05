@@ -38,7 +38,9 @@ const TYPE_MAP = {
   'ASRS Document': 'document',
   'Training': 'training'
 };
-const KEY_RE = /^\d+\.\d+[a-z]?$/;
+// 2.3 / 2.3a for regular steps; 3.A1 for admin-only steps (the master
+// list's unnumbered "999" rows).
+const KEY_RE = /^\d+\.(\d+[a-z]?|A\d+)$/;
 
 function lines(text) {
   return (text || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
@@ -106,13 +108,17 @@ async function loadChecklist(options) {
     const typeName = getPlainText(p['Type']);
     const name = '"' + (label || key || '(untitled)') + '"';
     if (!label || !key) return problems.push('Step ' + name + ' skipped: it needs both a Label and a Key.');
-    if (!KEY_RE.test(key)) return problems.push('Step ' + name + ' skipped: Key "' + key + '" must look like 2.3 or 2.3a.');
+    if (!KEY_RE.test(key)) return problems.push('Step ' + name + ' skipped: Key "' + key + '" must look like 2.3, 2.3a, or 2.A1.');
     if (byKey[key]) return problems.push('Step ' + name + ' skipped: Key ' + key + ' is already used by "' + byKey[key].label + '".');
     if (!TYPE_MAP[typeName]) return problems.push('Step ' + name + ' skipped: choose a Type.');
     if (allStages[stageNum] === false) return; // stage retired: its steps quietly retire with it
     if (!allStages[stageNum]) return problems.push('Step ' + name + ' skipped: Stage ' + (stageNum == null ? '(blank)' : stageNum) + ' is not an active stage.');
 
     const type = TYPE_MAP[typeName];
+    const adminOnly = checkbox(p['Admin Only']);
+    if (adminOnly && (type === 'upload' || type === 'form')) {
+      return problems.push('Step ' + name + ' skipped: a Sponsor Upload/Form step can\'t be Admin Only (the sponsor has to see it to do it).');
+    }
     const formUrl = getPlainText(p['Form Link']) || '';
     if (type === 'form' && formUrl && !/^https?:\/\//i.test(formUrl)) {
       problems.push('Step ' + name + ': Form Link must start with https://, so the sponsor gets an upload link for now.');
@@ -125,7 +131,10 @@ async function loadChecklist(options) {
       type: type,
       label: label,
       licensing: checkbox(p['Licensing']),
-      visible: checkbox(p['Visible to Sponsor']),
+      adminOnly: adminOnly,
+      // Everything except Admin Only steps shows on the sponsor's status page.
+      visible: !adminOnly,
+      instructions: getPlainText(p['Instructions']) || '',
       cert: type === 'training' && checkbox(p['Certificate']),
       formUrl: type === 'form' && /^https?:\/\//i.test(formUrl) ? formUrl : '',
       includes: lines(getPlainText(p['Includes'])),
@@ -151,13 +160,20 @@ async function loadChecklist(options) {
 //   Returned  — admin sent it back with a reason; goes out again on the next request
 //   Scheduled — event with a date set, not yet marked done
 //   Complete  — done (accepted, recorded, or uploaded by an admin)
+//   Not Applicable — an admin ruled it out, with a reason the sponsor can
+//               see; counts as done everywhere progress is measured
 const STATUS = {
   REQUESTED: 'Requested',
   RECEIVED: 'Received',
   RETURNED: 'Returned',
   SCHEDULED: 'Scheduled',
-  COMPLETE: 'Complete'
+  COMPLETE: 'Complete',
+  NOT_APPLICABLE: 'Not Applicable'
 };
+
+function isDone(item) {
+  return !!item && (item.status === STATUS.COMPLETE || item.status === STATUS.NOT_APPLICABLE);
+}
 
 function isSponsorStep(step) {
   return step.type === 'upload' || step.type === 'form';
@@ -237,7 +253,7 @@ function formFilename(intakeId, stepKey) {
 }
 
 function parseFormFilename(filename) {
-  const m = (filename || '').match(/Intake_([0-9a-fA-F]{32})_(\d+-\d+[a-z]?)/);
+  const m = (filename || '').match(/Intake_([0-9a-fA-F]{32})_(\d+-(?:\d+[a-z]?|A\d+))/);
   if (!m) return null;
   return { intakeId: m[1], stepKey: m[2].replace('-', '.') };
 }
@@ -275,6 +291,7 @@ function itemFromPage(page) {
     completedDate: getPlainText(p['Completed Date']),
     filename: getPlainText(p['Filename']),
     returnReason: getPlainText(p['Return Reason']),
+    naReason: getPlainText(p['Not Applicable Reason']),
     notes: getPlainText(p['Notes']),
     lastUpdatedBy: getPlainText(p['Last Updated By'])
   };
@@ -383,6 +400,8 @@ function fullItemList(cl, itemsByKey) {
       label: step.label,
       licensing: !!step.licensing,
       visibleToSponsor: isSponsorStep(step) || !!step.visible,
+      adminOnly: !!step.adminOnly,
+      instructions: step.instructions || '',
       sponsorStep: isSponsorStep(step),
       cert: !!step.cert,
       includes: step.includes,
@@ -396,6 +415,7 @@ function fullItemList(cl, itemsByKey) {
       completedDate: item.completedDate || '',
       filename: item.filename || '',
       returnReason: item.returnReason || '',
+      naReason: item.naReason || '',
       notes: item.notes || '',
       lastUpdatedBy: item.lastUpdatedBy || ''
     };
@@ -408,8 +428,7 @@ function stageSummary(cl, itemsByKey) {
   const stages = cl.stages.map(function (stage) {
     const steps = cl.steps.filter(function (s) { return s.stage === stage.num; });
     const complete = steps.filter(function (s) {
-      const item = itemsByKey[s.key];
-      return item && item.status === STATUS.COMPLETE;
+      return isDone(itemsByKey[s.key]);
     }).length;
     return { num: stage.num, position: stage.position, name: stage.name, total: steps.length, complete: complete, isComplete: complete === steps.length };
   });
@@ -496,7 +515,8 @@ function sponsorStatus(cl, intake, itemsByKey) {
       const item = itemsByKey[step.key] || {};
       const event = splitEventDate(item.eventDate);
       let itemState = 'not-started';
-      if (item.status === STATUS.COMPLETE) itemState = 'complete';
+      if (item.status === STATUS.NOT_APPLICABLE) itemState = 'not-applicable';
+      else if (item.status === STATUS.COMPLETE) itemState = 'complete';
       else if (item.status === STATUS.RECEIVED) itemState = 'under-review';
       else if (item.status === STATUS.REQUESTED || item.status === STATUS.RETURNED) itemState = 'action-needed';
       else if (item.status === STATUS.SCHEDULED) itemState = 'scheduled';
@@ -506,7 +526,9 @@ function sponsorStatus(cl, intake, itemsByKey) {
         state: itemState,
         eventDate: step.type === 'event' ? event.date : '',
         eventTime: step.type === 'event' ? event.time : '',
-        completedDate: item.status === STATUS.COMPLETE ? (item.completedDate || '') : ''
+        completedDate: item.status === STATUS.COMPLETE ? (item.completedDate || '') : '',
+        // The one admin-entered note a sponsor sees, by design.
+        naReason: item.status === STATUS.NOT_APPLICABLE ? (item.naReason || '') : ''
       };
     });
     return { num: s.num, name: s.name, state: state, items: items };
@@ -588,6 +610,7 @@ module.exports = {
   stepOrPlaceholder,
   STATUS,
   TIME_ZONE,
+  isDone,
   isSponsorStep,
   formUrlFor,
   stageFor,

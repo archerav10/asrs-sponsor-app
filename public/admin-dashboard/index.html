@@ -208,6 +208,12 @@
   .in-pill.Received { background: #DCE7F5; color: #1F4E8C; }
   .in-pill.Scheduled { background: #E4ECE7; color: var(--forest-light); }
   .in-pill.Complete { background: #DDEEE3; color: #1B7A3D; }
+  .in-pill.na { background: transparent; color: #6B6659; border: 1px dashed #B9B2A1; }
+  .in-item.na .in-item-title, .in-item.na .in-item-info { color: #8A8577; }
+  .in-item-title .admin-tag { font-size: 11px; font-weight: 700; color: #6B4FA0; margin-left: 6px; text-transform: uppercase; letter-spacing: .04em; }
+  .in-item-instructions { font-size: 13px; color: var(--forest-light); margin: 0; }
+  .in-na-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+  .in-na-form input { flex: 1; min-width: 200px; width: auto; padding: 7px 9px; font-size: 14px; }
   .in-row-button { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); padding: 14px 16px; border-radius: 8px; margin: 0 0 10px; cursor: pointer; font-weight: 400; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
   .in-row-button .who { font-size: 16px; font-weight: 600; }
   .in-row-button .meta-line { font-size: 13px; color: #666; margin-top: 2px; }
@@ -343,6 +349,7 @@
         <p class="error-text" id="intake-new-error"></p>
         <button id="intake-new-submit" type="button">Start intake</button>
       </details>
+      <p style="margin: 0 0 14px;"><a class="small-btn" href="print.html?all=1" target="_blank" rel="noopener" style="padding:7px 12px; font-size:13px; border-radius:6px;">Print all active intakes</a></p>
       <p class="error-text" id="intake-dashboard-error"></p>
       <div id="intake-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
@@ -385,6 +392,8 @@
         <a class="small-btn" id="intake-open-status" target="_blank" rel="noopener">Open status page</a>
         <a class="small-btn" id="intake-open-drive" target="_blank" rel="noopener">Drive folder</a>
         <button class="secondary" type="button" id="intake-email-link">Email status link</button>
+        <a class="small-btn" id="intake-print-progress" target="_blank" rel="noopener">Print progress sheet</a>
+        <a class="small-btn" id="intake-print-blank" target="_blank" rel="noopener">Print blank checklist</a>
       </div>
     </div>
     <div class="ap-banner" id="intake-detail-banner">Loading&hellip;</div>
@@ -2073,12 +2082,28 @@
     title.appendChild(document.createTextNode(item.label));
     if (item.licensing) title.appendChild(intakeEl('span', 'lic', '[L]'));
     if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', 'Sponsor'));
+    if (item.adminOnly) title.appendChild(intakeEl('span', 'admin-tag', 'Admin only'));
     head.appendChild(title);
 
+    const isNA = item.status === 'Not Applicable';
     let pillText = item.status || 'Not started';
     if (item.status === 'Scheduled' && item.eventDate) pillText = formatDate(item.eventDate) + (item.eventTime ? ' ' + item.eventTime : '');
-    head.appendChild(intakeEl('span', 'in-pill ' + (item.status || ''), pillText));
+    head.appendChild(intakeEl('span', 'in-pill ' + (isNA ? 'na' : (item.status || '')), pillText));
     wrap.appendChild(head);
+    if (item.instructions) wrap.appendChild(intakeEl('p', 'in-item-instructions', '▸ ' + item.instructions));
+
+    // Not Applicable: greyed out, counts as done, the reason is the only
+    // thing to show (the sponsor sees it too), and Reopen undoes it.
+    if (isNA) {
+      wrap.classList.add('na');
+      wrap.appendChild(intakeEl('p', 'in-item-info', 'Not applicable: ' + (item.naReason || '') +
+        (item.lastUpdatedBy ? ' · by ' + item.lastUpdatedBy : '') + (item.completedDate ? ' · ' + formatDate(item.completedDate) : '')));
+      const naControls = intakeEl('div', 'in-item-controls');
+      naControls.appendChild(intakeButton('Reopen', true, function () { intakeUpdate(item.key, { action: 'reopen' }); }));
+      wrap.appendChild(naControls);
+      container.appendChild(wrap);
+      return;
+    }
 
     // Status detail lines
     const info = [];
@@ -2170,6 +2195,22 @@
     }
     if (controls.children.length) wrap.appendChild(controls);
 
+    if (!isComplete) {
+      const na = intakeEl('details');
+      na.appendChild(intakeEl('summary', null, 'Mark not applicable'));
+      const naForm = intakeEl('div', 'in-na-form');
+      const naReason = document.createElement('input');
+      naReason.type = 'text';
+      naReason.placeholder = 'Reason (the sponsor sees this)';
+      naForm.appendChild(naReason);
+      naForm.appendChild(intakeButton('Mark N/A', true, function () {
+        if (!naReason.value.trim()) { naReason.focus(); setError('intake-detail-error', 'Enter a reason before marking an item not applicable.'); return; }
+        intakeUpdate(item.key, { action: 'na', reason: naReason.value.trim() });
+      }));
+      na.appendChild(naForm);
+      wrap.appendChild(na);
+    }
+
     // Admin-only notes
     const notes = intakeEl('details');
     notes.appendChild(intakeEl('summary', null, item.notes ? 'Notes (1)' : 'Add note'));
@@ -2199,6 +2240,8 @@
       document.getElementById('intake-detail-meta').textContent = [intake.email, intake.phone, 'Started ' + formatDate(intake.startedDate)]
         .filter(Boolean).join(' · ') + (intake.lastRequestSent ? ' · Last request ' + formatDate(intake.lastRequestSent) : '');
       document.getElementById('intake-open-status').href = intake.statusUrl;
+      document.getElementById('intake-print-progress').href = 'print.html?id=' + encodeURIComponent(intake.id);
+      document.getElementById('intake-print-blank').href = 'print.html?mode=blank&id=' + encodeURIComponent(intake.id);
       const drive = document.getElementById('intake-open-drive');
       drive.style.display = intake.driveUrl ? '' : 'none';
       drive.href = intake.driveUrl || '#';

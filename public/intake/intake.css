@@ -60,6 +60,8 @@ h2 { font-size: 16px; margin: 0; }
 .pill.action { background: var(--action-bg); color: var(--action); }
 .pill.scheduled { background: var(--review-bg); color: var(--review); }
 .pill.idle { background: var(--idle-bg); color: var(--idle); }
+.pill.na { background: transparent; color: var(--idle); border: 1px dashed var(--border); }
+.row.na .row-title { color: var(--idle); }
 
 .btn {
   display: inline-block; background: var(--forest); color: #fff; text-decoration: none; font-weight: 600;

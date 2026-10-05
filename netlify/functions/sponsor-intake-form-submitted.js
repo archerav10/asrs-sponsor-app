@@ -31,7 +31,7 @@ exports.handler = async function (event) {
       'Received Date': dateProp(todayIso()),
       'Last Updated By': richText('JotForm submission')
     };
-    if (!item || item.status !== STATUS.COMPLETE) {
+    if (!item || item.status !== STATUS.COMPLETE && item.status !== STATUS.NOT_APPLICABLE) {
       props['Status'] = statusProp(STATUS.RECEIVED);
       props['Return Reason'] = richText('');
     }
