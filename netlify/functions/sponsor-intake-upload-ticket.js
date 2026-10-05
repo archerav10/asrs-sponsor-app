@@ -49,6 +49,7 @@ exports.handler = async function (event) {
       stepKey: step.key,
       label: step.label,
       includes: step.includes,
+      blankFormUrl: step.blankFormUrl || '',
       canUpload: true,
       message: ''
     };

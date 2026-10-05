@@ -137,6 +137,10 @@ async function loadChecklist(options) {
       instructions: getPlainText(p['Instructions']) || '',
       cert: type === 'training' && checkbox(p['Certificate']),
       formUrl: type === 'form' && /^https?:\/\//i.test(formUrl) ? formUrl : '',
+      // Sponsor Upload only: a blank PDF the sponsor downloads, fills in,
+      // signs, and uploads back (e.g. the W-9) — used where a form holds an
+      // SSN and so shouldn't be collected through JotForm.
+      blankFormUrl: type === 'upload' && /^https?:\/\//i.test(getPlainText(p['Blank Form Link']) || '') ? getPlainText(p['Blank Form Link']) : '',
       includes: lines(getPlainText(p['Includes'])),
       agenda: lines(getPlainText(p['Agenda']))
     };
@@ -183,7 +187,7 @@ function isSponsorStep(step) {
 // step was retired in Notion after being requested, still file it
 // (under "Other") rather than lose it.
 function stepOrPlaceholder(cl, key) {
-  return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '' };
+  return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '', blankFormUrl: '' };
 }
 
 function formUrlFor(step) {
@@ -407,6 +411,7 @@ function fullItemList(cl, itemsByKey) {
       includes: step.includes,
       agenda: step.agenda,
       formConfigured: step.type === 'form' ? !!formUrlFor(step) : null,
+      blankFormUrl: step.blankFormUrl || '',
       status: item.status || '',
       eventDate: event.date,
       eventTime: event.time,
@@ -543,6 +548,7 @@ function sponsorStatus(cl, intake, itemsByKey) {
       key: step.key,
       label: step.label,
       includes: step.includes,
+      blankFormUrl: step.blankFormUrl || '',
       returnReason: item.status === STATUS.RETURNED ? item.returnReason : '',
       actionUrl: sponsorActionUrl(intake, step),
       actionLabel: sponsorActionLabel(step)

@@ -52,6 +52,10 @@ function itemRow(intake, step, returnReason) {
   if (step.includes && step.includes.length) {
     detail += '<div style="font-size:13px;color:#5E5B52;margin-top:4px">Includes: ' + step.includes.map(esc).join('; ') + '</div>';
   }
+  if (step.blankFormUrl) {
+    detail += '<div style="font-size:13px;margin-top:4px"><a href="' + esc(step.blankFormUrl) + '" style="color:' + FOREST + ';font-weight:600">Download the blank form</a>' +
+      '<span style="color:#5E5B52"> — fill it in, sign it, then upload it.</span></div>';
+  }
   if (returnReason) {
     detail += '<div style="font-size:13px;color:#9A3412;margin-top:4px"><strong>Please resubmit:</strong> ' + esc(returnReason) + '</div>';
   }

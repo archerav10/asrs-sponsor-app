@@ -25,6 +25,7 @@
     <p class="eyebrow" id="for-name"></p>
     <h1 id="item-label" style="margin:0"></h1>
     <p class="row-sub" id="item-includes" hidden></p>
+    <p class="row-sub" id="item-blank" hidden>Step 1: <a id="item-blank-link" target="_blank" rel="noopener" style="color:var(--forest);font-weight:600">download the blank form</a>, fill it in, and sign it. Step 2: upload it below.</p>
     <p class="row-sub returned" id="item-returned" hidden></p>
     <p class="row-sub" id="item-message" hidden></p>
 
@@ -167,6 +168,10 @@
       if (config.includes && config.includes.length) {
         $('item-includes').textContent = 'Includes: ' + config.includes.join('; ');
         $('item-includes').hidden = false;
+      }
+      if (config.blankFormUrl) {
+        $('item-blank-link').href = config.blankFormUrl;
+        $('item-blank').hidden = false;
       }
       if (config.returnReason) {
         $('item-returned').textContent = 'Please resubmit: ' + config.returnReason;

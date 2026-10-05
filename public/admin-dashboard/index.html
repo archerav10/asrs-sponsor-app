@@ -2119,6 +2119,16 @@
       item.includes.forEach(function (x) { ul.appendChild(intakeEl('li', null, x)); });
       wrap.appendChild(ul);
     }
+    if (item.blankFormUrl) {
+      const bf = intakeEl('p', 'in-item-info');
+      bf.appendChild(document.createTextNode('Sponsor downloads a blank form: '));
+      const a = intakeEl('a', null, 'view');
+      a.href = item.blankFormUrl;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      bf.appendChild(a);
+      wrap.appendChild(bf);
+    }
     if (item.type === 'form' && !item.formConfigured) {
       wrap.appendChild(intakeEl('p', 'in-item-info warn', 'No JotForm link set for this item yet, so the sponsor gets an upload link instead.'));
     }

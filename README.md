@@ -630,6 +630,12 @@ shows on the next reload.
   - **Licensing** and **Certificate** (training only).
   - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
     sponsor gets an upload link instead.
+  - **Blank Form Link**: Sponsor Upload only. A blank PDF the sponsor
+    downloads, fills in, signs and uploads. It's shown as "Download the
+    blank form" in the email, on the upload page and on the status page.
+    It's used for forms that contain an SSN (the W-9 and the background
+    check disclosures), so SSNs never sit in JotForm. The disclosure
+    template is served from `public/intake/forms/`.
   - **Includes** and **Agenda**: one line each.
   - **Active**.
 

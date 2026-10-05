@@ -117,6 +117,15 @@
         const text = el('div', 'row-text');
         text.appendChild(el('span', 'row-title', a.label));
         if (a.includes.length) text.appendChild(el('span', 'row-sub', 'Includes: ' + a.includes.join('; ')));
+        if (a.blankFormUrl) {
+          const dl = el('a', 'row-sub', 'Download the blank form');
+          dl.href = a.blankFormUrl;
+          dl.target = '_blank';
+          dl.rel = 'noopener';
+          dl.style.color = 'var(--forest)';
+          dl.style.fontWeight = '600';
+          text.appendChild(dl);
+        }
         if (a.returnReason) text.appendChild(el('span', 'row-sub returned', 'Please resubmit: ' + a.returnReason));
         row.appendChild(text);
         const link = el('a', 'btn', a.actionLabel);
