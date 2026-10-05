@@ -120,8 +120,8 @@ async function loadChecklist(options) {
       return problems.push('Step ' + name + ' skipped: a Sponsor Upload/Form step can\'t be Admin Only (the sponsor has to see it to do it).');
     }
     const formUrl = getPlainText(p['Form Link']) || '';
-    if (type === 'form' && formUrl && !/^https?:\/\//i.test(formUrl)) {
-      problems.push('Step ' + name + ': Form Link must start with https://, so the sponsor gets an upload link for now.');
+    if ((type === 'form' || type === 'document') && formUrl && !/^https?:\/\//i.test(formUrl)) {
+      problems.push('Step ' + name + ': Form Link must start with https://' + (type === 'form' ? ', so the sponsor gets an upload link for now.' : '.'));
     }
     const order = getPlainText(p['Order']);
     const step = {
@@ -136,7 +136,10 @@ async function loadChecklist(options) {
       visible: !adminOnly,
       instructions: getPlainText(p['Instructions']) || '',
       cert: type === 'training' && checkbox(p['Certificate']),
-      formUrl: type === 'form' && /^https?:\/\//i.test(formUrl) ? formUrl : '',
+      // Sponsor Form: the JotForm the sponsor completes. ASRS Document: an
+      // optional JotForm someone else completes for ASRS (e.g. a
+      // reference), opened from the admin page's "Copy form link".
+      formUrl: (type === 'form' || type === 'document') && /^https?:\/\//i.test(formUrl) ? formUrl : '',
       // Sponsor Upload only: a blank PDF the sponsor downloads, fills in,
       // signs, and uploads back (e.g. the W-9) — used where a form holds an
       // SSN and so shouldn't be collected through JotForm.
@@ -188,6 +191,19 @@ function isSponsorStep(step) {
 // (under "Other") rather than lose it.
 function stepOrPlaceholder(cl, key) {
   return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '', blankFormUrl: '' };
+}
+
+// The JotForm link an admin hands to someone else (a reference) for an
+// ASRS Document step. It carries the same app_filename tracking field as a
+// sponsor form, so the submission files itself into the sponsor's Drive
+// folder and completes the step. applicantName prefills the form's
+// "Applicant name" question (JotForm's default unique name for that label).
+function adminFormLink(intake, step) {
+  if (step.type !== 'document' || !step.formUrl) return '';
+  const url = new URL(step.formUrl);
+  url.searchParams.set('app_filename', formFilename(intake.id, step.key));
+  url.searchParams.set('applicantName', intake.name || '');
+  return url.toString();
 }
 
 function formUrlFor(step) {
@@ -614,6 +630,7 @@ function errorResponse(err) {
 module.exports = {
   loadChecklist,
   stepOrPlaceholder,
+  adminFormLink,
   STATUS,
   TIME_ZONE,
   isDone,

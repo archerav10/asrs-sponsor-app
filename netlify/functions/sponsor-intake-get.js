@@ -1,5 +1,5 @@
 const {
-  requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary,
+  requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary, adminFormLink,
   statusPageUrl, json, errorResponse
 } = require('./lib/sponsor-intake');
 
@@ -33,7 +33,10 @@ exports.handler = async function (event) {
       },
       stages: cl.stages.map(function (s) { return { num: s.num, position: s.position, name: s.name }; }),
       progress: stageSummary(cl, items),
-      items: fullItemList(cl, items),
+      items: fullItemList(cl, items).map(function (item) {
+        item.adminFormUrl = adminFormLink(intake, cl.byKey[item.key]);
+        return item;
+      }),
       checklistProblems: cl.problems
     });
   } catch (err) {

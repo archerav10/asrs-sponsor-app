@@ -115,17 +115,22 @@ async function sendToSponsor(intake, email) {
 // Heads-up to SPONSOR_INTAKE_NOTIFY_EMAILS when a sponsor submits
 // something. Best-effort: a failed notification never fails the
 // sponsor's upload.
-async function notifyAdmins(intake, step) {
+async function notifyAdmins(intake, step, completedForAsrs) {
   const templateId = process.env.EMAILJS_INTAKE_TEMPLATE_ID;
   const recipients = (process.env.SPONSOR_INTAKE_NOTIFY_EMAILS || '').split(',')
     .map(function (s) { return s.trim(); }).filter(Boolean);
   if (!templateId || !recipients.length) return;
 
-  const subject = intake.name + ' submitted ' + step.key + ' ' + step.label;
+  const subject = completedForAsrs
+    ? step.key + ' ' + step.label + ' received for ' + intake.name
+    : intake.name + ' submitted ' + step.key + ' ' + step.label;
+  const body = completedForAsrs
+    ? '<p><strong>' + esc(step.key + ' ' + step.label) + '</strong> was submitted for <strong>' + esc(intake.name) + '</strong>.</p>' +
+      '<p>It\'s in their Drive folder and the step is marked <em>Complete</em>. You can review it from the '
+    : '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +
+      '<p>It\'s in their Drive folder and marked <em>Received</em>. Review it and accept or return it from the ';
   const html = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1C1C1A">' +
-    '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +
-    '<p>It\'s in their Drive folder and marked <em>Received</em>. Review it and accept or return it from the ' +
-    '<a href="' + esc(siteBaseUrl() + '/admin-dashboard/') + '">admin dashboard</a> (Sponsor Intake tab).</p></div>';
+    body + '<a href="' + esc(siteBaseUrl() + '/admin-dashboard/') + '">admin dashboard</a> (Sponsor Intake tab).</p></div>';
 
   for (let i = 0; i < recipients.length; i++) {
     try {

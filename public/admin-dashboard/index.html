@@ -2192,7 +2192,27 @@
         controls.appendChild(up);
       }
     } else if (item.type === 'document') {
-      const up = intakeEl('label', 'in-item-info', item.filename ? 'Replace: ' : 'Upload: ');
+      // A form someone else fills in for ASRS (e.g. a reference): the link
+      // carries the tracking field, so the signed PDF files itself and
+      // completes this step.
+      if (item.adminFormUrl && !isComplete) {
+        controls.appendChild(intakeButton('Copy form link', false, function () {
+          const btn = this;
+          navigator.clipboard.writeText(item.adminFormUrl).then(function () {
+            btn.textContent = 'Copied';
+            setTimeout(function () { btn.textContent = 'Copy form link'; }, 1600);
+          }).catch(function () { window.prompt('Copy this link and send it:', item.adminFormUrl); });
+        }));
+        const open = intakeEl('a', 'small-btn', 'Open form');
+        open.href = item.adminFormUrl;
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.style.padding = '7px 12px';
+        open.style.fontSize = '13px';
+        open.style.borderRadius = '6px';
+        controls.appendChild(open);
+      }
+      const up = intakeEl('label', 'in-item-info', item.filename ? 'Replace: ' : (item.adminFormUrl ? 'or upload: ' : 'Upload: '));
       up.style.margin = '0';
       up.style.fontWeight = '400';
       up.appendChild(intakeFileInput(item, true));

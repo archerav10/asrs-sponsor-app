@@ -629,7 +629,12 @@ shows on the next reload.
     and on printed sheets, never to the sponsor.
   - **Licensing** and **Certificate** (training only).
   - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
-    sponsor gets an upload link instead.
+    sponsor gets an upload link instead. On an **ASRS Document** step,
+    it's a form someone else fills in for ASRS (the Reference Check:
+    2.2a, 2.2b and 2.2c, one per required reference). The admin page shows
+    **Copy form link** and **Open form**, with the tracking field and the
+    applicant's name filled in. When that form is submitted, the PDF files
+    itself and the step is marked **Complete** rather than Received.
   - **Blank Form Link**: Sponsor Upload only. A blank PDF the sponsor
     downloads, fills in, signs and uploads. It's shown as "Download the
     blank form" in the email, on the upload page and on the status page.

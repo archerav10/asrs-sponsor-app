@@ -1,5 +1,5 @@
 const {
-  loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS, parseFormFilename,
+  loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS, parseFormFilename, isSponsorStep,
   todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse
 } = require('./lib/sponsor-intake');
 const { notifyAdmins } = require('./lib/sponsor-intake-email');
@@ -31,13 +31,18 @@ exports.handler = async function (event) {
       'Received Date': dateProp(todayIso()),
       'Last Updated By': richText('JotForm submission')
     };
+    // A sponsor's own form waits for admin review (Received). A form
+    // someone else completed for an ASRS step — a reference check — is the
+    // record itself, so it completes the step.
+    const asrsStep = !isSponsorStep(step);
     if (!item || item.status !== STATUS.COMPLETE && item.status !== STATUS.NOT_APPLICABLE) {
-      props['Status'] = statusProp(STATUS.RECEIVED);
+      props['Status'] = statusProp(asrsStep ? STATUS.COMPLETE : STATUS.RECEIVED);
       props['Return Reason'] = richText('');
+      if (asrsStep) props['Completed Date'] = dateProp(todayIso());
     }
 
     await upsertItem(intake, step, props, item);
-    await notifyAdmins(intake, step);
+    await notifyAdmins(intake, step, asrsStep);
 
     return json(200, { success: true });
   } catch (err) {
