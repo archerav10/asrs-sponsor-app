@@ -36,8 +36,10 @@ function layout(bodyHtml, intake) {
   return '<div style="background:' + CREAM + ';padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;color:#1C1C1A">' +
     '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ' + BORDER + ';border-radius:10px;overflow:hidden">' +
     '<div style="background:' + FOREST + ';color:' + CREAM + ';padding:18px 24px">' +
-    '<div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.8">ASRS</div>' +
-    '<div style="font-size:19px;font-weight:600">Sponsor Intake</div></div>' +
+    '<table role="presentation" cellspacing="0" cellpadding="0"><tr>' +
+    '<td style="vertical-align:middle;padding-right:14px"><img src="' + esc(siteBaseUrl() + '/intake/logo.jpg') + '" width="62" height="56" alt="Arch Support Residential Services" style="display:block;border:0;border-radius:3px"></td>' +
+    '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">Sponsor Intake</td>' +
+    '</tr></table></div>' +
     '<div style="padding:24px;font-size:15px;line-height:1.55">' + bodyHtml + '</div>' +
     '<div style="padding:16px 24px;border-top:1px solid ' + BORDER + ';font-size:13px;color:#5E5B52">' +
     'Check your intake progress anytime: <a href="' + esc(statusPageUrl(intake)) + '" style="color:' + FOREST + ';font-weight:600">View my intake status</a><br>' +

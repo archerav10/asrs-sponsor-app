@@ -24,9 +24,9 @@ body {
   line-height: 1.5;
   font-size: 15px;
 }
-.bar { background: var(--forest); color: var(--cream); padding: 16px; }
-.bar-inner { max-width: 640px; margin: 0 auto; display: flex; align-items: baseline; gap: 10px; }
-.wordmark { font-size: 13px; letter-spacing: 0.08em; opacity: 0.8; font-weight: 700; }
+.bar { background: var(--forest); color: var(--cream); padding: 12px 16px; }
+.bar-inner { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+.bar-logo { height: 48px; width: auto; display: block; border-radius: 3px; }
 .bar-title { font-size: 18px; font-weight: 600; }
 main { max-width: 640px; margin: 0 auto; padding: 24px 16px 56px; display: flex; flex-direction: column; gap: 18px; }
 #content { display: flex; flex-direction: column; gap: 18px; }
