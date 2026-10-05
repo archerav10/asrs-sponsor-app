@@ -253,6 +253,12 @@
     flex-shrink: 0;
   }
   .item-row.date-row .item-save { margin-top: 12px; }
+  .item-row.shared-item { display: flex; gap: 12px; align-items: flex-start; }
+  .item-row.shared-item input[type="checkbox"] { width: 26px; height: 26px; margin: 0; accent-color: var(--forest); flex-shrink: 0; }
+  .shared-item-body { flex: 1; min-width: 0; }
+  .shared-item-body .item-name { margin: 2px 0 0; }
+  .shared-item-body .item-meta.shared-done { color: #1B7A3D; margin-top: 4px; }
+  .shared-item-body input[type="text"] { margin-top: 8px; font-size: 14px; padding: 8px 10px; }
   .general-notes-wrap {
     margin: 22px 0 0;
     border-top: 1px solid var(--border);
@@ -648,6 +654,7 @@
     <div id="mar-buttons-container" class="mar-section"></div>
     <div id="dpn-buttons-container" class="mar-section"></div>
     <div id="gm-buttons-container" class="mar-section"></div>
+    <div id="shared-checklists-container" class="mar-section"></div>
 
     <div class="action-list">
       <button class="action-button" data-action="first-aid">
@@ -988,6 +995,17 @@
     </div>
   </section>
 
+  <!-- Screen 12: Shared Checklist (sent out from the admin dashboard) -->
+  <section id="screen-shared-checklist" class="screen">
+    <div class="screen-header">
+      <button class="back-button" id="shared-back">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="shared-title">Shared Checklist</p>
+    <p class="last-reviewed" id="shared-status"></p>
+    <p class="error-text" id="shared-error"></p>
+    <div id="shared-list" class="item-list"></div>
+  </section>
+
   <!-- Screen 11: Give Medications -->
   <section id="screen-give-meds" class="screen">
     <div class="screen-header">
@@ -1037,7 +1055,8 @@
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
-    giveMeds: document.getElementById('screen-give-meds')
+    giveMeds: document.getElementById('screen-give-meds'),
+    sharedChecklist: document.getElementById('screen-shared-checklist')
   };
 
   function getStoredSession() {
@@ -1215,6 +1234,7 @@
     renderMarButtons(session.residentInitials);
     renderDpnButtons(session.residentInitials);
     renderGiveMedsButtons(session.residentInitials);
+    loadHomeSharedChecklists();
     loadInfoStatuses(session);
   }
 
@@ -3358,6 +3378,139 @@
       btn.disabled = false;
     }
   });
+
+  // --- Shared Checklists (e.g. DSP Intake) ---
+  // Sent out from the admin dashboard to this location, one per incoming
+  // person. Everyone at the location works the same checklist, and the
+  // admin sees each change. It drops off Home once the admin marks it
+  // complete — there's no complete action on this side.
+  let currentSharedChecklistId = null;
+
+  async function loadHomeSharedChecklists() {
+    const container = document.getElementById('shared-checklists-container');
+    container.innerHTML = '';
+    try {
+      const data = await apiFetch('/get-shared-checklists');
+      data.open.forEach(function (row) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'action-button';
+        const labelRow = document.createElement('span');
+        labelRow.className = 'mar-label-row';
+        const dot = document.createElement('span');
+        dot.className = 'status-dot ' + (row.progress.done === row.progress.total ? 'status-green' : 'status-yellow');
+        const label = document.createElement('span');
+        label.textContent = '☑️ ' + row.templateName + ' — ' + row.subject;
+        labelRow.appendChild(dot);
+        labelRow.appendChild(label);
+        const sub = document.createElement('span');
+        sub.className = 'sub';
+        sub.textContent = row.progress.done + ' of ' + row.progress.total + ' done · Shared checklist';
+        btn.appendChild(labelRow);
+        btn.appendChild(sub);
+        btn.addEventListener('click', function () {
+          currentSharedChecklistId = row.id;
+          document.getElementById('shared-title').textContent = row.templateName + ' — ' + row.subject;
+          document.getElementById('shared-list').innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+          showScreen('sharedChecklist');
+          loadSharedChecklist();
+        });
+        container.appendChild(btn);
+      });
+    } catch (e) {
+      // Fails silently like the other Home statuses — nothing to show.
+    }
+  }
+
+  document.getElementById('shared-back').addEventListener('click', function () {
+    showScreen('home');
+    loadHomeSharedChecklists();
+  });
+
+  async function updateSharedItem(itemKey, changes) {
+    setError('shared-error', '');
+    try {
+      const data = await apiFetch('/update-shared-checklist-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ id: currentSharedChecklistId, itemKey: itemKey }, changes))
+      });
+      renderSharedChecklist(data.checklist);
+    } catch (e) {
+      setError('shared-error', e.message);
+      loadSharedChecklist();
+    }
+  }
+
+  function renderSharedItem(item) {
+    const wrap = document.createElement('div');
+    wrap.className = 'item-row shared-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = item.done;
+    checkbox.addEventListener('change', function () {
+      checkbox.disabled = true;
+      updateSharedItem(item.key, { done: checkbox.checked });
+    });
+
+    const body = document.createElement('div');
+    body.className = 'shared-item-body';
+    const name = document.createElement('p');
+    name.className = 'item-name';
+    name.textContent = item.label;
+    body.appendChild(name);
+
+    if (item.done) {
+      const meta = document.createElement('p');
+      meta.className = 'item-meta shared-done';
+      meta.textContent = '✓ ' + (item.doneBy || 'Done') + (item.doneAt ? ' · ' + formatDateTime(item.doneAt) : '');
+      body.appendChild(meta);
+    }
+
+    const note = document.createElement('input');
+    note.type = 'text';
+    note.placeholder = 'Add a note (optional)';
+    note.value = item.note;
+    note.addEventListener('change', function () {
+      updateSharedItem(item.key, { note: note.value });
+    });
+    body.appendChild(note);
+
+    wrap.appendChild(checkbox);
+    wrap.appendChild(body);
+    return wrap;
+  }
+
+  function renderSharedChecklist(checklist) {
+    document.getElementById('shared-title').textContent = checklist.templateName + ' — ' + checklist.subject;
+    document.getElementById('shared-status').textContent =
+      checklist.progress.done + ' of ' + checklist.progress.total + ' items done. Changes are shared with administration right away.';
+
+    const list = document.getElementById('shared-list');
+    list.innerHTML = '';
+    checklist.sections.forEach(function (section) {
+      const title = document.createElement('p');
+      title.className = 'info-section-label';
+      title.style.margin = '14px 0 0';
+      title.textContent = section.title;
+      list.appendChild(title);
+      section.items.forEach(function (item) { list.appendChild(renderSharedItem(item)); });
+    });
+  }
+
+  async function loadSharedChecklist() {
+    setError('shared-error', '');
+    document.getElementById('shared-status').textContent = 'Loading…';
+    try {
+      const data = await apiFetch('/get-shared-checklist?id=' + encodeURIComponent(currentSharedChecklistId));
+      renderSharedChecklist(data.checklist);
+    } catch (e) {
+      document.getElementById('shared-status').textContent = '';
+      document.getElementById('shared-list').innerHTML = '';
+      setError('shared-error', e.message);
+    }
+  }
 
   document.getElementById('logout').addEventListener('click', function () {
     localStorage.removeItem(SESSION_KEY);
