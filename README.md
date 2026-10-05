@@ -663,7 +663,7 @@ three ways in:
   unfinished intake, each starting on a new page.
 
 Every sheet ends with a signature block (completed by, reviewed by,
-sponsor acknowledgment). The logo is `public/intake/logo.png`. If that
+sponsor acknowledgment). The logo is `public/intake/logo.jpg`. If that
 file is missing, the header simply leaves it out.
 
 #### Notion: two new databases
