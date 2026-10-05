@@ -123,6 +123,13 @@ async function loadChecklist(options) {
     if ((type === 'form' || type === 'document') && formUrl && !/^https?:\/\//i.test(formUrl)) {
       problems.push('Step ' + name + ': Form Link must start with https://' + (type === 'form' ? ', so the sponsor gets an upload link for now.' : '.'));
     }
+    const shareForm = checkbox(p['Send to Someone Else']);
+    if (shareForm && type !== 'form') {
+      problems.push('Step ' + name + ': "Send to Someone Else" only applies to Sponsor Form steps, so it\'s ignored here.');
+    }
+    if (shareForm && type === 'form' && !/^https?:\/\//i.test(formUrl)) {
+      problems.push('Step ' + name + ': "Send to Someone Else" needs a Form Link, so the sponsor gets an upload link for now.');
+    }
     const order = getPlainText(p['Order']);
     const step = {
       key: key,
@@ -140,6 +147,10 @@ async function loadChecklist(options) {
       // optional JotForm someone else completes for ASRS (e.g. a
       // reference), opened from the admin page's "Copy form link".
       formUrl: (type === 'form' || type === 'document') && /^https?:\/\//i.test(formUrl) ? formUrl : '',
+      // Sponsor Form only: the sponsor doesn't fill this form in — they get
+      // a link to pass to someone of their choosing (a reference), who
+      // completes it. The step still counts as the sponsor's to get done.
+      shareForm: type === 'form' && shareForm && /^https?:\/\//i.test(formUrl),
       // Sponsor Upload only: a blank PDF the sponsor downloads, fills in,
       // signs, and uploads back (e.g. the W-9) — used where a form holds an
       // SSN and so shouldn't be collected through JotForm.
@@ -190,24 +201,26 @@ function isSponsorStep(step) {
 // step was retired in Notion after being requested, still file it
 // (under "Other") rather than lose it.
 function stepOrPlaceholder(cl, key) {
-  return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '', blankFormUrl: '' };
+  return cl.byKey[key] || { key: key, stage: null, type: 'upload', label: 'Document', includes: [], agenda: [], formUrl: '', blankFormUrl: '', shareForm: false };
 }
 
-// The JotForm link an admin hands to someone else (a reference) for an
-// ASRS Document step. It carries the same app_filename tracking field as a
+// The JotForm link handed to someone else (a reference) — by an admin
+// for an ASRS Document step, or by the sponsor (via the share page) or an
+// admin for a "Send to Someone Else" Sponsor Form step. It carries the same app_filename tracking field as a
 // sponsor form, so the submission files itself into the sponsor's Drive
 // folder and completes the step. applicantName prefills the form's
 // "Applicant name" question (JotForm's default unique name for that label).
 function adminFormLink(intake, step) {
-  if (step.type !== 'document' || !step.formUrl) return '';
+  if (!step.formUrl || !(step.type === 'document' || step.shareForm)) return '';
   const url = new URL(step.formUrl);
   url.searchParams.set('app_filename', formFilename(intake.id, step.key));
   url.searchParams.set('applicantName', intake.name || '');
   return url.toString();
 }
 
+// The JotForm the sponsor completes themselves (not a shared one).
 function formUrlFor(step) {
-  return step.type === 'form' ? step.formUrl : '';
+  return step.type === 'form' && !step.shareForm ? step.formUrl : '';
 }
 
 function stageFor(cl, num) {
@@ -426,7 +439,8 @@ function fullItemList(cl, itemsByKey) {
       cert: !!step.cert,
       includes: step.includes,
       agenda: step.agenda,
-      formConfigured: step.type === 'form' ? !!formUrlFor(step) : null,
+      formConfigured: step.type === 'form' ? !!step.formUrl : null,
+      shareForm: !!step.shareForm,
       blankFormUrl: step.blankFormUrl || '',
       status: item.status || '',
       eventDate: event.date,
@@ -507,6 +521,9 @@ function statusPageUrl(intake) {
 // yet falls back to the upload page, so the sponsor can still send a
 // completed copy.
 function sponsorActionUrl(intake, step) {
+  if (step.shareForm) {
+    return siteBaseUrl() + '/intake/share.html?t=' + intake.statusToken + '&step=' + encodeURIComponent(step.key);
+  }
   const formUrl = formUrlFor(step);
   if (formUrl) {
     const url = new URL(formUrl);
@@ -517,6 +534,7 @@ function sponsorActionUrl(intake, step) {
 }
 
 function sponsorActionLabel(step) {
+  if (step.shareForm) return 'Get link to send';
   return formUrlFor(step) ? 'Complete form' : 'Upload';
 }
 

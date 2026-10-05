@@ -2033,6 +2033,27 @@
     }
   }
 
+  // "Copy form link" + "Open form" for a JotForm someone other than the
+  // sponsor completes (a reference). The link carries the tracking field,
+  // so the signed PDF files itself under this step.
+  function intakeFormLinkButtons(controls, item) {
+    controls.appendChild(intakeButton('Copy form link', false, function () {
+      const btn = this;
+      navigator.clipboard.writeText(item.adminFormUrl).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy form link'; }, 1600);
+      }).catch(function () { window.prompt('Copy this link and send it:', item.adminFormUrl); });
+    }));
+    const open = intakeEl('a', 'small-btn', 'Open form');
+    open.href = item.adminFormUrl;
+    open.target = '_blank';
+    open.rel = 'noopener';
+    open.style.padding = '7px 12px';
+    open.style.fontSize = '13px';
+    open.style.borderRadius = '6px';
+    controls.appendChild(open);
+  }
+
   function intakeButton(label, secondary, onClick) {
     const b = intakeEl('button', 'small' + (secondary ? ' secondary' : ''), label);
     b.type = 'button';
@@ -2129,6 +2150,9 @@
       bf.appendChild(a);
       wrap.appendChild(bf);
     }
+    if (item.shareForm) {
+      wrap.appendChild(intakeEl('p', 'in-item-info', 'Send to someone else: the sponsor\'s email gets a link to pass on (e.g. to a reference), who completes the form.'));
+    }
     if (item.type === 'form' && !item.formConfigured) {
       wrap.appendChild(intakeEl('p', 'in-item-info warn', 'No JotForm link set for this item yet, so the sponsor gets an upload link instead.'));
     }
@@ -2157,7 +2181,10 @@
           intakeUpdate(item.key, { action: 'return', reason: reason.value.trim() });
         }));
       } else if (!isComplete) {
-        const up = intakeEl('label', 'in-item-info', 'Upload on their behalf: ');
+        // A Send to Someone Else form: an admin can also hand the link out
+        // directly (e.g. to a reference the sponsor named by phone).
+        if (item.adminFormUrl) intakeFormLinkButtons(controls, item);
+        const up = intakeEl('label', 'in-item-info', item.adminFormUrl ? 'or upload on their behalf: ' : 'Upload on their behalf: ');
         up.style.margin = '0';
         up.style.fontWeight = '400';
         up.appendChild(intakeFileInput(item, true));
@@ -2195,23 +2222,7 @@
       // A form someone else fills in for ASRS (e.g. a reference): the link
       // carries the tracking field, so the signed PDF files itself and
       // completes this step.
-      if (item.adminFormUrl && !isComplete) {
-        controls.appendChild(intakeButton('Copy form link', false, function () {
-          const btn = this;
-          navigator.clipboard.writeText(item.adminFormUrl).then(function () {
-            btn.textContent = 'Copied';
-            setTimeout(function () { btn.textContent = 'Copy form link'; }, 1600);
-          }).catch(function () { window.prompt('Copy this link and send it:', item.adminFormUrl); });
-        }));
-        const open = intakeEl('a', 'small-btn', 'Open form');
-        open.href = item.adminFormUrl;
-        open.target = '_blank';
-        open.rel = 'noopener';
-        open.style.padding = '7px 12px';
-        open.style.fontSize = '13px';
-        open.style.borderRadius = '6px';
-        controls.appendChild(open);
-      }
+      if (item.adminFormUrl && !isComplete) intakeFormLinkButtons(controls, item);
       const up = intakeEl('label', 'in-item-info', item.filename ? 'Replace: ' : (item.adminFormUrl ? 'or upload: ' : 'Upload: '));
       up.style.margin = '0';
       up.style.fontWeight = '400';

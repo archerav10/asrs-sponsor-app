@@ -52,6 +52,9 @@ function itemRow(intake, step, returnReason) {
   if (step.includes && step.includes.length) {
     detail += '<div style="font-size:13px;color:#5E5B52;margin-top:4px">Includes: ' + step.includes.map(esc).join('; ') + '</div>';
   }
+  if (step.shareForm) {
+    detail += '<div style="font-size:13px;color:#5E5B52;margin-top:4px">Someone you choose completes this one. The button gives you a link to send them.</div>';
+  }
   if (step.blankFormUrl) {
     detail += '<div style="font-size:13px;margin-top:4px"><a href="' + esc(step.blankFormUrl) + '" style="color:' + FOREST + ';font-weight:600">Download the blank form</a>' +
       '<span style="color:#5E5B52"> — fill it in, sign it, then upload it.</span></div>';
@@ -121,10 +124,14 @@ async function notifyAdmins(intake, step, completedForAsrs) {
     .map(function (s) { return s.trim(); }).filter(Boolean);
   if (!templateId || !recipients.length) return;
 
-  const subject = completedForAsrs
+  const subject = completedForAsrs || step.shareForm
     ? step.key + ' ' + step.label + ' received for ' + intake.name
     : intake.name + ' submitted ' + step.key + ' ' + step.label;
-  const body = completedForAsrs
+  const body = step.shareForm && !completedForAsrs
+    ? '<p><strong>' + esc(step.key + ' ' + step.label) + '</strong> was submitted for <strong>' + esc(intake.name) + '</strong> ' +
+      'by the person they sent it to.</p>' +
+      '<p>It\'s in their Drive folder and marked <em>Received</em>. Review it and accept or return it from the '
+    : completedForAsrs
     ? '<p><strong>' + esc(step.key + ' ' + step.label) + '</strong> was submitted for <strong>' + esc(intake.name) + '</strong>.</p>' +
       '<p>It\'s in their Drive folder and the step is marked <em>Complete</em>. You can review it from the '
     : '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +

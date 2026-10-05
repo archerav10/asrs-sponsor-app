@@ -573,8 +573,9 @@ They only ever see:
 1. **Request emails.** An admin ticks sponsor items on the intake page
    and clicks **Send request**. That button is the only thing that ever
    emails a sponsor. Each item in the email has its own button, which
-   opens either a single-item upload page (`/intake/upload.html`) or that
-   item's JotForm.
+   opens a single-item upload page (`/intake/upload.html`), that item's
+   JotForm, or, for a reference check, a page with a link to pass on
+   (`/intake/share.html`).
 2. **A read-only status page** (`/intake/?t=<token>`) behind a private
    48-character token. It's linked at the bottom of every email and shows
    stage progress, "Waiting on you" items with their buttons, "ASRS is
@@ -630,11 +631,28 @@ shows on the next reload.
   - **Licensing** and **Certificate** (training only).
   - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
     sponsor gets an upload link instead. On an **ASRS Document** step,
-    it's a form someone else fills in for ASRS (the Reference Check:
-    2.2a, 2.2b and 2.2c, one per required reference). The admin page shows
+    it's a form someone else fills in for ASRS. The admin page shows
     **Copy form link** and **Open form**, with the tracking field and the
     applicant's name filled in. When that form is submitted, the PDF files
     itself and the step is marked **Complete** rather than Received.
+  - **Send to Someone Else**: Sponsor Form only, and it needs a Form
+    Link. The sponsor doesn't fill the form in; they pass it on to someone
+    they choose. The reference checks (2.2a, 2.2b and 2.2c, one per
+    required reference) work this way:
+    1. Tick them and click **Send request**. The sponsor's email has a
+       **Get link to send** button for each.
+    2. The button opens `/intake/share.html`. It shows that reference's
+       form link, a **Copy link** button, an "Email it" button that opens
+       a pre-written email, and short instructions. The link carries only
+       the tracking field and the sponsor's name, never their status
+       token, so a reference can't see the sponsor's intake.
+    3. The status page shows the item as "Waiting on you" until the
+       reference submits. Then it's **Received**: you get the usual
+       notification, then Accept or Return it. Returning it re-opens the
+       share page so the sponsor can send it again.
+    4. The admin page also shows **Copy form link** and **Open form**,
+       so you can send it yourself or fill it in on a call, and you can
+       upload a reference you collected another way.
   - **Blank Form Link**: Sponsor Upload only. A blank PDF the sponsor
     downloads, fills in, signs and uploads. It's shown as "Download the
     blank form" in the email, on the upload page and on the status page.
