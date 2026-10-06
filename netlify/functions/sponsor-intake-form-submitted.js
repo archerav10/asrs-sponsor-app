@@ -16,11 +16,12 @@ exports.handler = async function (event) {
     useRequestHost(event);
     const body = JSON.parse(event.body || '{}');
     const secret = process.env.ANNUAL_PLANNING_FORM_WEBHOOK_SECRET; // shared across admin-dashboard Zapier-facing endpoints
-    if (!secret || body.secret !== secret) {
+    const parsed = parseFormFilename(body.filename);
+    // A signed tracking value (see formFilename) is its own proof; an
+    // unsigned one needs the shared secret.
+    if (!(parsed && parsed.signed) && (!secret || body.secret !== secret)) {
       return json(403, { error: 'Missing or incorrect secret.' });
     }
-
-    const parsed = parseFormFilename(body.filename);
     if (!parsed) return json(400, { error: 'Could not find an intake/step in that filename.' });
 
     const step = stepOrPlaceholder(await loadChecklist(), parsed.stepKey);

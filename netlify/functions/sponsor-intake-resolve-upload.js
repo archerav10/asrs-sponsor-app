@@ -15,7 +15,8 @@ const {
 //   JotForm Zap — { secret, filename }: a form's native Google Drive
 //   integration drops the submission PDF into a staging folder named
 //   after its prefilled app_filename, and the Zap passes that name here.
-//   A filename alone proves nothing, so this path needs the shared secret.
+//   The tracking value carries a signature (formFilename), so a signed
+//   one needs no secret; an unsigned one needs the shared secret.
 //
 // Either way it returns the root folder ID plus the sponsor and stage
 // folder names for two Find/Create Folder steps, and the file's final name.
@@ -27,7 +28,8 @@ exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || '{}');
     const secret = process.env.ANNUAL_PLANNING_FORM_WEBHOOK_SECRET; // shared across admin-dashboard Zapier-facing endpoints
-    if (!body.ticket && (!secret || body.secret !== secret)) {
+    const signedForm = !body.ticket && parseFormFilename(body.filename);
+    if (!body.ticket && !(signedForm && signedForm.signed) && (!secret || body.secret !== secret)) {
       return json(403, { error: 'Missing or incorrect secret.' });
     }
     const rootFolderId = process.env.SPONSOR_INTAKE_ROOT_FOLDER_ID;

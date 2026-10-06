@@ -273,14 +273,32 @@ function uploadFilename(intake, step, part, total, ext) {
 // Planning). Dots in step keys become dashes so the whole thing survives
 // as one token; the intake's Notion page ID is used instead of the name
 // since a name can't be recovered losslessly.
-function formFilename(intakeId, stepKey) {
-  return 'Intake_' + intakeId.replace(/-/g, '') + '_' + stepKey.replace(/\./g, '-');
+// The app_filename tracking value prefilled into every intake JotForm:
+// Intake_{intakeId}_{step}_{sig}. sig is a short HMAC of the intake and
+// step, so a submission's tracking value proves it came from a link the
+// app made. That lets the Zapier forms workflow report submissions
+// without holding any secret, and stops anyone who has one form link
+// from forging a submission for a different sponsor or step.
+function formSignature(intakeId, stepKey) {
+  const key = process.env.APP_ENCRYPTION_KEY || '';
+  return crypto.createHmac('sha256', Buffer.from(key, 'hex'))
+    .update('intake-form:' + intakeId.replace(/-/g, '').toLowerCase() + ':' + stepKey)
+    .digest('hex').slice(0, 16);
 }
 
+function formFilename(intakeId, stepKey) {
+  return 'Intake_' + intakeId.replace(/-/g, '') + '_' + stepKey.replace(/\./g, '-') + '_' + formSignature(intakeId, stepKey);
+}
+
+// signed: the tracking value carries a valid signature (see formSignature).
 function parseFormFilename(filename) {
-  const m = (filename || '').match(/Intake_([0-9a-fA-F]{32})_(\d+-(?:\d+[a-z]?|A\d+))/);
+  const m = (filename || '').match(/Intake_([0-9a-fA-F]{32})_(\d+-(?:\d+[a-z]?|A\d+))(?:_([0-9a-f]{16}))?/);
   if (!m) return null;
-  return { intakeId: m[1], stepKey: m[2].replace('-', '.') };
+  const intakeId = m[1];
+  const stepKey = m[2].replace('-', '.');
+  const expected = formSignature(intakeId, stepKey);
+  const signed = !!m[3] && crypto.timingSafeEqual(Buffer.from(m[3]), Buffer.from(expected));
+  return { intakeId: intakeId, stepKey: stepKey, signed: signed };
 }
 
 function newStatusToken() {
