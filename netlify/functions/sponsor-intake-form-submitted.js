@@ -1,6 +1,6 @@
 const {
   loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS, parseFormFilename, isSponsorStep,
-  todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse
+  todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { notifyAdmins } = require('./lib/sponsor-intake-email');
 
@@ -13,6 +13,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const body = JSON.parse(event.body || '{}');
     const secret = process.env.ANNUAL_PLANNING_FORM_WEBHOOK_SECRET; // shared across admin-dashboard Zapier-facing endpoints
     if (!secret || body.secret !== secret) {

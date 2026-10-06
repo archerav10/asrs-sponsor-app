@@ -1,7 +1,7 @@
 const { decryptToken } = require('./lib/crypto');
 const {
   loadChecklist, stepOrPlaceholder, getIntake, itemsForIntake, upsertItem, STATUS,
-  todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse
+  todayIso, uploadFilename, richText, statusProp, dateProp, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { notifyAdmins } = require('./lib/sponsor-intake-email');
 
@@ -15,6 +15,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const body = JSON.parse(event.body || '{}');
     let ticket;
     try {

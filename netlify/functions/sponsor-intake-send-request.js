@@ -1,6 +1,6 @@
 const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, upsertItem, STATUS,
-  isSponsorStep, todayIso, richText, statusProp, dateProp, json, errorResponse
+  isSponsorStep, todayIso, richText, statusProp, dateProp, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { updatePage } = require('./lib/notion');
 const { requestEmail, welcomeEmail, sendToSponsor } = require('./lib/sponsor-intake-email');
@@ -17,6 +17,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const session = requireIntakeAdmin(event);
     const body = JSON.parse(event.body || '{}');
     const stepKeys = Array.isArray(body.stepKeys) ? body.stepKeys : [];

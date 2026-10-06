@@ -1,4 +1,4 @@
-const { requireIntakeAdmin, createIntake, json, errorResponse } = require('./lib/sponsor-intake');
+const { requireIntakeAdmin, createIntake, json, errorResponse, useRequestHost } = require('./lib/sponsor-intake');
 const { welcomeEmail, sendToSponsor } = require('./lib/sponsor-intake-email');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,6 +12,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const session = requireIntakeAdmin(event);
     const body = JSON.parse(event.body || '{}');
     const name = (body.name || '').trim();

@@ -1,6 +1,6 @@
 const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary, adminFormLink,
-  statusPageUrl, json, errorResponse
+  statusPageUrl, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 
 // Everything the admin page for one sponsor needs: the full checklist
@@ -11,6 +11,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     requireIntakeAdmin(event);
     const id = (event.queryStringParameters || {}).id;
     if (!id) return json(400, { error: 'id is required.' });

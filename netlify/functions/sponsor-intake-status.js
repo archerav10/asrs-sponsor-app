@@ -1,4 +1,4 @@
-const { loadChecklist, findIntakeByToken, itemsForIntake, sponsorStatus, json, errorResponse } = require('./lib/sponsor-intake');
+const { loadChecklist, findIntakeByToken, itemsForIntake, sponsorStatus, json, errorResponse, useRequestHost } = require('./lib/sponsor-intake');
 
 // The sponsor's read-only status page. The private token in the link is
 // the only credential — no login — so everything returned goes through
@@ -9,6 +9,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const token = (event.queryStringParameters || {}).t;
     const intake = await findIntakeByToken(token);
     if (!intake) {

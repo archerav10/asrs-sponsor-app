@@ -1,6 +1,6 @@
 const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, upsertItem, adminFormLink, isDone,
-  todayIso, richText, dateProp, json, errorResponse
+  todayIso, richText, dateProp, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { referenceEmail, sendTo } = require('./lib/sponsor-intake-email');
 
@@ -17,6 +17,7 @@ exports.handler = async function (event) {
   }
 
   try {
+    useRequestHost(event);
     const session = requireIntakeAdmin(event);
     const body = JSON.parse(event.body || '{}');
     const name = String(body.name || '').trim();

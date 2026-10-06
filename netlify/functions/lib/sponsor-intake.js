@@ -496,8 +496,20 @@ function pipelineSummary(cl, intake, itemsByKey) {
   };
 }
 
+// Links in emails and pages point back at whichever site served the
+// request, so a deploy preview's emails open the preview and production's
+// open production. Handlers call useRequestHost(event) first.
+// SPONSOR_INTAKE_BASE_URL, when set, still wins (e.g. a custom domain).
+let requestBase = '';
+
+function useRequestHost(event) {
+  const headers = (event && event.headers) || {};
+  const host = headers['x-forwarded-host'] || headers.host || '';
+  requestBase = /^[a-z0-9.-]+(:\d+)?$/i.test(host) ? 'https://' + host : '';
+}
+
 function siteBaseUrl() {
-  return (process.env.SPONSOR_INTAKE_BASE_URL || process.env.URL || '').replace(/\/+$/, '');
+  return (process.env.SPONSOR_INTAKE_BASE_URL || requestBase || process.env.URL || '').replace(/\/+$/, '');
 }
 
 function statusPageUrl(intake) {
@@ -633,6 +645,7 @@ function errorResponse(err) {
 
 module.exports = {
   loadChecklist,
+  useRequestHost,
   stepOrPlaceholder,
   adminFormLink,
   STATUS,
