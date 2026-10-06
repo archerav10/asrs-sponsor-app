@@ -39,7 +39,7 @@ function layout(bodyHtml, intake, opts) {
     '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ' + BORDER + ';border-radius:10px;overflow:hidden">' +
     '<div style="background:' + FOREST + ';color:' + CREAM + ';padding:18px 24px">' +
     '<table role="presentation" cellspacing="0" cellpadding="0"><tr>' +
-    '<td style="vertical-align:middle;padding-right:14px"><img src="' + esc(siteBaseUrl() + '/intake/logo.jpg') + '" width="62" height="56" alt="Arch Support Residential Services" style="display:block;border:0;border-radius:3px"></td>' +
+    '<td style="vertical-align:middle;padding-right:14px"><img src="' + esc(siteBaseUrl() + '/intake/logo.jpg') + '" width="62" height="56" alt="ASRS" style="display:block;border:0;border-radius:3px;color:' + CREAM + ';font-size:18px;font-weight:700;line-height:56px;text-align:center"></td>' +
     '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">' + esc((opts && opts.title) || 'Sponsor Intake') + '</td>' +
     '</tr></table></div>' +
     '<div style="padding:24px;font-size:15px;line-height:1.55">' + bodyHtml + '</div>' +

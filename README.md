@@ -737,7 +737,7 @@ intake and step, created as needed:
 | `SPONSOR_INTAKE_REPLY_TO` | Address sponsor and reference replies should go to |
 | `SPONSOR_INTAKE_NOTIFY_EMAILS` | Optional. Comma-separated addresses emailed whenever a sponsor submits something or a reference form comes back |
 | `SPONSOR_INTAKE_ADMIN_EMAILS` | Optional. Comma-separated. Limits the Sponsor Intake tab to these admins |
-| `SPONSOR_INTAKE_BASE_URL` | Optional. Site URL used in email links. Defaults to Netlify's own `URL` |
+| `SPONSOR_INTAKE_BASE_URL` | Optional. Site URL used in email links and the email logo. Defaults to Netlify's own `URL` (production). Set for the Deploy Previews context only, to the preview's URL, so test emails link to the preview |
 | `SPONSOR_INTAKE_TIME_ZONE` | Optional. Defaults to `America/New_York` |
 
 Netlify only reads these at build time. After adding or changing one,
