@@ -42,9 +42,20 @@
 
     <div class="success" id="success" hidden>
       <span class="check" aria-hidden="true">&#10003;</span>
-      <h2>Thank you, it's uploaded</h2>
-      <p class="row-sub">ASRS will review it. You can close this page.</p>
+      <h2 id="success-title">Thank you, it's uploaded</h2>
+      <p class="row-sub" id="success-text">ASRS will review it.</p>
     </div>
+  </section>
+
+  <!-- What's still left, so a sponsor working through an old email
+       always knows where they stand. -->
+  <section class="card attention" id="next-card" hidden>
+    <h2>Still waiting on you</h2>
+    <div id="next-list" class="rows"></div>
+  </section>
+  <section class="card" id="done-card" hidden>
+    <h2>You're all caught up</h2>
+    <p class="row-sub">There's nothing else we need from you right now. We'll email you when there is.</p>
   </section>
 
   <a class="btn ghost" id="status-link" hidden style="align-self:flex-start">View my intake status</a>
@@ -143,6 +154,7 @@
       $('picker').hidden = true;
       $('item-returned').hidden = true;
       $('success').hidden = false;
+      showRemaining();
     } catch (e) {
       alert(e.message || 'The upload didn\'t go through. Check your connection and try again.');
       btn.disabled = false;
@@ -150,6 +162,37 @@
       $('file-input').disabled = false;
     }
   });
+
+  // Lists the sponsor's other open items (from their status page data),
+  // each with its own button, or "all caught up" when there are none.
+  function showRemaining() {
+    fetch(FN + '/sponsor-intake-status?t=' + encodeURIComponent(token))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        const left = data.actionNeeded.filter(function (a) { return a.key !== stepKey; });
+        if (!left.length) { $('done-card').hidden = false; return; }
+        const list = $('next-list');
+        list.innerHTML = '';
+        left.forEach(function (a) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          const title = document.createElement('span');
+          title.className = 'row-title';
+          title.textContent = a.label;
+          const btn = document.createElement('a');
+          btn.className = 'btn';
+          btn.textContent = a.actionLabel;
+          btn.href = a.actionUrl;
+          btn.rel = 'noopener';
+          row.appendChild(title);
+          row.appendChild(btn);
+          list.appendChild(row);
+        });
+        $('next-card').hidden = false;
+      })
+      .catch(function () {});
+  }
 
   if (!token || !stepKey) {
     showError('This link is incomplete. Use the button in your most recent ASRS email.');
@@ -180,8 +223,16 @@
       }
       if (!config.canUpload) {
         $('picker').hidden = true;
-        $('item-message').textContent = config.message;
-        $('item-message').hidden = false;
+        if (config.state === 'received' || config.state === 'complete') {
+          // Already done: say so plainly, the same way a fresh upload does.
+          $('success-title').textContent = config.state === 'complete' ? 'Already complete' : 'Already received';
+          $('success-text').textContent = config.message;
+          $('success').hidden = false;
+        } else {
+          $('item-message').textContent = config.message;
+          $('item-message').hidden = false;
+        }
+        showRemaining();
       }
       $('loading').hidden = true;
       $('upload-card').hidden = false;

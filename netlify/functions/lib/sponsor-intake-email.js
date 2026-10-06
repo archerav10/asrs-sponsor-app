@@ -79,7 +79,10 @@ function requestEmail(cl, intake, items, note) {
     stage.position + ' of ' + cl.stages.length + ' · ' + esc(stage.name) + '</p>' +
     '<p style="margin:0 0 14px">Hi ' + esc(firstName(intake.name)) + ',</p>' +
     '<p style="margin:0 0 14px">To keep your intake moving, please complete the ' + (count === 1 ? 'item' : count + ' items') +
-    ' below. Each button opens a short, secure page for that one item.</p>';
+    ' below. Each button opens a short, secure page for that one item.</p>' +
+    '<p style="margin:0 0 14px;font-size:14px;color:#5E5B52">Coming back to this email later? ' +
+    '<a href="' + esc(statusPageUrl(intake)) + '" style="color:' + FOREST + ';font-weight:600">See what\'s still left</a>. ' +
+    'Your status page always shows what\'s done and what isn\'t.</p>';
   if (note) {
     body += '<p style="margin:0 0 14px;padding:12px 14px;background:' + CREAM + ';border-radius:8px">' + esc(note).replace(/\n/g, '<br>') + '</p>';
   }

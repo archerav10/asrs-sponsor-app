@@ -60,18 +60,23 @@ exports.handler = async function (event) {
       info.returnReason = status === STATUS.RETURNED ? item.returnReason : '';
       if (!isSponsorStep(step)) {
         info.canUpload = false;
+        info.state = 'asrs';
         info.message = 'ASRS handles this item — there\'s nothing for you to upload.';
       } else if (status === STATUS.RECEIVED) {
         info.canUpload = false;
-        info.message = 'We\'ve received this item and it\'s being reviewed. There\'s nothing else you need to do.';
+        info.state = 'received';
+        info.message = 'We\'ve received this item and it\'s being reviewed.';
       } else if (status === STATUS.NOT_APPLICABLE) {
         info.canUpload = false;
+        info.state = 'not-applicable';
         info.message = 'This item doesn\'t apply to you' + (item.naReason ? ': ' + item.naReason : '.') ;
       } else if (status === STATUS.COMPLETE) {
         info.canUpload = false;
+        info.state = 'complete';
         info.message = 'This item is complete. Thank you!';
       } else if (status !== STATUS.REQUESTED && status !== STATUS.RETURNED) {
         info.canUpload = false;
+        info.state = 'not-requested';
         info.message = 'We haven\'t asked for this item yet. We\'ll email you when it\'s needed.';
       }
     }
