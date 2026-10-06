@@ -51,6 +51,12 @@ workflow as your other portals.
 | `TWILIO_MESSAGING_SERVICE_SID` | `MGa94d0868186fab6262872567ce7e1aa9` (required — the number is A2P-registered under this service; sending by raw phone number gets rejected) |
 | `ADMIN_ALLOWED_EMAILS` | Existing comma-separated admin email list |
 | `APP_ENCRYPTION_KEY` | New — a 64-character hex string (32 bytes). Generate with `openssl rand -hex 32`. **Do not reuse a key from another portal.** |
+| `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID` | `cb9f1f2f-d982-425a-92f8-496758529283` |
+| `DAILY_PROGRESS_NOTES_DB_ID` | `d3c439da-f2ff-45cc-a265-0392568c1306` |
+| `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID` | `4b98a8d0-af57-421a-a68b-9ace4b28a081` |
+| `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
+| `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
+| `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -175,12 +181,197 @@ don't pick up env var changes until the next deploy.
     screen instance (pass `?resident=XX` to `get-mar-review`, or
     `resident` in the POST body for confirm/finalize, to scope to one
     specific resident).
+- **Give Medications** (`get-medication-administration.js`,
+  `save-medication-dose.js`, `save-prn-dose.js`,
+  `lib/medication-administration.js`) — a genuinely separate process
+  from MAR Review: MAR Review is a monthly compliance check that the
+  medication **orders on file** are current (expiration dates, delivery
+  date); Give Medications is a same-day record of whether each
+  **scheduled dose was actually given**. Writes to its own database
+  (`MEDICATION_ADMIN_LOG_DB_ID`, "Medication Administration Log") rather
+  than the MAR Review Master List, since it's a fundamentally different
+  kind of record (one row per dose event, not one row per medication) —
+  append-only, nothing here is ever edited after the fact; a mis-logged
+  entry is corrected directly in Notion, the same tradeoff this app
+  already makes for other soft-delete-only data.
+  - **Times of Day** — a new multi-select field (AM/Noon/Afternoon/PM)
+    on each medication in the MAR database itself, set by an admin in
+    `manage-medications.html` to match the physician's order (a
+    four-times-daily medication just gets all four checked). This
+    replaces trying to parse the free-text Frequency field, which isn't
+    structured enough to drive a checklist reliably. PRN medications
+    don't get one — there's no fixed schedule to assign.
+  - **Effective Date / Termination Date** — also new, also set in
+    `manage-medications.html`, on every medication (Regular and PRN
+    alike). A half-open window, same convention as Daily Progress
+    Notes' own template versioning: blank Effective Date means "has
+    always applied" (so nothing already on file needed backfilling when
+    this field was added), blank Termination Date means "still
+    applies." This is what lets a medication change mid-month — or at a
+    month boundary — resolve correctly: **to change a medication,
+    set the OLD row's Termination Date to the switch day and give the
+    REPLACEMENT row (new or edited) an Effective Date of that same
+    day** — rather than editing the existing row's Dosage/Frequency in
+    place, which would silently rewrite history (every earlier day in
+    the lookback window would then show the NEW dosage as if it had
+    applied all along). `medicationsInEffectOn` in
+    `lib/medication-administration.js` resolves, for any single date,
+    exactly which medications applied THEN — `resolveMedicationDayOptions`
+    calls it once per day in the walk (`medicationsForDate`), so each
+    day's expected slots and completeness are judged against what was
+    actually prescribed that day, never against today's medication list
+    applied uniformly backwards. Distinct from **Active**, which stays
+    a soft-delete for a mistakenly-entered row (matching every other
+    "Active" checkbox in this app) — a real, intentional medication
+    change is recorded with dates, never by flipping Active off.
+  - **One button per resident**, same pattern as MAR Review/Daily
+    Progress Notes. The screen groups that resident's active Regular
+    medications by time of day and lets staff mark each dose **Given**,
+    **Refused**, or **Held** (the latter two require a short reason) —
+    any of the three resolves that slot; a slot is either logged or it
+    isn't, there's no "unresolved but acknowledged" state. **PRN**
+    (as-needed) medications get their own section — logged any time,
+    always Status Given (there's no scheduled expectation to mark
+    Refused/Held against), always with a required reason, since there's
+    no physician-ordered time it was expected at to explain why it was
+    given.
+  - **Can't skip a day — but only for some residents.** Tied to that
+    same resident's current Daily Progress Notes template: a fixed-
+    window template (`Times Covered Editable` off — one caregiver
+    covering the whole day) means Give Medications enforces the same
+    "finish yesterday before touching today" gate Daily Progress Notes
+    already does, walking forward from the earliest incomplete day (a
+    day is "complete" once every expected medication/slot pair has
+    **some** log entry — Given, Refused, or Held are all valid
+    resolutions, the same way a Missing medication is exempt from MAR
+    Review's own expiration check). An editable-window template
+    (multiple caregivers splitting shifts in one day) is exempted from
+    that gate — forcing one caregiver to finish another's unfinished
+    slots isn't realistic — and always shows just today. A resident with
+    **no** Daily Progress Notes template on file at all also defaults to
+    the no-gate behavior: there's no signal either way, and blocking a
+    brand-new resident on a template that doesn't exist yet would only
+    get in the way.
+  - **"Today" means the facility's calendar day, not the server's.**
+    Netlify Functions run with their system clock in UTC, and
+    `new Date().getDate()` reads whatever day it is *for the process*,
+    not for the facility — Eastern is 4-5 hours behind UTC, so from
+    roughly 7-8pm onward the server's own "today" had already rolled
+    over to tomorrow while it was still today locally (this is what let
+    doses get logged dated a day ahead of the actual calendar day).
+    `facilityNow`/`facilityToday` in `lib/daily-progress-notes.js`
+    resolve "now" against `America/New_York` explicitly instead of
+    reading the server process's own local time fields, and every place
+    that needs to know "what day is it right now" — both here and in
+    Daily Progress Notes' own day-walk, which had the identical bug —
+    goes through them now. (`isoDate`/`addDaysISO` themselves stay
+    exactly as they were: pure calendar-string arithmetic on dates
+    already known, not real-time resolution, so they don't need — and
+    must not get — this timezone correction.)
+  - **Time-of-day gate, today only.** A slot can't be logged before its
+    facility-local start hour on the day it's actually due —
+    `SLOT_START_HOUR` in `lib/medication-administration.js`
+    (AM: midnight, Noon: 10am, Afternoon: 1pm, PM: 5pm; adjust freely,
+    these are a reasonable default spacing, not a clinical requirement).
+    Enforced server-side in `save-medication-dose.js` via
+    `isSlotOpenNow`, and surfaced to the client as `isOpen`/
+    `opensAtLabel` per slot group so the screen shows "Opens at 5:00 PM"
+    and omits the action buttons entirely rather than letting someone
+    tap Given and then fail server-side. Only applies to TODAY — a past
+    day being backfilled under the day-walk above is already over, so
+    every slot on it is fair game regardless of the current clock.
+  - **Stage several doses, then submit once.** Tapping Given/Refused/
+    Held no longer saves immediately — it stages that row locally (with
+    an Undo), and a "Submit N Doses" bar appears once at least one is
+    staged. `save-medication-dose.js` takes a `doses` array and
+    validates every entry against a freshly-resolved day-walk *before*
+    writing any of them, so a batch either all lands or none of it does
+    — one bad entry (e.g. someone else already logged it) never leaves
+    a partial mix of saved/unsaved doses. Switching the date picker or
+    reloading the screen clears whatever's staged but not yet
+    submitted, same as leaving a form without saving elsewhere in this
+    app. PRN dosing is unaffected — it's logged immediately on confirm,
+    since it's normally one ad hoc entry at a time, each with its own
+    reason, not a batch of several checked off together.
+  - **Bounded 14-day lookback**, not an unbounded walk back to whenever
+    this resident's medications were first set up — even with Effective
+    Date now in place, a resident with a long history doesn't get asked
+    to backfill doses from before this feature even existed (and every
+    extra day in the walk is one more day's worth of medication-list
+    resolution and completeness checking). `LOOKBACK_DAYS` in
+    `lib/medication-administration.js`.
+  - **Home button's status dot**: green once today's expected slots are
+    all logged (or nothing's scheduled at all); yellow if today still
+    has unlogged slots; red only for a strict-order resident with an
+    *earlier* day still incomplete, not just today — logging purely
+    informational, no SMS alerting on a missed dose yet (a deliberate v1
+    scope decision — add a scheduled check later, mirroring
+    `check-mar-medication-alerts.js`, if silent gaps turn out to be a
+    real problem in practice).
+- **Medication Administration Reports** (`generate-medication-reports.js`,
+  scheduled on the 3rd of every month; `admin-generate-medication-report.js`,
+  on-demand; both built on `lib/medication-report.js` +
+  `lib/medication-report-pdf.js`) — a printable monthly MAR chart per
+  resident, modeled on Therap's own MAR Monthly View: one block per
+  scheduled medication/time-of-day pair, a day-of-month grid (landscape
+  letter, since a 31-column grid doesn't fit portrait), the sponsor's
+  initials filled in for a Given dose, a red circle around the initials
+  for Refused, an amber circle for Held, and a solid grey cell (no
+  initials) for a day that was due but never logged at all — the one
+  state meant to visually stand out as a real gap, distinct from a
+  documented Refused/Held. PRN doses have no fixed schedule to grid
+  against, so they're listed separately underneath as a dated list
+  (date, medication, initials, reason).
+  - **Resolved per day, not from "today's" medication list** — reuses
+    `medicationsInEffectOn`/`fetchMedicationsRaw` from
+    `lib/medication-administration.js`, the same Effective/Termination
+    Date machinery Give Medications itself is built on, so a medication
+    changed mid-month shows correctly on each side of the switch here
+    too, and a day before a medication's Effective Date renders blank
+    (not a false "missing") rather than grey.
+  - **Scheduled for the 3rd, not the 1st** — covers the full PREVIOUS
+    calendar month, every location/resident, uploaded to Drive the same
+    Catch Hook -> Find/Create Folder -> Upload File pattern the Daily
+    Progress Note PDFs use (see the setup section below) — but waits
+    until the 3rd specifically so Give Medications' own 14-day catch-up
+    window has a couple of days' room to close out the month's last few
+    days before the report is generated and treated as final. Named
+    `YYYY-MM_MedicationReport_Location_ResidentInitials.pdf` — the
+    year-month PREFIX is what sorts a resident's reports chronologically
+    in their Drive folder (`generateScheduledMedicationReport` in
+    `lib/medication-report.js`).
+  - **On-demand admin button** (`manage-medications.html`, bottom of the
+    page) generates and uploads any resident's report for any date
+    range immediately — printing on request, spot-checking before the
+    automatic run reaches it, or a genuinely partial month (e.g. a
+    resident discharged mid-month). Start and end date must fall in the
+    same calendar month (`resolveDateRange` rejects a range that
+    crosses a month boundary — the grid's day-of-month columns are
+    built around one month's numbering); the grid itself only draws the
+    requested days, not a full 1-31 grid with the rest misleadingly
+    blank, and the PDF's own header prints the exact range ("Sep 10 –
+    Sep 20, 2026") instead of a month name whenever it isn't the full
+    month. Defaults to the full previous month in the UI. Named
+    `Adhoc_MedicationReport_Location_ResidentInitials_StartDate_to_EndDate.pdf`
+    — deliberately a different convention from the scheduled report's
+    (`generateAdhocMedicationReport`), since an on-demand pull is never
+    safe to assume covers a full month the way the automatic one always
+    does.
+  - **Resident Full Name** for the Drive upload is sourced from that
+    resident's Daily Progress Notes template (the MAR database has no
+    full-name field of its own) — falls back to initials if the
+    resident has no DPN template on file at all, a known gap for a
+    resident set up in Give Medications but not yet in Daily Progress
+    Notes.
+  - **New env var:** `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` — see the
+    setup section below.
 - All five report buttons (First Aid, Fire Drill, Emergency Supplies,
   Physical Environment, MAR Review) now show the same red/yellow/green
   status dot, driven by each report's own due-date logic.
-- Serious Incident Report: a solid-orange button at the very top of
-  Home (distinct from everything else, deliberately not color-coded by
-  due date since it's not a recurring compliance report). Writes into
+- Serious Incident Report: a solid-orange button at the very bottom of
+  Home, alongside Log an Event (distinct from everything else,
+  deliberately not color-coded by due date since it's not a recurring
+  compliance report). Writes into
   the **existing** Serious Incident Report database shared with your
   other staff-facing systems, not a new one — this app only fills in
   Name, Location, Resident Involved, Date of Incident, Location of
@@ -198,6 +389,103 @@ don't pick up env var changes until the next deploy.
   recent-only window). **Immediately texts every admin granted that
   location** (not sponsors) the moment it's submitted — this is a
   real-time send, not part of any scheduled check.
+  - **QR-code, no-login public reporting** (`public/report-incident/`,
+    `public-create-serious-incident.js`) — a standalone page, entirely
+    separate from the provider app, that anyone can reach by scanning a
+    printed QR code and submit a report from with no account or login at
+    all: the same trust model as the paper form it replaces (physical
+    presence wherever the code is posted is the boundary, not a
+    password). It's the one write endpoint in this app without
+    `requireSession`, on purpose, and submit-only by design — unlike the
+    in-app screen, it never reads back incident history, since anyone
+    with the URL could load it. Deliberately independent of the app's
+    six residential facilities — this reporting path isn't tied to any
+    of them, so the page asks nothing about location at all; the
+    function stamps every record's `Location` with a fixed placeholder
+    (`Headquarters`, the `LOCATION` constant in
+    `public-create-serious-incident.js`) purely so the Notion row is
+    shaped like every other Serious Incident record. It also asks for
+    **Your Name** explicitly, since there's no session identity to
+    stamp `Submitted By` with; every other field matches the in-app
+    screen. Writes to the exact same Notion database, with
+    `Submitted By` suffixed " (via public QR form, no login)" so a
+    reviewer can always tell which path a given report came through —
+    and fires the same immediate SMS alert, but to **every enabled
+    admin regardless of granted location** (`allEnabledAdmins` in
+    `lib/notification-recipients.js`), not the location-filtered
+    `recipientsForLocation` the in-app screen uses — location-based
+    filtering would reach nobody here unless an admin happened to be
+    granted the `Headquarters` placeholder specifically. After a
+    successful submit, the page pops a confirmation `alert()` and then
+    calls `window.close()` — that actually closes the tab only when the
+    browser opened it via script, which a tab reached by scanning a QR
+    code generally isn't, so the on-page success message stays visible
+    underneath as the fallback ("You may now close this window") when
+    the tab doesn't close itself. **Nothing here actually verifies
+    physical presence** — the QR code just encodes a plain URL, so
+    anyone who obtains it (photographs it, has it forwarded, or finds
+    the function's path some other way) can submit from anywhere, and
+    there's no per-caller rate limiting. A hidden honeypot field
+    (`si-hp` in the page, checked as `company` in the function) quietly
+    no-ops a simple bot that fills in every field it finds, and every
+    free-text field is length-capped server-side — but neither of those
+    stops a deliberate, targeted abuser. That trade-off (the same one
+    the paper form already had — a stranger could always fill one out
+    and drop it in the box) was chosen on purpose for zero-friction
+    reporting; add real rate limiting (e.g. Netlify's own, or a
+    signed/expiring token baked into the QR code) if that stops being
+    an acceptable risk.
+- **MAR Review sits right under the home card.** Its own button(s) —
+  one per resident, full-size like every other report button — render
+  in a dedicated block between the home card and the main action list,
+  reflecting that MAR is the most time-sensitive item on this screen.
+  Unchanged behavior otherwise (tapping opens the same MAR Review
+  screen as before).
+- **Last/Next Site Visit** shown right on the home card, under the
+  location line — sourced from the admin dashboard's Monthly Checklist
+  (see the Monthly Checklist section below), read-only.
+- **Home screen order:** the reports with their own progress/status
+  (First Aid, Fire Drill, Emergency Supplies, Physical Environment,
+  MAR) come first; the view-only info box comes next; Log an Event and
+  Serious Incident Report — neither of which is a "check on where things
+  stand" screen — sit at the very end, after it, so they read as
+  distinct from the view-only content above them.
+- **"For your information (view only)" section**, its own bordered/
+  shaded box (`.info-section`) so it reads as one visually distinct
+  group rather than blending into the buttons above or below it: one
+  red/yellow/green dot per resident for Annual Planning and Quarterly
+  Reporting, plus one row per active staff member (by name) for Staff
+  Training — all three processes sponsors can see but not act on (the
+  actual workflows only exist on the admin dashboard). Plain rows, not
+  buttons; nothing here is tappable. Backed by three new read-only
+  endpoints that reuse the same window/cycle logic the admin dashboard's
+  own oversight boards run:
+  - `get-provider-annual-planning-status.js` — per resident, worst
+    across every service on file (`computeAnnualPlanningWindow`);
+    overdue is red, due within 7 days is yellow, otherwise green
+    (including "not started" and "opens later," neither of which is
+    urgent yet).
+  - `get-provider-quarterly-reporting-status.js` — per resident, worst
+    across every service's current AND prior cycle (see Quarterly
+    Reporting's own priorCycle section above). No lead time on any
+    quarter, so an open-and-incomplete quarter already means due right
+    now: exactly one such quarter is yellow, more than one (fallen
+    behind across a quarter boundary) is red.
+  - `get-provider-staff-training-status.js` — one row per active staff
+    member at the location, each with their own dot (unlike the other
+    two, this one isn't collapsed to a single worst-of row, since the
+    sponsor asked to see it broken out by person). A yellow/red row also
+    shows why — `missingCount`/`doneCount`/`totalCount` (`STEPS.length`,
+    not a hardcoded copy of it) and `dueDate`/`isOverdue` come back raw
+    from the endpoint, and the client's `staffTrainingReasonText`
+    formats them into "Incomplete (14/19)" or "Overdue Oct 1, 2026" —
+    the same wording as the admin dashboard's own `staffPuzzleState`,
+    just computed independently since the two surfaces don't share a
+    render path. A green row shows no reason; there's nothing to explain.
+  - The red/yellow/green day-count bucketing and the worst-of-a-list
+    helper are both shared from `lib/report-due-date.js`
+    (`statusForDaysUntilDue`, `worstOf`) rather than being redefined in
+    each new endpoint.
 
 ## Notifications (SMS)
 
@@ -238,7 +526,38 @@ whose Granted Locations includes it (deduplicated by phone number) —
 except `check-mar-review-reminders.js`, which filters that same list
 down to admins only.
 
-Email isn't wired up yet — everything above is SMS-only for now.
+**App access vs. getting the routine notifications are two separate
+switches.** `Provider App Enabled`/`Admin App Enabled` gate login only.
+A second checkbox, `Routine Notifications Opted Out` (on both the
+Sponsors and Admin Accounts databases, added manually — this app never
+creates database schema, only rows), gates whether that person's phone
+(or, for admins, their inbox too) is included in the *routine*
+compliance channels — the combined report-status/medication texts
+above, `lib/mar-reminder-check.js`'s admin-only escalation,
+`lib/window-opened-alert-check.js`'s admin-only "process opened"
+texts, and the weekly admin email digest below. It's deliberately an
+opt-**out** flag rather than opt-in: a brand-new row, or any row this
+property is simply never touched on, reads as `false` (via `getPlainText`,
+which returns `''`/falsy for a property that's missing entirely too —
+no unguarded `.checkbox` access that could throw on a schema mismatch)
+and keeps getting routine notifications same as always. Only a row
+someone explicitly checks stops receiving them. `recipientsForLocation`
+in `lib/notification-recipients.js` attaches this as
+`routineNotificationsOptedOut` per recipient, and a second exported
+function, `routineRecipientsForLocation`, wraps it with the `!opted-out`
+filter baked in — every routine-notification call site uses that
+wrapper (not the raw function) specifically so a future check file
+can't forget to filter and accidentally reintroduce the old
+everyone-gets-everything behavior. **Serious Incident Report's
+real-time admin alert (`create-serious-incident.js`) deliberately calls
+`recipientsForLocation` directly and always fires regardless of this
+flag** — it's a different kind of notification (an actual incident
+just happened) from routine "something's due/expiring," so app access
+alone (not this opt-out) is what decides whether someone gets that one.
+
+Email isn't wired up for the three checks above yet — those are
+SMS-only for now. (The weekly admin digest below is the one exception,
+sent via EmailJS.)
 
 **New Notion properties needed on MAR Review Periods** (rich text,
 added manually — this app never creates database schema, only rows):
@@ -330,9 +649,14 @@ never `computeDueDate` — to build it.
   before this field existed) is treated as the default service —
   `findRecord`'s filter matches it via an explicit `is_empty` branch, since
   Notion's `select.equals` won't match an empty value on its own.
-- **The lock:** a resident's card is locked (gray puzzle) until 6 weeks
-  before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (yellow, slowly
-  rotating puzzle, CSS `@keyframes puzzleSpin`). A brand new resident
+- **The lock:** a resident's card is locked (green, still puzzle) until
+  6 weeks before due (`WINDOW_WEEKS_BEFORE_DUE`), then unlocks (bright
+  gold, slowly rotating puzzle, CSS `@keyframes puzzleSpin`). The puzzle
+  itself is a shared inline SVG (`createPuzzleIcon` in
+  `admin-dashboard/index.html`), not the 🧩 emoji it used to be — an
+  emoji glyph's color is fixed by the OS/browser and can't be
+  recolored with CSS, so switching it green/gold needed a real
+  `fill="currentColor"` icon instead. A brand new resident
   with no cycle on file yet is always unlocked, so Step 1 is reachable
   to bootstrap it. Server-enforced the same way MAR's window is — every
   write endpoint checks `isWindowOpen` before touching anything.
@@ -561,7 +885,397 @@ doesn't already have an Annual Planning cycle.
   weekly admin digest (`checkQuarterlyReporting` in
   `lib/admin-digest-check.js`) alongside the current cycle's own line.
 
-### Sponsor Intake (fifth process — prospective sponsors, no login)
+### Monthly Checklist (fifth process — per location, not per resident)
+
+One shared 12-item checklist template, one Notion row per Location +
+Month (never wiped or reused — every month is its own permanent record,
+so full history lives in Notion with no extra archiving step). Unlike
+every other process in this app, it's retrospective: it reports on the
+month that's happening or just happened, rather than looking ahead to
+one that hasn't started yet.
+
+- **Notion:** new "Monthly Checklist" database (`MONTHLY_CHECKLIST_DB_ID`),
+  one active row per Location + Period (`YYYY-MM`). See
+  `netlify/functions/lib/monthly-checklist.js`'s `ITEMS` array for the
+  exact property names/types to create — 2 date properties (`Last Site
+  Visit`, `Next Planned Site Visit`), 10 select properties with Yes/No
+  options (a select rather than a checkbox specifically so "answered
+  No" and "never answered yet" aren't the same blank state — Finalize
+  needs to tell those apart), 1 rich_text property (`Improvement
+  Notes`), plus the usual `Location` (select), `Period` (rich_text),
+  `Active`/`Finalized` (checkbox), `Finalized Date` (date), `Finalized
+  By` (rich_text), and a title property (`Record Title`).
+- **Template is code-level, not admin-editable.** Same convention as
+  Quarterly Reporting/Staff Training's fixed `STEPS` arrays — adding or
+  removing one of the 12 items means editing `ITEMS` in
+  `lib/monthly-checklist.js` (plus the matching Notion property), not a
+  self-service UI. There's only one template shared by every location,
+  so a code change already applies everywhere at once.
+- **Rolling target period** (`resolveTarget` in
+  `lib/monthly-checklist.js`): the mirror image of MAR Review's
+  forward-looking `computeMarTarget` (`lib/mar-period.js`) — this looks
+  backward instead of forward. Target is the EARLIEST month, from the
+  earliest one a location has any record for through the current month,
+  that isn't finalized yet — walked month by month (not jumped straight
+  from the last *finalized* period) so a month that was started, or even
+  never touched at all, but never finalized stays the target instead of
+  silently getting stepped over once the calendar rolls past it. Nothing
+  on file yet at all means nothing to catch up on, so a brand-new
+  location's target is just the current month.
+- **No early-unlock window**, unlike Annual Planning/Staff Training — a
+  retrospective report on the current month is workable the moment that
+  month begins. But finishing early still produces a brief locked state:
+  the target stays capped on that same month (now finalized) until the
+  calendar actually reaches the next one, since there's nothing to
+  advance to yet. The admin dashboard renders that the same way Annual
+  Planning renders `isFinalizedForTarget` — locked, read-only, with a
+  "next opens \<date\>" banner.
+- **Save Progress / Finalize**, same split as MAR Review: Save Progress
+  writes whatever's currently entered with no validation; Finalize
+  requires all 12 items have a real value (`missingItems` in
+  `lib/monthly-checklist.js`) and blocks with a message naming what's
+  still missing. Both endpoints re-resolve the target server-side rather
+  than trusting a client-supplied period, so a stale screen can't
+  accidentally write into the wrong month.
+- **"Due" shows the last day of the target month, not the first of the
+  next one.** The actual overdue threshold is still the instant the next
+  month begins (`dueDate` in `resolveTarget`) — that never changed — but
+  what admins are shown for "Due ..." is a separate `dueDisplayDate`
+  (`dueDisplayDateForPeriod` in `lib/monthly-checklist.js`), the target
+  month's real last calendar day, so October's row reads "Due Oct 31,"
+  not "Due Nov 1." The "Finalized — next opens ..." wording (shown after
+  finishing early) still uses `dueDate` itself, since that phrasing is
+  correctly about the next month's start.
+- **Provider app surfacing:** the sponsor's home card shows "Last site
+  visit" and "Next planned visit," sourced from `latestSiteVisitDates`
+  in `lib/monthly-checklist.js` — the most recent non-blank value for
+  each of those two fields across every month on file (not necessarily
+  the same row, since a new month's own visit may not have happened yet
+  even though its next-planned date was already set). Read-only;
+  sponsors never see or edit the rest of the checklist.
+- **Checklist history:** since every month is its own Notion row, full
+  history is already there to browse directly in Notion — no separate
+  archive view was built for it, matching the low priority this was
+  given when the feature was scoped.
+- **New env var:** `MONTHLY_CHECKLIST_DB_ID`.
+
+### Daily Progress Notes (sixth process — per resident, per day, versioned template)
+
+A daily narrative + compliance checklist per resident, entered from the
+provider app under a "Daily Progress Notes" button, signed with an
+on-screen signature, and rendered to a PDF every morning for Google
+Drive. Unlike every other process in this app, its question set isn't a
+fixed code-level list — it's versioned, resident-specific Notion data
+that admins edit themselves.
+
+- **Notion:** three new databases, all in
+  `netlify/functions/lib/daily-progress-notes.js`.
+  - **"Daily Progress Note Questions"** (`DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`)
+    — one row per question per version: `Location` (select), `Resident
+    Initials` (rich_text), `Resident Full Name` (rich_text), `Times
+    Covered` (rich_text — e.g. "12:00 AM - 11:59 PM" for a note covering
+    the full day; printed on the PDF, see below), `Times Covered
+    Editable` (checkbox — when set, `Times Covered` on this version is
+    unused and every note's covered window is entered by whoever's
+    filling it in instead; see below), `Effective
+    Date`/`Termination Date` (date), `Question Key` (rich_text, e.g.
+    `q1`), `Question Text` (rich_text), `Question Type` (select:
+    `Text`/`Checklist`), `Checklist Items` (rich_text, newline-delimited
+    — only for `Checklist` questions), `Order` (number), `Active`
+    (checkbox — never flipped false; a terminated version's rows stay on
+    file, just with a `Termination Date` set).
+  - **"Daily Progress Notes"** (`DAILY_PROGRESS_NOTES_DB_ID`) — the
+    per-day "cover" row: `Location`, `Resident Initials`, `Resident Full
+    Name`, `Times Covered` (copied from the template version in effect
+    when the cover is first created, same as `Resident Full Name` — or,
+    for a `Times Covered Editable` resident, overwritten on every save
+    with whatever the provider entered), `Date`,
+    `Template Effective Date` (which version answered this
+    day), `Signed By`/`Signed At`, `Signature Strokes` (rich_text,
+    JSON-encoded pen-stroke points — see below), `PDF Generated`
+    (checkbox), `PDF Drive URL` (url), `Active`.
+  - **"Daily Progress Note Answers"** (`DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`)
+    — one row per question per day: `Question Key`, plus its own
+    snapshotted `Question Text`/`Question Type` (so a historical answer
+    stays self-describing even after the template changes again),
+    `Answer Text` (rich_text), `Checklist Answers` (rich_text, JSON map
+    of item label -> `Yes`/`No`).
+- **Versioned template, resolved per-date, not "today's version."**
+  `findQuestionsForDate` (`lib/daily-progress-notes.js`) picks the LATEST
+  version whose Effective Date is on or before the day in question and
+  whose Termination Date (if any) is after it — a half-open
+  `[Effective Date, Termination Date)` window. This matters two ways:
+  - A resident catching up on a day from before the question set last
+    changed must answer the wording that was actually in effect *then*
+    (not whatever's active "now") — otherwise a historical note would
+    get silently reinterpreted against different questions. So catching
+    up on, say, Oct 31 2026 from the real-world date Nov 5 2026 still
+    resolves correctly against whichever version actually covered Oct 31,
+    even though today's calendar date is well past it.
+  - A day that falls **outside every version's window** — before the
+    first Effective Date, or on/after the last version's Termination
+    Date with no successor published yet — has no valid questions at
+    all. Both `save-daily-progress-note.js` and `sign-daily-progress-note.js`
+    check for this (`findQuestionsForDate` returning empty) and refuse
+    with a clear error rather than silently creating a blank cover row
+    for a date with no real questionnaire; the provider app shows this
+    proactively as a "no questionnaire published for this date" banner
+    instead of a dead blank form.
+  - **Off-by-one note on Termination Date's meaning**: the stored value
+    is the FIRST day a version no longer applies, not the last day it
+    does — so a version meant to run through Oct 31 2026 inclusive needs
+    a Termination Date of Nov 1 2026. This is also how auto-succession
+    already worked (the old version's Termination Date is set to the
+    new version's Effective Date exactly, so there's no gap or overlap).
+    Nobody has to think in those terms directly: the admin UI's "Last
+    Day This Version Applies" field takes the inclusive last day and
+    `save-daily-progress-note-template.js` converts it (`+1 day`) before
+    storing; version history displays convert it back
+    (`get-daily-progress-note-templates.js`'s `lastValidDate`) for
+    display. Only `createVersion`'s own `terminationDate` parameter and
+    the raw Notion property use the exclusive form.
+- **Self-service admin UI for question versions** (unlike Monthly
+  Checklist's code-level `ITEMS`) — admin dashboard's Daily Progress
+  Notes tab -> "Manage Question Templates." Publishing a new version
+  (`createVersion`/`save-daily-progress-note-template.js`) automatically
+  sets the currently-open version's `Termination Date` to the new
+  version's `Effective Date`; past days' answers are unaffected since
+  they already snapshotted their own question text. A version can also
+  be published with its own fixed end date up front (leave "Last Day
+  This Version Applies" blank for open-ended, or set it for a template
+  whose expiration is already known — e.g. an annual renewal). Chosen
+  over a code-level list specifically because this questionnaire changes
+  routinely and needs an audit trail an admin can manage without a
+  deploy.
+- **No-skip-days enforcement, with a picker among what's actually open**:
+  `findOutstandingDays` (`lib/daily-progress-notes.js`) returns every
+  unsigned day, oldest first, from the earliest one on file through
+  today — not just a single locked target. Most days that's one day
+  (typically "yesterday," since a sponsor usually enters notes the
+  following morning once the day is actually over), but if someone's
+  fallen behind, the provider app shows a date picker across every
+  outstanding day and lets them work in whatever order they want (e.g.
+  sign today's note first, then circle back to one from last week).
+  `resolveTarget` still exists and returns just the oldest one — it's
+  what a client defaults to when it doesn't ask for a specific date.
+  What actually enforces "can't skip a day" is server-side, not the
+  picker: `save-daily-progress-note.js` and `sign-daily-progress-note.js`
+  both re-derive the outstanding set themselves and refuse any
+  client-supplied date that isn't in it — an already-signed day, or
+  anything past today, is never accepted regardless of what a request
+  claims.
+- **Rollout / a resident's very first entry**: the no-skip-days walk
+  above only ever starts from the earliest cover already on file — for
+  a resident with *no* covers yet at all (a brand-new rollout, even one
+  whose questionnaire's Effective Date is many months in the past), that
+  would otherwise force literally today as the only option, which
+  doesn't fit "notes are usually entered the following morning."
+  `resolveDayOptions` (`lib/daily-progress-notes.js`) detects this case
+  (`isFirstEntry`) and instead allows ANY date within
+  `[earliest Effective Date across every version ever published,
+  today]` for that one first entry — `initialDateMin`/`initialDateMax`
+  in `get-daily-progress-note.js`'s response, rendered as a native
+  `<input type="date" min=... max=...>` in the provider app rather than
+  the ordinary outstanding-days `<select>`. The moment that first save
+  actually happens, a cover exists and every subsequent call falls into
+  the ordinary regime above, building forward day-by-day from whichever
+  date was chosen — nothing before it is ever retroactively required.
+  `save-daily-progress-note.js` and `sign-daily-progress-note.js` validate
+  a client-supplied date against whichever regime actually applies
+  (`resolveDayOptions`'s `isFirstEntry` flag), never trusting it outright
+  either way.
+- **Save Progress / Sign & Submit**: Save Progress writes whatever's
+  entered with no validation (`saveAnswers`); signing
+  (`sign-daily-progress-note.js`) requires every question answered
+  (`missingQuestions` — every Text question non-blank, every Checklist
+  question's every item Yes/No) plus a non-empty signature, and blocks
+  with a message naming what's missing.
+- **Signature is captured as vector pen strokes, not an image**
+  (`Signature Strokes`, a JSON array of point arrays from the provider
+  app's canvas signature pad) — chosen because this app's Google Drive
+  integration is write-only via Zapier, with no way to read an uploaded
+  image back out. The nightly PDF job replays the strokes as vector line
+  drawing directly into the PDF. A real signature's point data
+  comfortably exceeds Notion's 2000-character-per-rich_text-block limit,
+  so it's split across multiple blocks via `chunkRichText`
+  (`lib/daily-progress-notes.js`) — Notion concatenates them back into
+  one string on read with no special handling needed. The same helper
+  covers `Answer Text`/`Checklist Answers` too, in case a long dictated
+  paragraph ever hits the same ceiling. Captured points are also rounded
+  to whole pixels and thinned (skipping ones closer than 2px together)
+  to keep the stored size reasonable in the first place.
+- **Dictation**: each Text question has an optional mic button using the
+  browser's built-in Web Speech API (`SpeechRecognition`) — no new
+  backend service. Support is solid on Chrome/Android; iOS Safari's
+  support is spottier, so the mic button is simply omitted when
+  `SpeechRecognition` isn't available rather than showing a broken one.
+- **Times Covered**: an admin-managed, per-resident free-text field
+  (e.g. "12:00 AM - 11:59 PM" for a note covering the whole day, or a
+  narrower window for a resident whose note doesn't) set on the "Manage
+  Question Templates" form alongside the questions themselves, defaults
+  to "12:00 AM - 11:59 PM" for a new version. Follows the same
+  copy-once-at-cover-creation pattern as `Resident Full Name`
+  (`saveAnswers`) rather than being re-derived on every save, and prints
+  on the generated PDF directly under the Date line — some licensing
+  agencies require the covered time window to appear on the document
+  itself.
+  - **Times Covered Editable** — for a resident supported by more than
+    one caregiver in a day, the covered window isn't fixed at all: it
+    changes note to note and person to person, so a single admin-set
+    value can't represent it. Checking "Provider enters times covered on
+    each note instead" on that resident's template version (the `Times
+    Covered` text field then hides, and is stored blank) switches the
+    provider app from showing nothing to showing a required "Times
+    Covered by This Note" field above the questions — pre-filled from
+    whatever's already saved for that day, if anything. Unlike the fixed
+    case, this value is NOT copied once and left alone: `saveAnswers`
+    overwrites the cover's `Times Covered` on every save (same treatment
+    as `Entered By`), since a different caregiver entering a later note
+    for the same day needs their own window to stick, not the first
+    caregiver's. `sign-daily-progress-note.js` blocks signing with
+    `Still needs: Times Covered` in the missing-questions message if
+    it's still blank at sign time, reusing the cover
+    `resolveDayOptions`'s day walk already fetched rather than querying
+    Notion again. The PDF and every other Times Covered consumer read
+    straight from the cover's stored value regardless of which mode
+    produced it, so nothing downstream needed to change.
+- **Entered By vs Signed By**: every save (`saveAnswers`) stamps the
+  cover's `Entered By` with whoever most recently saved (overwritten on
+  each save, same "Last Updated By" convention MAR Review uses) —
+  distinct from `Signed By`, which is stamped once, at sign time. In
+  practice they're usually the same person for this workflow, but
+  they're tracked separately so the two can be told apart if that ever
+  changes, and the PDF prints both lines.
+- **Nightly PDF generation**
+  (`netlify/functions/generate-daily-progress-note-pdfs.js`, scheduled
+  daily at 9:30am US/Eastern): finds every signed cover with `PDF
+  Generated` still false, renders a PDF via `pdf-lib`
+  (`lib/daily-progress-note-pdf.js`) containing the resident's name,
+  location, "DailyProgressNote," the note's date, the Times Covered
+  window, every question and answer, who entered it, who signed it
+  (without a signed-at timestamp — the PDF prints the signer's name only,
+  not `Signed At`, which is still stored on the cover row and used by the
+  oversight dashboard and the failure alert below), and the replayed
+  signature, then uploads it to Google Drive through the same Zapier
+  Catch Hook ->
+  Find/Create Folder -> Upload File pattern every other document upload
+  in this app already uses (see "Setting up event attachments" below
+  for the general pattern). `PDF Generated` is only flipped true after a
+  successful upload, so a failed upload retries the next night rather
+  than getting silently skipped. The PDF also carries the ASRS logo,
+  top-right of the first page — embedded as a base64 JPEG in
+  `lib/arch-support-logo.js` rather than shipped as a separate asset
+  file, since Netlify's function bundler doesn't include arbitrary
+  static files by default. Header lines wrap narrower than the full page
+  width specifically so a long resident name or location can't run text
+  underneath the logo.
+- **PDF upload failure alert** (`lib/daily-progress-note-pdf-alert.js`,
+  run at the tail of the same nightly function — both on a successful
+  generation run and on the early-return path when
+  `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` isn't configured at all,
+  since that's the single most likely cause of every note getting
+  stuck): texts admins (never sponsors — filtered to `role === 'admin'`,
+  same as `window-opened-alert-check.js`) when a signed note's PDF has
+  failed to upload for 2+ nights running (`STALE_DAYS` in that file) —
+  long enough that it's a real, persistent problem (a broken Zap
+  connection, an unset webhook env var) rather than a note that simply
+  hasn't had its first nightly attempt yet. Grouped one message per
+  location, and — like `mar-alert-check.js`'s medication alerts — fires
+  every night the failure persists rather than just once, since there's
+  no separate "already alerted" state to track and clear once it's
+  fixed. Wrapped in its own try/catch at the call site so a transient
+  failure in the alert check itself can never mask or discard an
+  otherwise-successful night's actual PDF-generation results. Dry-run
+  test endpoint: `test-check-daily-progress-note-pdf-failures.js`
+  (same `NOTIFICATION_TEST_SECRET`-gated, POST-required-for-a-real-send,
+  `&asOf=` convention as every other `test-check-*.js` in this app).
+- **New env vars:** `DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID`,
+  `DAILY_PROGRESS_NOTES_DB_ID`, `DAILY_PROGRESS_NOTE_ANSWERS_DB_ID`,
+  `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL`.
+- **New dependency:** `pdf-lib` (pure JS, no native deps — this was the
+  first feature in this project to need any npm dependency at all; see
+  `package.json`).
+
+#### Setting up the Daily Progress Notes PDF upload (Zapier)
+
+Same underlying pattern as event attachments (Catch Hook -> upload to
+Drive), but triggered by the nightly scheduled function instead of the
+browser, and landing several folders deep instead of at a single flat
+location — one folder per resident, one subfolder per month — so the
+Zap needs a folder-resolution chain in front of the actual upload
+rather than a single Upload File step:
+
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the
+   webhook URL into `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` in
+   Netlify. The webhook's incoming fields: `file` (the PDF),
+   `filename` (already built as
+   `DailyProgressNote_Location_ResidentInitials_YYYY-MM-DD.pdf`),
+   `location`, `residentInitials`, `residentFullName` (Drive's
+   resident folders are named by full name, not initials), `date`
+   (`YYYY-MM-DD`), and `yearMonth` (`YYYY-MM`, pre-sliced from `date`
+   so the Zap doesn't need its own Formatter step just to name that
+   month's subfolder).
+2. Google Drive -> Find a Folder, title = the webhook's `location`,
+   inside your facilities root folder. Find-only, no auto-create —
+   these are real, manually-maintained facility folders, and
+   auto-creating one on a typo'd/missing Location would silently
+   scatter notes into a new folder instead of surfacing the mismatch.
+3. Google Drive -> Find a Folder, title `Residents`, inside the folder
+   from step 2. Find-only, same reasoning.
+4. Google Drive -> Find a Folder, title = the webhook's
+   `residentFullName`, inside the folder from step 3. Find-only.
+5. Google Drive -> Find a Folder, title `Daily Progress Notes`, inside
+   the folder from step 4. This one *does* get "create if it doesn't
+   exist" — every resident eventually needs one, and there's no
+   pre-existing thing to typo-match against the way there is for a
+   facility or resident.
+6. Google Drive -> Find a Folder, title = the webhook's `yearMonth`,
+   inside the folder from step 5. Also create-if-missing — a fresh
+   folder is expected every new month, by design.
+7. Google Drive -> Upload File, folder = the folder from step 6, file
+   = the webhook's `file`, filename = the webhook's `filename`.
+8. Publish the Zap. The function marks `PDF Generated` true right
+   after a successful upload — it does not wait on or record whatever
+   the Zap does after that (a "respond immediately" Catch Hook returns
+   before the Drive steps even run), so `PDF Drive URL` is left blank
+   unless you build a synchronous Zap that hands one back.
+
+#### Setting up the Medication Administration Report upload (Zapier)
+
+Same pattern again, one folder shallower than Daily Progress Notes —
+every report (scheduled or on-demand) is one file, landing flat in a
+single per-resident folder with no month/date subfolder, since the
+report's own date range is already baked into its filename:
+
+1. New Zap: trigger = Webhooks by Zapier -> Catch Hook. Copy the
+   webhook URL into `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` in Netlify.
+   Incoming fields: `file` (the PDF), `filename` (already built —
+   `YYYY-MM_MedicationReport_Location_ResidentInitials.pdf` for the
+   automatic monthly report, or
+   `Adhoc_MedicationReport_Location_ResidentInitials_StartDate_to_EndDate.pdf`
+   for an on-demand one), `location`, `residentInitials`,
+   `residentFullName`, and `yearMonth` (`YYYY-MM` — the month the
+   report's range falls in, even for a partial/ad hoc one).
+2. Google Drive -> Find a Folder, title = the webhook's `location`,
+   inside your facilities root folder. Find-only, same reasoning as the
+   Daily Progress Notes Zap — don't silently scatter a report into a
+   new folder over a typo'd Location.
+3. Google Drive -> Find a Folder, title `Residents`, inside the folder
+   from step 2. Find-only.
+4. Google Drive -> Find a Folder, title = the webhook's
+   `residentFullName`, inside the folder from step 3. Find-only.
+5. Google Drive -> Find a Folder, title `Medication Administration
+   Records`, inside the folder from step 4 — a sibling of that
+   resident's `Daily Progress Notes` folder. Create-if-missing. No
+   further subfolder — every month's (and every ad hoc) report for this
+   resident lands directly in this one folder; the year-month PREFIX on
+   the scheduled report's own filename is what keeps them sorted
+   chronologically within it.
+6. Google Drive -> Upload File, folder = the folder from step 5, file =
+   the webhook's `file`, filename = the webhook's `filename`.
+7. Publish the Zap.
+
+### Sponsor Intake (seventh process — prospective sponsors, no login)
 
 A one-time, stage-by-stage checklist for a **prospective** sponsor. It
 started as 9 stages and 77 items from "Sponsor Intake Process – Master
@@ -866,7 +1580,11 @@ coverage for every location an admin has. `lib/admin-digest-check.js`
 memoizes each location's issue list per run (admins commonly share
 granted locations) and builds every admin's digest concurrently, so
 the six checks fanning out per resident/staff member don't risk the
-function's execution time limit as the roster grows.
+function's execution time limit as the roster grows. Requires
+`Admin App Enabled` checked AND `Routine Notifications Opted Out`
+unchecked on the admin's Admin Accounts row (see the notifications
+opt-out note above) — someone with dashboard access who's opted out of
+routine notifications doesn't get this email either.
 
 Sent via **EmailJS** (server-side), not Resend — reusing the account
 already used elsewhere rather than standing up a new service. Setup
@@ -989,7 +1707,16 @@ been granted.
   silent-typo risk of editing Notion directly), edit any field inline,
   toggle Active to deactivate (soft delete, matching the same pattern
   as First Aid/Emergency Supplies/Physical Environment — history stays
-  in Notion), or add a brand new medication at the bottom.
+  in Notion), or add a brand new medication at the bottom. Each
+  medication also has **Times of Day** checkboxes (AM/Noon/Afternoon/PM)
+  — what the Give Medications screen groups that dose under; shown for
+  every medication type, though only Regular ones are actually read by
+  it (PRN has no fixed schedule) — and **Effective Date**/**Termination
+  Date** fields. To change a medication mid-month (or at a month
+  boundary): set the current row's Termination Date to the switch day,
+  then set the replacement's Effective Date to that same day, rather
+  than editing the existing row's Dosage/Frequency in place (which would
+  silently apply the new value to every earlier day too).
 
   **This is also how you add a brand-new resident to a location** —
   there's no separate "add resident" screen anywhere in this app.

@@ -73,14 +73,76 @@
       <option value="Regular">Regular</option>
       <option value="PRN">PRN</option>
     </select>
+    <div id="new-tod-container"></div>
+    <div class="field-row">
+      <div><label>Effective Date</label><input type="date" id="new-effective"></div>
+      <div><label>Termination Date</label><input type="date" id="new-termination"></div>
+    </div>
+    <p class="help-text" style="font-size:12px; color:#666; margin:4px 0 0;">Leave Effective Date blank unless this medication is replacing another one mid-month (then set it to the switch day, and set the OLD medication's Termination Date to that same day).</p>
     <button id="add-btn">Add Medication</button>
     <p class="msg" id="add-msg"></p>
+  </div>
+
+  <h2>Medication Administration Report</h2>
+  <div class="med-card">
+    <p class="help-text" style="font-size:13px; color:#666; margin:0 0 10px;">Generates and uploads the selected resident's Medication Administration Report PDF for this date range to Google Drive &mdash; a full calendar month also generates automatically for the previous month on the 3rd of every month. Start and end date must fall in the same month; for a partial month (e.g. a resident discharged mid-month), just narrow the range.</p>
+    <div class="field-row">
+      <div><label>Start Date</label><input type="date" id="report-start"></div>
+      <div><label>End Date</label><input type="date" id="report-end"></div>
+    </div>
+    <button id="report-btn">Generate &amp; Upload to Drive</button>
+    <p class="msg" id="report-msg"></p>
   </div>
 </main>
 
 <script src="/admin/admin-auth.js"></script>
 <script>
 requireAdminSession();
+
+const TIME_SLOTS = ['AM', 'Noon', 'Afternoon', 'PM'];
+
+// Placed after TIME_SLOTS/timesOfDayHtml are declared below (function
+// declarations hoist, but TIME_SLOTS is a const — calling this any
+// earlier throws "Cannot access 'TIME_SLOTS' before initialization" and
+// silently aborts the rest of this script, including every button's
+// event listener further down).
+document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
+
+// Defaults to the full previous month, since that's the report most
+// often wanted on demand (checking/printing before or instead of
+// waiting for the automatic run on the 3rd) — never today's partial,
+// still-in-progress month. Narrow either date for a partial-month pull.
+(function () {
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  const firstOfThisMonth = new Date();
+  firstOfThisMonth.setDate(1);
+  const lastOfPrevMonth = new Date(firstOfThisMonth);
+  lastOfPrevMonth.setDate(0);
+  const firstOfPrevMonth = new Date(lastOfPrevMonth);
+  firstOfPrevMonth.setDate(1);
+  document.getElementById('report-start').value = iso(firstOfPrevMonth);
+  document.getElementById('report-end').value = iso(lastOfPrevMonth);
+})();
+
+// Only meaningful for Regular medications — PRN/Info have no fixed
+// schedule, so Give Medications never looks at this for them. Shown for
+// every type anyway (simpler than toggling visibility on Type change)
+// since leftover checked boxes on a PRN row are simply never read.
+function timesOfDayHtml(timesOfDay) {
+  timesOfDay = timesOfDay || [];
+  return '<label>Times of Day (for Give Medications)</label>' +
+    '<div class="checkbox-row" style="flex-wrap:wrap; gap:16px;">' +
+    TIME_SLOTS.map(function (slot) {
+      return '<label style="display:flex; align-items:center; gap:6px; font-weight:400; margin:0;">' +
+        '<input type="checkbox" class="f-tod" value="' + slot + '"' + (timesOfDay.indexOf(slot) !== -1 ? ' checked' : '') + '> ' + slot +
+        '</label>';
+    }).join('') +
+    '</div>';
+}
+
+function readTimesOfDay(card) {
+  return Array.prototype.slice.call(card.querySelectorAll('.f-tod:checked')).map(function (el) { return el.value; });
+}
 
 function medCardHtml(med) {
   return '' +
@@ -97,6 +159,12 @@ function medCardHtml(med) {
       '<option value="Regular"' + (med.medicationType === 'Regular' ? ' selected' : '') + '>Regular</option>' +
       '<option value="PRN"' + (med.medicationType === 'PRN' ? ' selected' : '') + '>PRN</option>' +
     '</select>' +
+    timesOfDayHtml(med.timesOfDay) +
+    '<div class="field-row">' +
+      '<div><label>Effective Date</label><input type="date" class="f-effective" value="' + (med.effectiveDate || '') + '"></div>' +
+      '<div><label>Termination Date</label><input type="date" class="f-termination" value="' + (med.terminationDate || '') + '"></div>' +
+    '</div>' +
+    '<p class="help-text" style="font-size:12px; color:#666; margin:4px 0 0;">Blank Effective Date = has always applied. Blank Termination Date = still applies. To change a medication mid-month: set this row\'s Termination Date to the switch day, then add the replacement below with that same Effective Date.</p>' +
     '<div class="checkbox-row"><input type="checkbox" class="f-active"' + (med.active ? ' checked' : '') + '><label style="margin:0;">Active</label></div>' +
     '<button class="save-btn">Save</button>' +
     '<p class="msg"></p>';
@@ -122,7 +190,10 @@ function attachSaveHandler(card, med, location, resident) {
           frequency: card.querySelector('.f-frequency').value,
           purpose: card.querySelector('.f-purpose').value,
           medicationType: card.querySelector('.f-type').value,
-          active: card.querySelector('.f-active').checked
+          active: card.querySelector('.f-active').checked,
+          timesOfDay: readTimesOfDay(card),
+          effectiveDate: card.querySelector('.f-effective').value,
+          terminationDate: card.querySelector('.f-termination').value
         })
       });
       const data = await res.json();
@@ -202,7 +273,10 @@ document.getElementById('add-btn').addEventListener('click', async function () {
         frequency: document.getElementById('new-frequency').value,
         purpose: document.getElementById('new-purpose').value,
         medicationType: document.getElementById('new-type').value,
-        active: true
+        active: true,
+        timesOfDay: readTimesOfDay(document.getElementById('new-med-card')),
+        effectiveDate: document.getElementById('new-effective').value,
+        terminationDate: document.getElementById('new-termination').value
       })
     });
     const data = await res.json();
@@ -217,6 +291,9 @@ document.getElementById('add-btn').addEventListener('click', async function () {
       document.getElementById('new-dosage').value = '';
       document.getElementById('new-frequency').value = '';
       document.getElementById('new-purpose').value = '';
+      document.getElementById('new-tod-container').innerHTML = timesOfDayHtml([]);
+      document.getElementById('new-effective').value = '';
+      document.getElementById('new-termination').value = '';
     }
   } catch (e) {
     msg.style.display = 'block';
@@ -224,6 +301,68 @@ document.getElementById('add-btn').addEventListener('click', async function () {
     msg.textContent = 'Could not reach the server.';
   } finally {
     btn.disabled = false;
+  }
+});
+
+document.getElementById('report-btn').addEventListener('click', async function () {
+  const location = document.getElementById('location').value;
+  const resident = document.getElementById('resident').value.trim();
+  const startDate = document.getElementById('report-start').value;
+  const endDate = document.getElementById('report-end').value;
+  const msg = document.getElementById('report-msg');
+  msg.className = 'msg';
+  msg.style.display = 'none';
+
+  if (!resident) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Enter resident initials at the top first.';
+    return;
+  }
+  if (!startDate || !endDate) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Pick a start and end date.';
+    return;
+  }
+  if (endDate < startDate) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'End date must be on or after the start date.';
+    return;
+  }
+  if (startDate.slice(0, 7) !== endDate.slice(0, 7)) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Start and end date must be in the same month.';
+    return;
+  }
+
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  try {
+    const res = await adminFetch('/.netlify/functions/admin-generate-medication-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: location, resident: resident, startDate: startDate, endDate: endDate })
+    });
+    const data = await res.json();
+    msg.style.display = 'block';
+    if (!res.ok) {
+      msg.classList.add('error');
+      msg.textContent = data.error || 'Something went wrong.';
+    } else {
+      msg.classList.add('ok');
+      msg.textContent = 'Uploaded ' + data.filename + ' to Google Drive.';
+    }
+  } catch (e) {
+    msg.style.display = 'block';
+    msg.classList.add('error');
+    msg.textContent = 'Could not reach the server.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate & Upload to Drive';
   }
 });
 </script>

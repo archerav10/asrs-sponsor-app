@@ -107,6 +107,44 @@
   }
   .home-card .name { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
   .home-card .meta { font-size: 14px; color: #555; margin: 0; }
+  .home-card .site-visit { font-size: 13px; color: #666; margin: 6px 0 0; }
+  .mar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .info-section {
+    margin: 24px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #f3f2ee;
+    padding: 16px;
+  }
+  .info-section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 12px;
+  }
+  .info-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+  }
+  .info-status-row:last-child { margin-bottom: 0; }
+  .info-status-text { display: flex; flex-direction: column; }
+  .info-status-reason { font-size: 12px; font-weight: 400; color: #666; margin-top: 2px; }
   .action-list { display: flex; flex-direction: column; gap: 12px; }
   .action-button {
     text-align: left;
@@ -321,7 +359,7 @@
     color: var(--forest-light);
     margin: 4px 0 0;
   }
-  .action-button .mar-label-row {
+  .mar-label-row {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -462,6 +500,107 @@
   .numeric-row input.out-of-range {
     border-color: var(--error);
   }
+  .dpn-question { margin-bottom: 20px; }
+  .dpn-question-text { font-weight: 600; margin: 0 0 8px; }
+  .dpn-textarea-row { display: flex; gap: 8px; align-items: flex-start; }
+  .dpn-textarea-row textarea { flex: 1; }
+  .dpn-mic-button {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--forest);
+    background: #fff;
+    color: var(--forest);
+    font-size: 18px;
+    margin-top: 0;
+    padding: 0;
+  }
+  .dpn-mic-button.recording {
+    background: var(--error);
+    border-color: var(--error);
+    color: #fff;
+    animation: dotFlash 1s infinite;
+  }
+  .dpn-checklist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dpn-checklist-item:last-child { border-bottom: none; }
+  .dpn-yn-group { display: flex; gap: 8px; flex-shrink: 0; }
+  .dpn-yn-btn {
+    margin-top: 0;
+    padding: 8px 16px;
+    background: #fff;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+  }
+  .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
+  .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
+  .dpn-signature-wrap { margin-top: 8px; }
+  .dpn-signature-canvas {
+    width: 100%;
+    height: 160px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    touch-action: none;
+  }
+  .dpn-signature-clear {
+    background: transparent;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+    margin-top: 8px;
+  }
+  .dpn-locked-banner {
+    border: 1px solid var(--forest);
+    background: #eef4f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    color: var(--forest);
+    font-weight: 600;
+  }
+  .gm-dose-row .item-name { margin-bottom: 2px; }
+  .gm-dose-row .item-meta { margin: 0 0 10px; }
+  .gm-status-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  .gm-status-btn {
+    margin-top: 0;
+    padding: 8px 14px;
+    font-size: 13px;
+    background: #fff;
+    color: var(--forest);
+    border: 1px solid var(--forest);
+  }
+  .gm-status-btn.gm-refused { color: var(--error); border-color: var(--error); }
+  .gm-status-btn.gm-held { color: #9C7A00; border-color: #C9A227; }
+  .gm-logged-line { font-size: 13px; margin: 0; font-weight: 600; }
+  .gm-logged-line.gm-status-Given { color: #1B7A3D; }
+  .gm-logged-line.gm-status-Refused { color: var(--error); }
+  .gm-logged-line.gm-status-Held { color: #9C7A00; }
+  .gm-logged-reason { font-size: 12px; color: #777; margin: 4px 0 0; }
+  .gm-reason-wrap { margin-top: 10px; display: none; }
+  .gm-reason-wrap textarea {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .gm-reason-wrap .gm-reason-confirm { margin-top: 8px; padding: 9px 14px; font-size: 13px; }
+  .gm-dose-row.gm-staged { background: #F2F7F4; border-color: var(--forest); }
+  .gm-staged-line { font-size: 13px; font-weight: 600; color: var(--forest); margin: 0; }
+  .gm-staged-undo { margin-top: 6px; padding: 6px 12px; font-size: 12px; background: transparent; color: #777; border: 1px solid var(--border); }
+  .gm-dose-row.gm-not-open { opacity: 0.55; }
+  .gm-not-open-line { font-size: 13px; color: #777; margin: 0; font-style: italic; }
+  .gm-slot-title-note { font-weight: 400; text-transform: none; color: #999; font-style: italic; }
 </style>
 </head>
 <body>
@@ -503,13 +642,14 @@
     <div class="home-card">
       <p class="name" id="home-name"></p>
       <p class="meta" id="home-meta"></p>
+      <p class="meta site-visit" id="home-site-visit"></p>
     </div>
 
+    <div id="mar-buttons-container" class="mar-section"></div>
+    <div id="dpn-buttons-container" class="mar-section"></div>
+    <div id="gm-buttons-container" class="mar-section"></div>
+
     <div class="action-list">
-      <button class="action-button incident-button" data-action="serious-incident">
-        &#128680; Serious Incident Report
-        <span class="sub">Immediately notifies administration</span>
-      </button>
       <button class="action-button" data-action="first-aid">
         <span class="mar-label-row">
           <span id="home-fa-dot" class="status-dot status-green"></span>
@@ -546,11 +686,22 @@
         <span class="sub" id="home-pe-status"></span>
         <span class="sub" id="home-pe-due"></span>
       </button>
+    </div>
+
+    <div class="info-section">
+      <p class="info-section-label">For your information (view only)</p>
+      <div id="info-status-container"></div>
+    </div>
+
+    <div class="action-list">
       <button class="action-button" data-action="log-event">
         Log an Event
         <span class="sub">Appointments and community outings</span>
       </button>
-      <div id="mar-buttons-container"></div>
+      <button class="action-button incident-button" data-action="serious-incident">
+        &#128680; Serious Incident Report
+        <span class="sub">Immediately notifies administration</span>
+      </button>
     </div>
 
     <button class="logout-link" id="logout">Log Out</button>
@@ -793,6 +944,80 @@
     <button id="si-submit" class="incident-button" style="border-radius:6px;">Submit Incident Report</button>
   </section>
 
+  <!-- Screen 11: Daily Progress Notes -->
+  <section id="screen-daily-progress-notes" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="dpn-title">Daily Progress Notes</p>
+
+    <div class="form-field" id="dpn-date-picker-wrap" style="display:none;">
+      <label for="dpn-date-picker">Date You're Entering Notes For</label>
+      <select id="dpn-date-picker"></select>
+    </div>
+    <div class="form-field" id="dpn-first-entry-date-wrap" style="display:none;">
+      <label for="dpn-first-entry-date">Date of This First Note</label>
+      <input type="date" id="dpn-first-entry-date">
+      <p class="help-text" style="margin-top:6px;">This is a brand-new questionnaire for this resident &mdash; pick the day this first note is for (most days are entered the following morning, so "yesterday" is usually right). Every day after this one will need its own note, with no gaps.</p>
+    </div>
+    <div class="period-banner" id="dpn-date-banner">Loading&hellip;</div>
+    <p class="error-text" id="dpn-error"></p>
+
+    <div id="dpn-locked-banner" class="dpn-locked-banner" style="display:none;">This day is already signed and locked.</div>
+    <div id="dpn-no-template-banner" class="dpn-locked-banner" style="display:none;"></div>
+    <div id="dpn-caught-up-banner" class="dpn-locked-banner" style="display:none;">You're all caught up &mdash; nothing outstanding right now. Check back tomorrow.</div>
+
+    <div class="form-field" id="dpn-times-covered-wrap" style="display:none;">
+      <label for="dpn-times-covered">Times Covered by This Note</label>
+      <input type="text" id="dpn-times-covered" placeholder="e.g. 8:00 AM - 4:00 PM">
+    </div>
+
+    <div id="dpn-questions"></div>
+
+    <div id="dpn-signature-section">
+      <p class="item-section-title">Signature</p>
+      <div class="dpn-signature-wrap">
+        <canvas id="dpn-signature-canvas" class="dpn-signature-canvas"></canvas>
+        <button type="button" id="dpn-signature-clear" class="dpn-signature-clear">Clear Signature</button>
+      </div>
+    </div>
+
+    <div class="save-finalize-bar">
+      <button id="dpn-save" class="secondary-save">Save Progress</button>
+      <button id="dpn-sign" class="primary-finalize">Sign &amp; Submit</button>
+    </div>
+  </section>
+
+  <!-- Screen 11: Give Medications -->
+  <section id="screen-give-meds" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="gm-title">Give Medications</p>
+
+    <div class="form-field" id="gm-date-picker-wrap" style="display:none;">
+      <label for="gm-date-picker">Date</label>
+      <select id="gm-date-picker"></select>
+    </div>
+    <div class="period-banner" id="gm-date-banner" style="display:none;"></div>
+    <p class="error-text" id="gm-error"></p>
+
+    <div id="gm-empty-banner" class="dpn-locked-banner" style="display:none;">
+      No active medications have a time of day set yet &mdash; ask an admin to set each medication's schedule in Manage Medications.
+    </div>
+
+    <div id="gm-slots"></div>
+
+    <div class="save-finalize-bar" id="gm-submit-bar" style="display:none;">
+      <button type="button" id="gm-submit-doses" class="primary-finalize">Submit Doses</button>
+    </div>
+
+    <div id="gm-prn-section" style="display:none;">
+      <p class="item-section-title">As-Needed (PRN)</p>
+      <div id="gm-prn-list" class="item-list"></div>
+    </div>
+  </section>
+
 </main>
 
 <script>
@@ -810,7 +1035,9 @@
     physicalEnvironment: document.getElementById('screen-physical-environment'),
     logEvent: document.getElementById('screen-log-event'),
     marReview: document.getElementById('screen-mar-review'),
-    seriousIncident: document.getElementById('screen-serious-incident')
+    seriousIncident: document.getElementById('screen-serious-incident'),
+    dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
+    giveMeds: document.getElementById('screen-give-meds')
   };
 
   function getStoredSession() {
@@ -984,7 +1211,115 @@
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
+    loadHomeSiteVisitStatus();
     renderMarButtons(session.residentInitials);
+    renderDpnButtons(session.residentInitials);
+    renderGiveMedsButtons(session.residentInitials);
+    loadInfoStatuses(session);
+  }
+
+  // Last/Next Site Visit come from the admin dashboard's Monthly
+  // Checklist (items #1 and #11) — display only, nothing to edit here.
+  async function loadHomeSiteVisitStatus() {
+    const el = document.getElementById('home-site-visit');
+    el.textContent = '';
+    try {
+      const data = await apiFetch('/get-provider-site-visit-status');
+      const parts = [];
+      parts.push('Last site visit: ' + (data.lastSiteVisit ? formatDate(data.lastSiteVisit) : 'Not yet recorded'));
+      parts.push('Next planned: ' + (data.nextPlannedSiteVisit ? formatDate(data.nextPlannedSiteVisit) : 'Not yet scheduled'));
+      el.textContent = parts.join(' · ');
+    } catch (e) {
+      // leave blank rather than guessing
+    }
+  }
+
+  // Same "split on comma, trim, drop blanks" parse renderMarButtons
+  // needs for its own per-resident buttons — one account's
+  // residentInitials can list more than one resident.
+  function parseResidentInitials(residentInitialsStr) {
+    return (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // Mirrors the admin dashboard's own staffPuzzleState wording — only
+  // shown for yellow/red, since a green dot needs no explanation.
+  function staffTrainingReasonText(member) {
+    if (member.status === 'green') return '';
+    if (member.missingCount > 0) {
+      return 'Incomplete (' + member.doneCount + '/' + member.totalCount + ')';
+    }
+    if (member.isOverdue) {
+      return 'Overdue ' + formatDate(member.dueDate);
+    }
+    return 'Due ' + formatDate(member.dueDate);
+  }
+
+  // Annual Planning, Quarterly Reporting, and Staff Training all have
+  // their own full workflows on the admin dashboard — sponsors only get
+  // a traffic light here, one row per resident for the first two, one
+  // row per active staff member (by name) for Staff Training. Plain
+  // divs, not buttons — nothing here is tappable. The three fetches are
+  // independent of each other, so they run concurrently rather than
+  // waiting on one another in turn.
+  async function loadInfoStatuses(session) {
+    const container = document.getElementById('info-status-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(session.residentInitials);
+
+    function addRow(dotId, label) {
+      const row = document.createElement('div');
+      row.className = 'info-status-row';
+      row.innerHTML = '<span id="' + dotId + '" class="status-dot status-green"></span><span>' + label + '</span>';
+      container.appendChild(row);
+    }
+
+    residents.forEach(function (initials) {
+      addRow('info-ap-dot-' + initials, 'Annual Planning — ' + initials);
+    });
+    residents.forEach(function (initials) {
+      addRow('info-qr-dot-' + initials, 'Quarterly Reporting — ' + initials);
+    });
+
+    // Staff Training rows can't be pre-rendered like the ones above —
+    // the names themselves come back from the fetch, so this group
+    // gets its own sub-container built fresh once the data arrives.
+    const staffGroup = document.createElement('div');
+    container.appendChild(staffGroup);
+
+    await Promise.all([
+      apiFetch('/get-provider-annual-planning-status').then(function (data) {
+        (data.residents || []).forEach(function (r) {
+          const dot = document.getElementById('info-ap-dot-' + r.resident);
+          if (dot) dot.className = 'status-dot status-' + r.status;
+        });
+      }).catch(function (e) {
+        // leave dots at their default green rather than guessing
+      }),
+      apiFetch('/get-provider-quarterly-reporting-status').then(function (data) {
+        (data.residents || []).forEach(function (r) {
+          const dot = document.getElementById('info-qr-dot-' + r.resident);
+          if (dot) dot.className = 'status-dot status-' + r.status;
+        });
+      }).catch(function (e) {
+        // leave dots at their default green rather than guessing
+      }),
+      apiFetch('/get-provider-staff-training-status').then(function (data) {
+        staffGroup.innerHTML = '';
+        (data.staff || []).forEach(function (member) {
+          const row = document.createElement('div');
+          row.className = 'info-status-row';
+          const reason = staffTrainingReasonText(member);
+          row.innerHTML = '<span class="status-dot status-' + member.status + '"></span>' +
+            '<span class="info-status-text">' +
+              '<span>Staff Training — ' + member.name + '</span>' +
+              (reason ? '<span class="info-status-reason">' + reason + '</span>' : '') +
+            '</span>';
+          staffGroup.appendChild(row);
+        });
+      }).catch(function (e) {
+        // leave the group empty rather than guessing
+      })
+    ]);
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -1075,10 +1410,11 @@
   function renderMarButtons(residentInitialsStr) {
     const container = document.getElementById('mar-buttons-container');
     container.innerHTML = '';
-    const residents = (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    const residents = parseResidentInitials(residentInitialsStr);
 
     residents.forEach(function (initials) {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'action-button';
       btn.innerHTML =
         '<span class="mar-label-row">' +
@@ -1173,6 +1509,119 @@
         }
       }
       dotEl.className = 'status-dot ' + statusClass;
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
+  // Builds one Daily Progress Notes button per resident — same shape as
+  // renderMarButtons above, one button/status dot/screen instance per
+  // resident on the account.
+  function renderDpnButtons(residentInitialsStr) {
+    const container = document.getElementById('dpn-buttons-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(residentInitialsStr);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-dpn-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#128221; Daily Progress Notes — ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-dpn-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentDpnResidentInitials = initials;
+        showScreen('dailyProgressNotes');
+        loadDailyProgressNote();
+      });
+      container.appendChild(btn);
+      loadHomeDpnStatus(initials);
+    });
+  }
+
+  async function loadHomeDpnStatus(initials) {
+    const dotEl = document.getElementById('home-dpn-dot-' + initials);
+    const dueEl = document.getElementById('home-dpn-due-' + initials);
+    if (!dotEl) return;
+    dueEl.textContent = '';
+
+    try {
+      const data = await apiFetch('/get-daily-progress-note?resident=' + encodeURIComponent(initials));
+      const today = new Date().toISOString().slice(0, 10);
+      const isSigned = !!(data.cover && data.cover.signedAt);
+      const isOverdue = data.date < today;
+
+      if (isOverdue) {
+        dueEl.textContent = formatDate(data.date) + ': not yet signed — overdue';
+        dotEl.className = 'status-dot status-red';
+      } else if (isSigned) {
+        dueEl.textContent = 'Today (' + formatDate(data.date) + '): signed';
+        dotEl.className = 'status-dot status-green';
+      } else {
+        dueEl.textContent = 'Today (' + formatDate(data.date) + '): not yet signed';
+        dotEl.className = 'status-dot status-yellow';
+      }
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
+  // Builds one Give Medications button per resident — same shape as
+  // renderMarButtons/renderDpnButtons above.
+  function renderGiveMedsButtons(residentInitialsStr) {
+    const container = document.getElementById('gm-buttons-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(residentInitialsStr);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-gm-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#128138; Give Medications — ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-gm-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentGmResidentInitials = initials;
+        showScreen('giveMeds');
+        loadGiveMedications();
+      });
+      container.appendChild(btn);
+      loadHomeGmStatus(initials);
+    });
+  }
+
+  // Green: today's complete (or nothing is scheduled). Yellow: today has
+  // doses still unlogged. Red: a resident whose log can't skip days (see
+  // requiresStrictOrder server-side) has an incomplete day from BEFORE
+  // today still outstanding, not just today.
+  async function loadHomeGmStatus(initials) {
+    const dotEl = document.getElementById('home-gm-dot-' + initials);
+    const dueEl = document.getElementById('home-gm-due-' + initials);
+    if (!dotEl) return;
+    dueEl.textContent = '';
+
+    try {
+      const data = await apiFetch('/get-medication-administration?resident=' + encodeURIComponent(initials));
+      const outstanding = data.outstandingDates || [];
+      const hasPastBacklog = outstanding.some(function (d) { return d !== data.today; });
+      const todayOutstanding = outstanding.indexOf(data.today) !== -1;
+
+      if (hasPastBacklog) {
+        dueEl.textContent = outstanding.length + ' day(s) with unlogged doses';
+        dotEl.className = 'status-dot status-red';
+      } else if (todayOutstanding) {
+        dueEl.textContent = 'Today: doses still unlogged';
+        dotEl.className = 'status-dot status-yellow';
+      } else {
+        dueEl.textContent = 'Today: all logged';
+        dotEl.className = 'status-dot status-green';
+      }
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
     }
@@ -2085,15 +2534,18 @@
       ' \u2022 ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
+  // Escaped — incident.name can now come from the public, no-login
+  // report form (public-create-serious-incident.js), so this is no
+  // longer text only someone with facility credentials could have typed.
   function renderIncidentRow(incident) {
     const wrap = document.createElement('div');
     wrap.className = 'incident-row';
     wrap.innerHTML =
       '<div class="incident-main">' +
-        '<p class="incident-name">' + incident.name + '</p>' +
+        '<p class="incident-name">' + escapeHtml(incident.name) + '</p>' +
         '<p class="incident-date">' + formatIncidentDate(incident.dateOfIncident) + '</p>' +
       '</div>' +
-      '<span class="status-badge">' + (incident.status || 'Submitted') + '</span>';
+      '<span class="status-badge">' + escapeHtml(incident.status || 'Submitted') + '</span>';
     return wrap;
   }
 
@@ -2154,6 +2606,756 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Submit Incident Report';
+    }
+  });
+
+  // --- Screen 11: Daily Progress Notes ---
+  let currentDpnResidentInitials = null;
+  let currentDpnQuestions = [];
+  let currentDpnLocked = false;
+  let currentDpnDate = null;
+  let currentDpnOutstandingDates = [];
+  let currentDpnIsFirstEntry = false;
+  let currentDpnTimesCoveredEditable = false;
+  const dpnRecognizers = {}; // keyed by question key, one SpeechRecognition instance per text question
+
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function dpnQuestionKeyEl(key, suffix) {
+    return document.getElementById('dpn-q-' + key + (suffix ? '-' + suffix : ''));
+  }
+
+  // Question text and checklist item labels come from the admin-editable
+  // template (Notion), not a fixed code-level list — escape before
+  // inserting via innerHTML so a stray "<" in a question doesn't get
+  // interpreted as markup in every provider's session.
+  function escapeHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function renderDpnTextQuestion(q, answer) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question';
+    wrap.dataset.key = q.key;
+    wrap.dataset.type = 'Text';
+
+    const micButtonHtml = SpeechRecognitionCtor
+      ? '<button type="button" class="dpn-mic-button" id="dpn-mic-' + q.key + '" title="Dictate">&#127908;</button>'
+      : '';
+
+    wrap.innerHTML =
+      '<p class="dpn-question-text">' + escapeHtml(q.text) + '</p>' +
+      '<div class="dpn-textarea-row">' +
+        '<textarea id="dpn-q-' + q.key + '" rows="4"></textarea>' +
+        micButtonHtml +
+      '</div>';
+
+    const textarea = wrap.querySelector('textarea');
+    textarea.value = (answer && answer.answerText) || '';
+
+    const micBtn = wrap.querySelector('.dpn-mic-button');
+    if (micBtn) {
+      let recognizing = false;
+      const recognizer = new SpeechRecognitionCtor();
+      recognizer.continuous = true;
+      recognizer.interimResults = false;
+      recognizer.onresult = function (event) {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        textarea.value = (textarea.value ? textarea.value + ' ' : '') + transcript.trim();
+      };
+      recognizer.onend = function () {
+        recognizing = false;
+        micBtn.classList.remove('recording');
+      };
+      recognizer.onerror = function () {
+        recognizing = false;
+        micBtn.classList.remove('recording');
+      };
+      micBtn.addEventListener('click', function () {
+        if (recognizing) {
+          recognizer.stop();
+        } else {
+          recognizing = true;
+          micBtn.classList.add('recording');
+          try { recognizer.start(); } catch (e) { recognizing = false; micBtn.classList.remove('recording'); }
+        }
+      });
+      dpnRecognizers[q.key] = recognizer;
+    }
+
+    return wrap;
+  }
+
+  function renderDpnChecklistQuestion(q, answer) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question';
+    wrap.dataset.key = q.key;
+    wrap.dataset.type = 'Checklist';
+
+    const existing = (answer && answer.checklistAnswers) || {};
+    const itemsHtml = q.checklistItems.map(function (item, idx) {
+      const value = existing[item] || '';
+      return (
+        '<div class="dpn-checklist-item" data-item="' + idx + '">' +
+          '<span>' + escapeHtml(item) + '</span>' +
+          '<div class="dpn-yn-group">' +
+            '<button type="button" class="dpn-yn-btn dpn-yn-yes' + (value === 'Yes' ? ' selected-yes' : '') + '">Yes</button>' +
+            '<button type="button" class="dpn-yn-btn dpn-yn-no' + (value === 'No' ? ' selected-no' : '') + '">No</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    wrap.innerHTML = '<p class="dpn-question-text">' + escapeHtml(q.text) + '</p>' + itemsHtml;
+
+    wrap.querySelectorAll('.dpn-checklist-item').forEach(function (row, idx) {
+      const itemLabel = q.checklistItems[idx];
+      const yesBtn = row.querySelector('.dpn-yn-yes');
+      const noBtn = row.querySelector('.dpn-yn-no');
+      row.dataset.itemLabel = itemLabel;
+      yesBtn.addEventListener('click', function () {
+        yesBtn.classList.add('selected-yes');
+        noBtn.classList.remove('selected-no');
+        row.dataset.value = 'Yes';
+      });
+      noBtn.addEventListener('click', function () {
+        noBtn.classList.add('selected-no');
+        yesBtn.classList.remove('selected-yes');
+        row.dataset.value = 'No';
+      });
+      if (existing[itemLabel]) row.dataset.value = existing[itemLabel];
+    });
+
+    return wrap;
+  }
+
+  function gatherDpnAnswers() {
+    const answers = {};
+    document.querySelectorAll('#dpn-questions .dpn-question').forEach(function (wrap) {
+      const key = wrap.dataset.key;
+      if (wrap.dataset.type === 'Checklist') {
+        const checklistAnswers = {};
+        wrap.querySelectorAll('.dpn-checklist-item').forEach(function (row) {
+          if (row.dataset.value) checklistAnswers[row.dataset.itemLabel] = row.dataset.value;
+        });
+        answers[key] = { checklistAnswers: checklistAnswers };
+      } else {
+        answers[key] = { answerText: wrap.querySelector('textarea').value };
+      }
+    });
+    return answers;
+  }
+
+  // --- Signature pad: captures raw pen-stroke points (not an image) so
+  // the nightly PDF job can replay them as vector line drawing — this
+  // app's Google Drive integration is write-only via Zapier, with no way
+  // to read an uploaded image back out. ---
+  let dpnSignatureStrokes = [];
+  let dpnCurrentStroke = null;
+  let dpnCanvasCtx = null;
+
+  // Rounded to whole pixels — a real signature's stroke data gets stored
+  // as JSON text (see chunkRichText in lib/daily-progress-notes.js), so
+  // trimming float precision here meaningfully cuts how much of it there
+  // is without any visible loss of detail.
+  function dpnCanvasPoint(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+    return { x: Math.round(clientX - rect.left), y: Math.round(clientY - rect.top) };
+  }
+
+  // Skips points that haven't moved far enough to matter — a slow or
+  // jittery hand can otherwise generate several points per pixel of
+  // actual travel, ballooning the stored stroke data for no visible gain.
+  function dpnPointFarEnough(a, b) {
+    return Math.abs(a.x - b.x) >= 2 || Math.abs(a.y - b.y) >= 2;
+  }
+
+  function dpnRedrawSignature(canvas) {
+    dpnCanvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+    dpnCanvasCtx.strokeStyle = '#16332B';
+    dpnCanvasCtx.lineWidth = 2;
+    dpnCanvasCtx.lineCap = 'round';
+    dpnSignatureStrokes.forEach(function (stroke) {
+      if (stroke.length < 2) return;
+      dpnCanvasCtx.beginPath();
+      dpnCanvasCtx.moveTo(stroke[0].x, stroke[0].y);
+      for (let i = 1; i < stroke.length; i++) dpnCanvasCtx.lineTo(stroke[i].x, stroke[i].y);
+      dpnCanvasCtx.stroke();
+    });
+  }
+
+  function initDpnSignaturePad() {
+    const canvas = document.getElementById('dpn-signature-canvas');
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    dpnCanvasCtx = canvas.getContext('2d');
+    dpnSignatureStrokes = [];
+    dpnCurrentStroke = null;
+
+    function start(evt) {
+      evt.preventDefault();
+      dpnCurrentStroke = [dpnCanvasPoint(canvas, evt)];
+      dpnSignatureStrokes.push(dpnCurrentStroke);
+    }
+    function move(evt) {
+      if (!dpnCurrentStroke) return;
+      evt.preventDefault();
+      const point = dpnCanvasPoint(canvas, evt);
+      const last = dpnCurrentStroke[dpnCurrentStroke.length - 1];
+      if (last && !dpnPointFarEnough(last, point)) return;
+      dpnCurrentStroke.push(point);
+      dpnRedrawSignature(canvas);
+    }
+    function end() {
+      dpnCurrentStroke = null;
+    }
+
+    canvas.onmousedown = start;
+    canvas.onmousemove = move;
+    window.addEventListener('mouseup', end);
+    canvas.ontouchstart = start;
+    canvas.ontouchmove = move;
+    canvas.ontouchend = end;
+  }
+
+  document.getElementById('dpn-signature-clear').addEventListener('click', function () {
+    dpnSignatureStrokes = [];
+    const canvas = document.getElementById('dpn-signature-canvas');
+    if (dpnCanvasCtx) dpnCanvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+
+  // Fills the date picker with every currently outstanding day (oldest
+  // first) and selects whichever one is actually loaded — hidden
+  // entirely when there's only one (or zero) to choose from, since a
+  // dropdown of one option is just clutter.
+  function renderDpnDatePicker(outstandingDates, selectedDate) {
+    const wrap = document.getElementById('dpn-date-picker-wrap');
+    const select = document.getElementById('dpn-date-picker');
+    if (outstandingDates.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+    select.innerHTML = '';
+    outstandingDates.forEach(function (date) {
+      const opt = document.createElement('option');
+      opt.value = date;
+      opt.textContent = formatDate(date) + (date === TODAY_ISO() ? ' (today)' : '');
+      if (date === selectedDate) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.style.display = 'block';
+  }
+
+  function TODAY_ISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  // The one-time "pick your very first day" control for a resident with
+  // no prior entries at all — a native date input bounded by the
+  // questionnaire's effective range, rather than the ongoing <select>
+  // above (which would mean enumerating every day since the effective
+  // date, possibly hundreds of options).
+  function renderDpnFirstEntryDatePicker(minDate, maxDate, selectedDate) {
+    const wrap = document.getElementById('dpn-first-entry-date-wrap');
+    const input = document.getElementById('dpn-first-entry-date');
+    input.min = minDate;
+    input.max = maxDate;
+    input.value = selectedDate;
+    wrap.style.display = 'block';
+  }
+
+  async function loadDailyProgressNote(requestedDate) {
+    const questionsEl = document.getElementById('dpn-questions');
+    const lockedBanner = document.getElementById('dpn-locked-banner');
+    const noTemplateBanner = document.getElementById('dpn-no-template-banner');
+    const caughtUpBanner = document.getElementById('dpn-caught-up-banner');
+    const signatureSection = document.getElementById('dpn-signature-section');
+    const saveFinalizeBar = document.querySelector('#screen-daily-progress-notes .save-finalize-bar');
+    const timesCoveredWrap = document.getElementById('dpn-times-covered-wrap');
+    const timesCoveredInput = document.getElementById('dpn-times-covered');
+    setError('dpn-error', '');
+    questionsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    document.getElementById('dpn-date-picker-wrap').style.display = 'none';
+    document.getElementById('dpn-first-entry-date-wrap').style.display = 'none';
+    Object.keys(dpnRecognizers).forEach(function (key) { delete dpnRecognizers[key]; });
+
+    try {
+      let url = '/get-daily-progress-note?resident=' + encodeURIComponent(currentDpnResidentInitials || '');
+      if (requestedDate) url += '&date=' + encodeURIComponent(requestedDate);
+      const data = await apiFetch(url);
+      currentDpnQuestions = data.questions || [];
+      currentDpnLocked = !!(data.cover && data.cover.signedAt);
+      currentDpnDate = data.date;
+      currentDpnOutstandingDates = data.outstandingDates || [];
+      currentDpnIsFirstEntry = !!data.isFirstEntry;
+      currentDpnTimesCoveredEditable = !!data.timesCoveredEditable;
+      // Nothing outstanding means one of two very different things: a
+      // brand-new resident with no questionnaire published at all yet
+      // (isFirstEntry, blocked until an admin publishes one), or an
+      // ordinary resident who's simply fully caught up through today.
+      const nothingOutstanding = !currentDpnOutstandingDates.length;
+      // A day the resident is stuck catching up on but that falls outside
+      // every published question version's effective/termination range
+      // (e.g. the day after a version terminates, before a successor is
+      // published) — nothing to answer, and Save/Sign are refused
+      // server-side too (see save-daily-progress-note.js), so surface
+      // that clearly rather than showing a dead blank form.
+      const hasNoTemplate = !nothingOutstanding && !currentDpnLocked && !currentDpnQuestions.length;
+
+      document.getElementById('dpn-title').textContent = 'Daily Progress Notes — ' + (currentDpnResidentInitials || '');
+
+      questionsEl.innerHTML = '';
+      currentDpnQuestions.forEach(function (q) {
+        const answer = (data.answers || {})[q.key];
+        const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
+        questionsEl.appendChild(el);
+      });
+
+      caughtUpBanner.style.display = 'none';
+      if (nothingOutstanding) {
+        document.getElementById('dpn-date-banner').textContent = '';
+        lockedBanner.style.display = 'none';
+        signatureSection.style.display = 'none';
+        timesCoveredWrap.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+        if (currentDpnIsFirstEntry) {
+          noTemplateBanner.style.display = 'block';
+          noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire has been published for this resident yet. Contact an admin to publish the first version.';
+        } else {
+          noTemplateBanner.style.display = 'none';
+          caughtUpBanner.style.display = 'block';
+        }
+        return;
+      }
+
+      if (currentDpnTimesCoveredEditable) {
+        timesCoveredWrap.style.display = 'block';
+        timesCoveredInput.value = data.timesCovered || '';
+        timesCoveredInput.disabled = false;
+      } else {
+        timesCoveredWrap.style.display = 'none';
+        timesCoveredInput.value = '';
+      }
+
+      if (currentDpnIsFirstEntry) {
+        renderDpnFirstEntryDatePicker(data.initialDateMin, data.initialDateMax, currentDpnDate);
+      } else {
+        renderDpnDatePicker(currentDpnOutstandingDates, currentDpnDate);
+      }
+      document.getElementById('dpn-date-banner').innerHTML = 'Entering notes for <strong>' + formatDate(currentDpnDate) + '</strong>' +
+        (currentDpnDate < TODAY_ISO() ? ' — <strong>catching up on a prior day</strong>' : '');
+
+      if (currentDpnLocked) {
+        lockedBanner.style.display = 'block';
+        noTemplateBanner.style.display = 'none';
+        signatureSection.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+        questionsEl.querySelectorAll('textarea').forEach(function (t) { t.disabled = true; });
+        questionsEl.querySelectorAll('.dpn-yn-btn').forEach(function (b) { b.disabled = true; });
+        timesCoveredInput.disabled = true;
+      } else if (hasNoTemplate) {
+        lockedBanner.style.display = 'none';
+        noTemplateBanner.style.display = 'block';
+        noTemplateBanner.textContent = 'No Daily Progress Notes questionnaire is published for ' + formatDate(currentDpnDate) + ' yet. Contact an admin to publish one before this day can be completed.';
+        signatureSection.style.display = 'none';
+        timesCoveredWrap.style.display = 'none';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = 'none';
+      } else {
+        lockedBanner.style.display = 'none';
+        noTemplateBanner.style.display = 'none';
+        signatureSection.style.display = 'block';
+        if (saveFinalizeBar) saveFinalizeBar.style.display = '';
+        initDpnSignaturePad();
+      }
+    } catch (e) {
+      questionsEl.innerHTML = '';
+      setError('dpn-error', e.message);
+    }
+  }
+
+  document.getElementById('dpn-date-picker').addEventListener('change', function () {
+    loadDailyProgressNote(this.value);
+  });
+
+  document.getElementById('dpn-first-entry-date').addEventListener('change', function () {
+    if (this.value) loadDailyProgressNote(this.value);
+  });
+
+  document.getElementById('dpn-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('dpn-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      await apiFetch('/save-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+      });
+      alert('Progress saved. Come back anytime to keep working before signing.');
+    } catch (e) {
+      setError('dpn-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Progress';
+    }
+  });
+
+  document.getElementById('dpn-sign').addEventListener('click', async function () {
+    const btn = this;
+    setError('dpn-error', '');
+
+    if (!dpnSignatureStrokes.length) {
+      setError('dpn-error', 'A signature is required before signing.');
+      return;
+    }
+    if (currentDpnTimesCoveredEditable && !document.getElementById('dpn-times-covered').value.trim()) {
+      setError('dpn-error', 'Times covered is required before signing.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    try {
+      await apiFetch('/save-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+      });
+      await apiFetch('/sign-daily-progress-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, strokes: dpnSignatureStrokes })
+      });
+      alert('Daily Progress Note signed.');
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      const remainingOutstanding = currentDpnOutstandingDates.filter(function (d) { return d !== currentDpnDate; });
+      if (remainingOutstanding.length) {
+        loadDailyProgressNote();
+      } else {
+        showScreen('home');
+      }
+    } catch (e) {
+      setError('dpn-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign & Submit';
+    }
+  });
+
+  // --- Screen 11: Give Medications ---
+  let currentGmResidentInitials = null;
+  let currentGmDate = null;
+  let currentGmOutstandingDates = [];
+  // Doses the sponsor has picked but not yet submitted — keyed by
+  // "medicationId|slot" so re-staging the same row replaces rather than
+  // duplicates. Cleared on every load/reload and after a submit, so
+  // switching dates or reloading never carries stale picks forward.
+  let gmStagedDoses = {};
+
+  function gmFormatLoggedAt(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function gmStageKey(medicationId, slot) { return medicationId + '|' + slot; }
+
+  function updateGmSubmitBar() {
+    const bar = document.getElementById('gm-submit-bar');
+    const btn = document.getElementById('gm-submit-doses');
+    const count = Object.keys(gmStagedDoses).length;
+    if (!count) { bar.style.display = 'none'; return; }
+    btn.textContent = 'Submit ' + count + ' Dose' + (count === 1 ? '' : 's');
+    bar.style.display = 'block';
+  }
+
+  // Already-logged state is read-only (append-only record — a mis-logged
+  // entry is corrected directly in Notion, not re-editable here). A slot
+  // that hasn't opened yet for TODAY (see isOpen/opensAtLabel from
+  // get-medication-administration.js) shows no action buttons at all —
+  // re-validated server-side regardless, this is just saving a wasted
+  // round trip. Otherwise: tapping Given stages it immediately; Refused/
+  // Held reveal a required-reason box first — either way nothing is sent
+  // to the server until "Submit N Doses" below is pressed, so several
+  // rows can be picked in one pass instead of a save per tap.
+  function renderGmDoseRow(med, slot, isOpen, opensAtLabel) {
+    const row = document.createElement('div');
+    row.className = 'item-row gm-dose-row';
+    const key = gmStageKey(med.id, slot);
+
+    if (med.logged) {
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-logged-line gm-status-' + med.status + '">' + escapeHtml(med.status) + '</p>' +
+        '<p class="gm-logged-reason">' +
+          (med.givenBy ? escapeHtml(med.givenBy) : '') + (med.loggedAt ? ' · ' + gmFormatLoggedAt(med.loggedAt) : '') +
+        '</p>' +
+        (med.reason ? '<p class="gm-logged-reason">' + escapeHtml(med.reason) + '</p>' : '');
+      return row;
+    }
+
+    const staged = gmStagedDoses[key];
+    if (staged) {
+      row.className += ' gm-staged';
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-staged-line">Staged: ' + escapeHtml(staged.status) + (staged.reason ? ' — ' + escapeHtml(staged.reason) : '') + '</p>' +
+        '<button type="button" class="gm-staged-undo">Undo</button>';
+      row.querySelector('.gm-staged-undo').addEventListener('click', function () {
+        delete gmStagedDoses[key];
+        updateGmSubmitBar();
+        row.replaceWith(renderGmDoseRow(med, slot, isOpen, opensAtLabel));
+      });
+      return row;
+    }
+
+    if (!isOpen) {
+      row.className += ' gm-not-open';
+      row.innerHTML =
+        '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+        '<p class="gm-not-open-line">Opens at ' + escapeHtml(opensAtLabel) + '</p>';
+      return row;
+    }
+
+    row.innerHTML =
+      '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+      '<div class="gm-status-group">' +
+        '<button type="button" class="gm-status-btn gm-given">Given</button>' +
+        '<button type="button" class="gm-status-btn gm-refused">Refused</button>' +
+        '<button type="button" class="gm-status-btn gm-held">Held</button>' +
+      '</div>' +
+      '<div class="gm-reason-wrap">' +
+        '<textarea rows="2" placeholder="Reason (required)"></textarea>' +
+        '<button type="button" class="gm-reason-confirm">Stage</button>' +
+      '</div>';
+
+    const reasonWrap = row.querySelector('.gm-reason-wrap');
+    const textarea = reasonWrap.querySelector('textarea');
+    const confirmBtn = reasonWrap.querySelector('.gm-reason-confirm');
+    let pendingStatus = null;
+
+    function stage(status, reason) {
+      gmStagedDoses[key] = { medicationId: med.id, slot: slot, status: status, reason: reason, itemName: med.itemName };
+      updateGmSubmitBar();
+      row.replaceWith(renderGmDoseRow(med, slot, isOpen, opensAtLabel));
+    }
+
+    row.querySelector('.gm-given').addEventListener('click', function () { stage('Given', ''); });
+    row.querySelector('.gm-refused').addEventListener('click', function () {
+      pendingStatus = 'Refused';
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    row.querySelector('.gm-held').addEventListener('click', function () {
+      pendingStatus = 'Held';
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    confirmBtn.addEventListener('click', function () {
+      const reason = textarea.value.trim();
+      if (!reason) { setError('gm-error', 'A reason is required for Refused or Held.'); return; }
+      setError('gm-error', '');
+      stage(pendingStatus, reason);
+    });
+
+    return row;
+  }
+
+  // PRN doses are always "Given" (there's no scheduled expectation to
+  // mark Refused/Held against) and always need a reason, since there's
+  // no physician-ordered time this was expected at.
+  function renderGmPrnRow(med) {
+    const row = document.createElement('div');
+    row.className = 'item-row gm-dose-row';
+    row.innerHTML =
+      '<p class="item-name">' + escapeHtml(med.itemName) + (med.dosage ? ' — ' + escapeHtml(med.dosage) : '') + '</p>' +
+      '<div class="gm-status-group">' +
+        '<button type="button" class="gm-status-btn gm-log-prn">Log a Dose</button>' +
+      '</div>' +
+      '<div class="gm-reason-wrap">' +
+        '<textarea rows="2" placeholder="Reason this was given (required)"></textarea>' +
+        '<button type="button" class="gm-reason-confirm">Save</button>' +
+      '</div>';
+
+    const reasonWrap = row.querySelector('.gm-reason-wrap');
+    const textarea = reasonWrap.querySelector('textarea');
+    const confirmBtn = reasonWrap.querySelector('.gm-reason-confirm');
+
+    row.querySelector('.gm-log-prn').addEventListener('click', function () {
+      reasonWrap.style.display = 'block';
+      textarea.focus();
+    });
+    confirmBtn.addEventListener('click', function () {
+      const reason = textarea.value.trim();
+      if (!reason) { setError('gm-error', 'A reason is required for an as-needed dose.'); return; }
+      setError('gm-error', '');
+      confirmBtn.disabled = true;
+      apiFetch('/save-prn-dose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentGmResidentInitials, medicationId: med.id, reason: reason })
+      }).then(function () {
+        alert('Dose logged.');
+        loadGiveMedications(currentGmDate);
+      }).catch(function (e) {
+        setError('gm-error', e.message);
+        confirmBtn.disabled = false;
+      });
+    });
+
+    return row;
+  }
+
+  // Same shape as renderDpnDatePicker — hidden entirely when there's only
+  // one (or zero) outstanding day to choose from.
+  function renderGmDatePicker(outstandingDates, selectedDate, today) {
+    const wrap = document.getElementById('gm-date-picker-wrap');
+    const select = document.getElementById('gm-date-picker');
+    if (outstandingDates.length < 2) {
+      wrap.style.display = 'none';
+      return;
+    }
+    select.innerHTML = '';
+    outstandingDates.forEach(function (date) {
+      const opt = document.createElement('option');
+      opt.value = date;
+      opt.textContent = formatDate(date) + (date === today ? ' (today)' : '');
+      if (date === selectedDate) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.style.display = 'block';
+  }
+
+  async function loadGiveMedications(requestedDate) {
+    setError('gm-error', '');
+    const slotsEl = document.getElementById('gm-slots');
+    const prnSection = document.getElementById('gm-prn-section');
+    const prnList = document.getElementById('gm-prn-list');
+    const emptyBanner = document.getElementById('gm-empty-banner');
+    const dateBanner = document.getElementById('gm-date-banner');
+    slotsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    prnSection.style.display = 'none';
+    emptyBanner.style.display = 'none';
+    dateBanner.style.display = 'none';
+    document.getElementById('gm-date-picker-wrap').style.display = 'none';
+    // A fresh load always starts from a clean slate — switching dates or
+    // reloading shouldn't carry forward picks the sponsor hasn't
+    // submitted yet (the server never saw them anyway).
+    gmStagedDoses = {};
+    updateGmSubmitBar();
+
+    try {
+      let url = '/get-medication-administration?resident=' + encodeURIComponent(currentGmResidentInitials || '');
+      if (requestedDate) url += '&date=' + encodeURIComponent(requestedDate);
+      const data = await apiFetch(url);
+      currentGmDate = data.date;
+      currentGmOutstandingDates = data.outstandingDates || [];
+
+      document.getElementById('gm-title').textContent = 'Give Medications — ' + (currentGmResidentInitials || '');
+
+      renderGmDatePicker(currentGmOutstandingDates, currentGmDate, data.today);
+      if (data.strict && currentGmDate !== data.today) {
+        dateBanner.textContent = 'Catching up: ' + formatDate(currentGmDate) + ' still has unlogged doses.';
+        dateBanner.style.display = 'block';
+      } else if (data.strict && currentGmOutstandingDates.length > 1) {
+        dateBanner.textContent = 'Today, ' + formatDate(currentGmDate) + '. Earlier days still need doses logged too — pick one above.';
+        dateBanner.style.display = 'block';
+      }
+
+      slotsEl.innerHTML = '';
+      if (!data.slots.length) {
+        emptyBanner.style.display = 'block';
+      } else {
+        data.slots.forEach(function (group) {
+          const title = document.createElement('p');
+          title.className = 'item-section-title';
+          title.textContent = group.slot;
+          if (!group.isOpen) {
+            const note = document.createElement('span');
+            note.className = 'gm-slot-title-note';
+            note.textContent = ' (opens at ' + group.opensAtLabel + ')';
+            title.appendChild(note);
+          }
+          slotsEl.appendChild(title);
+          const list = document.createElement('div');
+          list.className = 'item-list';
+          group.medications.forEach(function (med) { list.appendChild(renderGmDoseRow(med, group.slot, group.isOpen, group.opensAtLabel)); });
+          slotsEl.appendChild(list);
+        });
+      }
+
+      if (data.prnMedications && data.prnMedications.length) {
+        prnSection.style.display = 'block';
+        prnList.innerHTML = '';
+        data.prnMedications.forEach(function (med) { prnList.appendChild(renderGmPrnRow(med)); });
+        if (data.todaysPrnLogs && data.todaysPrnLogs.length) {
+          const logTitle = document.createElement('p');
+          logTitle.className = 'item-section-title';
+          logTitle.textContent = 'Today’s As-Needed Doses';
+          prnList.appendChild(logTitle);
+          data.todaysPrnLogs.forEach(function (log) {
+            const row = document.createElement('div');
+            row.className = 'item-row';
+            row.innerHTML =
+              '<p class="item-name">' + escapeHtml(log.itemName) + '</p>' +
+              '<p class="gm-logged-reason">' + escapeHtml(log.givenBy || '') + (log.loggedAt ? ' · ' + gmFormatLoggedAt(log.loggedAt) : '') + '</p>' +
+              '<p class="gm-logged-reason">' + escapeHtml(log.reason || '') + '</p>';
+            prnList.appendChild(row);
+          });
+        }
+      }
+    } catch (e) {
+      slotsEl.innerHTML = '';
+      setError('gm-error', e.message);
+    }
+  }
+
+  document.getElementById('gm-date-picker').addEventListener('change', function () {
+    loadGiveMedications(this.value);
+  });
+
+  // One request logs every staged dose together — see save-medication-
+  // dose.js, which validates and writes the whole batch or none of it.
+  document.getElementById('gm-submit-doses').addEventListener('click', async function () {
+    const doses = Object.keys(gmStagedDoses).map(function (key) {
+      const d = gmStagedDoses[key];
+      return { medicationId: d.medicationId, slot: d.slot, status: d.status, reason: d.reason };
+    });
+    if (!doses.length) return;
+
+    const btn = this;
+    setError('gm-error', '');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+    try {
+      await apiFetch('/save-medication-dose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentGmResidentInitials, date: currentGmDate, doses: doses })
+      });
+      alert(doses.length + ' dose' + (doses.length === 1 ? '' : 's') + ' logged.');
+      await loadGiveMedications(currentGmDate);
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+    } catch (e) {
+      // Something in the batch no longer applies (e.g. someone else
+      // already logged one of these doses) — reload fresh truth from
+      // the server rather than leaving stale staged picks on screen.
+      // loadGiveMedications clears gm-error itself, so the message has
+      // to be set AFTER it finishes, not before.
+      await loadGiveMedications(currentGmDate);
+      setError('gm-error', e.message);
+    } finally {
+      btn.disabled = false;
     }
   });
 

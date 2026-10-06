@@ -1,6 +1,6 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendSms } = require('./twilio');
-const { recipientsForLocation } = require('./notification-recipients');
+const { routineRecipientsForLocation } = require('./notification-recipients');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 const LOCATIONS = ['Longstreet', 'Mylan', 'Reigel', 'Janeway', 'BlossomView', 'Philray'];
@@ -58,7 +58,7 @@ async function runMarAlertCheck(options) {
     if (!lines.length) continue;
 
     const message = 'ASRS ' + location + ' — MEDICATION ALERT:\n' + lines.join('\n');
-    const recipients = await recipientsForLocation(location);
+    const recipients = await routineRecipientsForLocation(location);
 
     if (options.dryRun) {
       results.push({ location: location, message: message, recipients: recipients.map(function (r) { return r.name + ' (' + r.role + ', ' + r.phone + ')'; }) });

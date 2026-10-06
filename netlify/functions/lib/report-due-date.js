@@ -12,13 +12,19 @@ function computeDueDate(lastReviewedISO, now) {
   return new Date(now.getFullYear(), now.getMonth() + 1, 0);
 }
 
-function statusForDueDate(lastReviewedISO, dueDate, now) {
-  if (!lastReviewedISO) return 'red';
-  now = now || new Date();
-  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
+// Shared red/yellow/green bucketing used everywhere a "how soon is this
+// due" traffic light is computed — a report already overdue is red, due
+// within a week is yellow, otherwise green.
+function statusForDaysUntilDue(daysUntilDue) {
   if (daysUntilDue < 0) return 'red';
   if (daysUntilDue <= 7) return 'yellow';
   return 'green';
+}
+
+function statusForDueDate(lastReviewedISO, dueDate, now) {
+  if (!lastReviewedISO) return 'red';
+  now = now || new Date();
+  return statusForDaysUntilDue(Math.ceil((dueDate.getTime() - now.getTime()) / 86400000));
 }
 
 // First Aid Supplies and Emergency Supplies don't run on the monthly
@@ -44,10 +50,24 @@ function statusForSupplyDueDate(lastReviewedISO, dueDate, now) {
   if (!lastReviewedISO) return 'red';
   if (!dueDate) return 'green';
   now = now || new Date();
-  const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / 86400000);
-  if (daysUntilDue < 0) return 'red';
-  if (daysUntilDue <= 7) return 'yellow';
+  return statusForDaysUntilDue(Math.ceil((dueDate.getTime() - now.getTime()) / 86400000));
+}
+
+// Aggregates a list of individual red/yellow/green statuses down to one —
+// used by the provider app's read-only Annual Planning/Quarterly
+// Reporting/Staff Training rows, each of which rolls up several services
+// or several staff members into a single dot.
+function worstOf(statuses) {
+  if (statuses.indexOf('red') !== -1) return 'red';
+  if (statuses.indexOf('yellow') !== -1) return 'yellow';
   return 'green';
 }
 
-module.exports = { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate };
+module.exports = {
+  computeDueDate,
+  statusForDueDate,
+  computeSupplyDueDate,
+  statusForSupplyDueDate,
+  statusForDaysUntilDue,
+  worstOf
+};
