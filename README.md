@@ -758,22 +758,32 @@ set up per sponsor.
 
 #### Zap 1: Sponsor Intake Uploads (direct uploads, sponsor and admin)
 
+Built as a Zapier durable workflow, **ASRS Sponsor Intake Uploads**
+(private, in the Zapier account that owns the Google Drive connection).
+Its source is kept in `zapier/sponsor-intake-uploads.workflow.ts`; the
+live copy is edited in Zapier. Its Catch Hook URL is
+`ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL`.
+
 The browser never gets a Drive folder ID, unlike the admin-only upload
 flows. Instead, `sponsor-intake-upload-ticket` gives it a 2-hour
-encrypted **ticket** naming the intake and step, and the Zap trades
+encrypted **ticket** naming the intake and step, and the workflow trades
 that ticket for the real destination. A leaked webhook URL alone can't
-write anywhere.
+write anywhere, and no secret is stored in Zapier: a valid ticket is
+what `sponsor-intake-resolve-upload` checks.
 
-1. **Catch Hook** receives `file`, `ticket`, `part`, `total`, `ext`.
-2. **Webhooks POST** `/.netlify/functions/sponsor-intake-resolve-upload`
-   with JSON `{ secret, ticket, part, total, ext }`. It returns
-   `rootFolderId`, `sponsorFolderName`, `stageFolderName` and `filename`.
-3. **Google Drive: Find a Folder (or Create)** named `sponsorFolderName`
-   inside `rootFolderId`.
-4. **Google Drive: Find a Folder (or Create)** named `stageFolderName`
-   inside step 3's folder.
-5. **Google Drive: Upload File**, with `file` from step 1 and
-   `filename` from step 2, into step 4's folder.
+1. **Catch Hook** receives `file`, `ticket`, `part`, `total`, `ext`, and
+   `site` (the page's origin, so a deploy preview resolves against
+   itself; only `asrs-sponsor-app.netlify.app` and its previews are
+   accepted).
+2. **Webhooks POST** `{site}/.netlify/functions/sponsor-intake-resolve-upload`
+   with `{ ticket, part, total, ext }`. It returns `rootFolderId`,
+   `sponsorFolderName`, `stageFolderName` and `filename`. (The workflow
+   sandbox can't reach outside hosts directly, hence Webhooks by Zapier.)
+3. **Google Drive: Find a Folder**, else **Create Folder**, named
+   `sponsorFolderName` inside `rootFolderId`; then the same for
+   `stageFolderName` inside it. For a multi-file upload, parts 2+ wait a
+   little so part 1 creates any missing folders first.
+4. **Google Drive: Upload File** into the stage folder, named `filename`.
 
 The browser then calls `sponsor-intake-upload-complete` with the same
 ticket. That marks a sponsor upload Received (and emails
