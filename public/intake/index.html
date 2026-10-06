@@ -85,6 +85,7 @@
       case 'complete': return pill(item.completedDate ? 'Done ' + formatShortDate(item.completedDate) : 'Done', 'done');
       case 'under-review': return pill('Received', 'review');
       case 'action-needed': return pill('Waiting on you', 'action');
+      case 'in-progress': return pill('In progress', 'review');
       case 'scheduled': return pill(item.eventDate ? formatShortDate(item.eventDate) + (item.eventTime ? ', ' + formatTime(item.eventTime) : '') : 'Scheduled', 'scheduled');
       default: return pill('Not started', 'idle');
     }

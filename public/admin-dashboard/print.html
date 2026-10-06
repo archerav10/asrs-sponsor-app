@@ -131,7 +131,10 @@
       case 'Received': return { box: '', status: 'Received', date: fmtDate(item.receivedDate), by: '' };
       case 'Requested': return { box: '', status: 'Requested', date: fmtDate(item.requestedDate), by: '' };
       case 'Returned': return { box: '', status: 'Returned', date: fmtDate(item.requestedDate), by: '' };
-      default: return { box: '', status: '', date: '', by: '' };
+      default:
+        // A reference check emailed out but not back yet.
+        if (item.sentTo) return { box: '', status: 'Emailed', date: fmtDate(item.requestedDate), by: by };
+        return { box: '', status: '', date: '', by: '' };
     }
   }
 

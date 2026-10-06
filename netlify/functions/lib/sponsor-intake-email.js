@@ -32,17 +32,20 @@ function button(url, label) {
     esc(label) + '</a>';
 }
 
-function layout(bodyHtml, intake) {
+// opts.title replaces the "Sponsor Intake" header. opts.noStatusLink: for emails to someone other than the sponsor (a
+// reference), who must never get the sponsor's private status link.
+function layout(bodyHtml, intake, opts) {
   return '<div style="background:' + CREAM + ';padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;color:#1C1C1A">' +
     '<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid ' + BORDER + ';border-radius:10px;overflow:hidden">' +
     '<div style="background:' + FOREST + ';color:' + CREAM + ';padding:18px 24px">' +
     '<table role="presentation" cellspacing="0" cellpadding="0"><tr>' +
     '<td style="vertical-align:middle;padding-right:14px"><img src="' + esc(siteBaseUrl() + '/intake/logo.jpg') + '" width="62" height="56" alt="Arch Support Residential Services" style="display:block;border:0;border-radius:3px"></td>' +
-    '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">Sponsor Intake</td>' +
+    '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">' + esc((opts && opts.title) || 'Sponsor Intake') + '</td>' +
     '</tr></table></div>' +
     '<div style="padding:24px;font-size:15px;line-height:1.55">' + bodyHtml + '</div>' +
     '<div style="padding:16px 24px;border-top:1px solid ' + BORDER + ';font-size:13px;color:#5E5B52">' +
-    'Check your intake progress anytime: <a href="' + esc(statusPageUrl(intake)) + '" style="color:' + FOREST + ';font-weight:600">View my intake status</a><br>' +
+    (opts && opts.noStatusLink ? '' :
+      'Check your intake progress anytime: <a href="' + esc(statusPageUrl(intake)) + '" style="color:' + FOREST + ';font-weight:600">View my intake status</a><br>') +
     'Questions? Just reply to this email.</div>' +
     '</div></div>';
 }
@@ -51,9 +54,6 @@ function itemRow(intake, step, returnReason) {
   let detail = '';
   if (step.includes && step.includes.length) {
     detail += '<div style="font-size:13px;color:#5E5B52;margin-top:4px">Includes: ' + step.includes.map(esc).join('; ') + '</div>';
-  }
-  if (step.shareForm) {
-    detail += '<div style="font-size:13px;color:#5E5B52;margin-top:4px">Someone you choose completes this one. The button gives you a link to send them.</div>';
   }
   if (step.blankFormUrl) {
     detail += '<div style="font-size:13px;margin-top:4px"><a href="' + esc(step.blankFormUrl) + '" style="color:' + FOREST + ';font-weight:600">Download the blank form</a>' +
@@ -102,15 +102,43 @@ function welcomeEmail(intake, note) {
   return { subject: 'Your ASRS sponsor intake status page', html: layout(body, intake) };
 }
 
-async function sendToSponsor(intake, email) {
+// The email an admin sends to a reference the sponsor named. Links only
+// to the reference form (with its tracking field), never to the
+// sponsor's status page.
+function referenceEmail(intake, refName, formUrl, note) {
+  let body = '<p style="margin:0 0 14px">Hi ' + esc(firstName(refName)) + ',</p>' +
+    '<p style="margin:0 0 14px"><strong>' + esc(intake.name) + '</strong> has applied to become a sponsor with ' +
+    'Arch Support Residential Services (ASRS) and named you as a reference.</p>' +
+    '<p style="margin:0 0 18px">Would you complete our short reference form? It only takes a few minutes, ' +
+    'and your answers go straight to ASRS.</p>';
+  if (note) {
+    body += '<p style="margin:0 0 18px;padding:12px 14px;background:' + CREAM + ';border-radius:8px">' + esc(note).replace(/\n/g, '<br>') + '</p>';
+  }
+  body += '<p style="margin:0 0 18px">' + button(formUrl, 'Complete the reference form') + '</p>' +
+    '<p style="margin:0;font-size:13px;color:#5E5B52">Thank you for your help.</p>';
+  return {
+    subject: 'Reference request for ' + intake.name + ' (ASRS sponsor application)',
+    html: layout(body, intake, { noStatusLink: true, title: 'Reference Request' })
+  };
+}
+
+function intakeTemplateId() {
   const templateId = process.env.EMAILJS_INTAKE_TEMPLATE_ID;
   if (!templateId) {
     const err = new Error('Intake emails are not configured yet (EMAILJS_INTAKE_TEMPLATE_ID).');
     err.statusCode = 500;
     throw err;
   }
-  await sendEmail(intake.email, intake.name, email.subject, email.html, {
-    templateId: templateId,
+  return templateId;
+}
+
+async function sendToSponsor(intake, email) {
+  await sendTo(intake.email, intake.name, email);
+}
+
+async function sendTo(toEmail, toName, email) {
+  await sendEmail(toEmail, toName, email.subject, email.html, {
+    templateId: intakeTemplateId(),
     params: { reply_to: process.env.SPONSOR_INTAKE_REPLY_TO || '' }
   });
 }
@@ -124,14 +152,10 @@ async function notifyAdmins(intake, step, completedForAsrs) {
     .map(function (s) { return s.trim(); }).filter(Boolean);
   if (!templateId || !recipients.length) return;
 
-  const subject = completedForAsrs || step.shareForm
+  const subject = completedForAsrs
     ? step.key + ' ' + step.label + ' received for ' + intake.name
     : intake.name + ' submitted ' + step.key + ' ' + step.label;
-  const body = step.shareForm && !completedForAsrs
-    ? '<p><strong>' + esc(step.key + ' ' + step.label) + '</strong> was submitted for <strong>' + esc(intake.name) + '</strong> ' +
-      'by the person they sent it to.</p>' +
-      '<p>It\'s in their Drive folder and marked <em>Received</em>. Review it and accept or return it from the '
-    : completedForAsrs
+  const body = completedForAsrs
     ? '<p><strong>' + esc(step.key + ' ' + step.label) + '</strong> was submitted for <strong>' + esc(intake.name) + '</strong>.</p>' +
       '<p>It\'s in their Drive folder and the step is marked <em>Complete</em>. You can review it from the '
     : '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +
@@ -149,4 +173,4 @@ async function notifyAdmins(intake, step, completedForAsrs) {
   }
 }
 
-module.exports = { requestEmail, welcomeEmail, sendToSponsor, notifyAdmins };
+module.exports = { requestEmail, welcomeEmail, referenceEmail, sendToSponsor, sendTo, notifyAdmins };
