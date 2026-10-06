@@ -811,6 +811,20 @@ different sponsor or step. For **each** intake JotForm:
   value.
 - Create a copy of the workflow with that form as its trigger.
 
+Live copies (all private, in the account that owns the Drive connection):
+
+| Workflow | Form | Step |
+|---|---|---|
+| Reference Check | 262776339597073 | 2.2a–c |
+| Room & Board Rate Sheet | 262776584421061 | 4.A5 |
+| Sponsor Application | 262776986838079 | 1.2 |
+| Monthly Budget | 261867275422059 | 1.4 |
+| Direct Deposit | 262776474165064 | 4.1 |
+| Statement of Understanding | 262777101527054 | 4.A6 |
+
+The hidden `app_filename` field must be a plain Short Text field: a
+Unique ID field can't be prefilled and always submits its own number.
+
 Each workflow:
 
 1. **JotForm: New Submission** for its form. Submissions without a
