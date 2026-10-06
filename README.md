@@ -805,8 +805,10 @@ different sponsor or step. For **each** intake JotForm:
 
 - Add a **hidden field** whose unique name is `app_filename`.
 - Turn on the form's native **Google Drive** integration, saving the
-  submission PDF into the staging folder
-  (`13Lwic9c_nljgkk3TtU_g6oQ_Ig6gotns`). JotForm names it by submission ID.
+  submission PDF into the staging folder **Completed Jotforms**
+  (`13Lwic9c_nljgkk3TtU_g6oQ_Ig6gotns`), with the integration's **File
+  Name** set to the `app_filename` field so the PDF carries the tracking
+  value.
 - Create a copy of the workflow with that form as its trigger.
 
 Each workflow:
@@ -816,8 +818,9 @@ Each workflow:
 2. **Webhooks POST** `/sponsor-intake-resolve-upload` with `{ filename }`
    (the tracking value), trying production first and then the deploy
    preview.
-3. Waits a minute, then finds `{submissionID}…pdf` in the staging folder
-   (the lookup retries while it's missing).
+3. Waits 20 seconds, then finds the PDF in the staging folder by the
+   tracking value in its name, or by submission ID for a form still on
+   JotForm's default naming. The lookup retries while it's missing.
 4. **Find/Create** the sponsor folder, then the stage folder (as Zap 1),
    **Move** the PDF there and **rename** it to step 2's `filename`.
 5. **Webhooks POST** `/sponsor-intake-form-submitted` with `{ filename }`.

@@ -6,8 +6,8 @@ import { z } from "zod";
 // intake form link carries a hidden app_filename tracking value,
 // Intake_{intakeId}_{step}_{signature}; the signature lets the app trust
 // it without any secret living here. JotForm's Google Drive integration
-// saves the submission PDF (named by submission ID) into a staging
-// folder; this files it into Sponsor Intake/{Sponsor}/{n Stage}/ and
+// saves the submission PDF, named by app_filename, into a staging folder
+// (Completed Jotforms); this files it into Sponsor Intake/{Sponsor}/{n Stage}/ and
 // tells the app the form came in.
 //
 // One copy of this workflow runs per intake form (a workflow has one
@@ -104,28 +104,38 @@ const workflow = defineDurable<Input, unknown>(
     const site = resolved.site;
     const target = ResolvedSchema.parse(resolved.dest);
 
-    // JotForm's Drive integration saves the PDF (named by submission ID)
-    // shortly after the submission. Give it a minute, then look; the
-    // lookup throws while it's missing, so the step retries.
+    // JotForm's Google Drive integration saves the PDF into the staging
+    // folder within seconds, named from the hidden app_filename field (set
+    // in the integration's File Name). Look it up by the tracking value;
+    // fall back to the submission ID for a form still on default naming.
+    // The lookup throws while the file is missing, so the step retries.
     let pdfId: string | undefined;
-    if (submissionId) {
-      await ctx.wait("wait-for-staged-pdf", 60);
-      try {
-        const found = await ctx.step("find-staged-pdf", async () => {
-          const res = await sdk.runAction({
+    await ctx.wait("wait-for-staged-pdf", 20);
+    try {
+      const found = await ctx.step("find-staged-pdf", async () => {
+        const byTracking = await sdk.runAction({
+          appKey: DRIVE_APP_KEY,
+          actionType: "search",
+          actionKey: "file_v2",
+          connection: DRIVE_CONNECTION,
+          inputs: { title: tracking, folder: STAGING_FOLDER_ID, search_type: "contains" },
+        });
+        if (byTracking.data[0]) return byTracking;
+        if (submissionId) {
+          const byId = await sdk.runAction({
             appKey: DRIVE_APP_KEY,
             actionType: "search",
             actionKey: "file_v2",
             connection: DRIVE_CONNECTION,
             inputs: { title: submissionId, folder: STAGING_FOLDER_ID, search_type: "contains" },
           });
-          if (!res.data[0]) throw new Error("Submission PDF not in the staging folder yet.");
-          return res;
-        });
-        pdfId = (found.data[0] as { id?: string } | undefined)?.id;
-      } catch (e) {
-        pdfId = undefined; // record the submission anyway, below
-      }
+          if (byId.data[0]) return byId;
+        }
+        throw new Error("Submission PDF not in the staging folder yet.");
+      });
+      pdfId = (found.data[0] as { id?: string } | undefined)?.id;
+    } catch (e) {
+      pdfId = undefined; // record the submission anyway, below
     }
 
     if (pdfId) {
