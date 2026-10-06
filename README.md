@@ -789,29 +789,41 @@ The browser then calls `sponsor-intake-upload-complete` with the same
 ticket. That marks a sponsor upload Received (and emails
 `SPONSOR_INTAKE_NOTIFY_EMAILS`) or an admin upload Complete.
 
-#### Zap 2: Sponsor Intake Forms (any JotForm)
+#### Zap 2: Sponsor Intake Forms (one workflow per JotForm)
+
+Zapier durable workflows named **ASRS Sponsor Intake Forms - {form}**,
+one per intake form because a workflow has a single trigger. They share
+the source in `zapier/sponsor-intake-forms.workflow.ts`.
 
 Every intake form link is opened with a prefilled hidden field
-`app_filename` = `Intake_{intakeId}_{step}` (e.g.
-`Intake_39fff13f…_1-4`). For **each** intake JotForm, including the
-existing Budget form:
+`app_filename` = `Intake_{intakeId}_{step}_{sig}` (e.g.
+`Intake_39fff13f…_1-4_ef1f1936a56ef4fc`). `sig` is an HMAC of the intake
+and step (`formSignature` in `lib/sponsor-intake.js`), so the value
+proves the app made the link: the endpoints accept a signed value
+without the shared secret, and nobody can edit a link to report a
+different sponsor or step. For **each** intake JotForm:
 
 - Add a **hidden field** whose unique name is `app_filename`.
-- Turn on the form's native **Google Drive** integration (Settings →
-  Integrations) and save the submission PDF into one shared staging
-  folder, named by `app_filename`.
+- Turn on the form's native **Google Drive** integration, saving the
+  submission PDF into the staging folder
+  (`13Lwic9c_nljgkk3TtU_g6oQ_Ig6gotns`). JotForm names it by submission ID.
+- Create a copy of the workflow with that form as its trigger.
 
-Then one Zap covers every form:
+Each workflow:
 
-1. **Google Drive: New File in Folder**, watching the staging folder.
-2. **Webhooks POST** `/sponsor-intake-resolve-upload` with
-   `{ secret, filename }`, using the new file's name.
-3. **Find/Create** the sponsor folder, then the stage folder (same as Zap 1).
-4. **Google Drive: Move File** into the stage folder. Optionally rename
-   it to step 2's `filename` too.
-5. **Webhooks POST** `/sponsor-intake-form-submitted` with
-   `{ secret, filename }`, using the original staging filename. This
-   marks the item Received.
+1. **JotForm: New Submission** for its form. Submissions without a
+   tracking value (not sent from the app) are skipped.
+2. **Webhooks POST** `/sponsor-intake-resolve-upload` with `{ filename }`
+   (the tracking value), trying production first and then the deploy
+   preview.
+3. Waits a minute, then finds `{submissionID}…pdf` in the staging folder
+   (the lookup retries while it's missing).
+4. **Find/Create** the sponsor folder, then the stage folder (as Zap 1),
+   **Move** the PDF there and **rename** it to step 2's `filename`.
+5. **Webhooks POST** `/sponsor-intake-form-submitted` with `{ filename }`.
+   This marks the item Received (Complete for an ASRS step such as a
+   reference check). It runs even if the PDF never appeared, so a
+   submission is never lost.
 
 #### EmailJS template
 

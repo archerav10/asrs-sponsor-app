@@ -21,12 +21,9 @@ const WEBHOOKS_APP_KEY = "WebHookCLIAPI";
 const STAGING_FOLDER_ID = "13Lwic9c_nljgkk3TtU_g6oQ_Ig6gotns";
 // Production first; the deploy preview until the app is merged. Both use
 // the same Notion and Drive, so either one records the submission.
-const SITES = [
-  "https://asrs-sponsor-app.netlify.app",
-  "https://deploy-preview-2--asrs-sponsor-app.netlify.app",
-];
+const PRODUCTION_SITE = "https://asrs-sponsor-app.netlify.app";
+const PREVIEW_SITE = "https://deploy-preview-2--asrs-sponsor-app.netlify.app";
 const TRACKING_RE = /Intake_[0-9a-fA-F]{32}_\d+-(?:\d+[a-z]?|A\d+)(?:_[0-9a-f]{16})?/;
-const PDF_LOOKUPS = 10; // ~5 minutes for JotForm's Drive integration to save the PDF
 
 const InputSchema = z.looseObject({});
 type Input = z.infer<typeof InputSchema>;
@@ -66,15 +63,6 @@ function findTracking(value: unknown, depth = 0): string {
   return "";
 }
 
-function postTo(url: string, data: Record<string, string>) {
-  return sdk.runAction({
-    appKey: WEBHOOKS_APP_KEY,
-    actionType: "write",
-    actionKey: "post",
-    inputs: { url, payload_type: "json", data },
-  });
-}
-
 const workflow = defineDurable<Input, unknown>(
   "asrs-sponsor-intake-forms",
   async (ctx, rawInput) => {
@@ -86,41 +74,57 @@ const workflow = defineDurable<Input, unknown>(
     const submissionId = String(input.id ?? input.submissionID ?? input.submission_id ?? "");
 
     // Which site answers: production once merged, else the preview.
-    let site = "";
-    let dest: z.infer<typeof ResolvedSchema> | null = null;
-    for (let i = 0; i < SITES.length && !dest; i++) {
+    const resolved = await ctx.step("resolve-destination", async () => {
       try {
-        const resolved = await ctx.step({
-          name: "resolve-destination-" + (i + 1),
-          maxAttempts: i === SITES.length - 1 ? 5 : 1,
-          retryDelaySeconds: 10,
-          run: async () =>
-            postTo(SITES[i] + "/.netlify/functions/sponsor-intake-resolve-upload", { filename: tracking }),
+        const res = await sdk.runAction({
+          appKey: WEBHOOKS_APP_KEY,
+          actionType: "write",
+          actionKey: "post",
+          inputs: {
+            url: PRODUCTION_SITE + "/.netlify/functions/sponsor-intake-resolve-upload",
+            payload_type: "json",
+            data: { filename: tracking },
+          },
         });
-        dest = ResolvedSchema.parse(resolved.data[0]);
-        site = SITES[i];
+        return { site: PRODUCTION_SITE, dest: res.data[0] };
       } catch (e) {
-        if (i === SITES.length - 1) throw e;
+        const res = await sdk.runAction({
+          appKey: WEBHOOKS_APP_KEY,
+          actionType: "write",
+          actionKey: "post",
+          inputs: {
+            url: PREVIEW_SITE + "/.netlify/functions/sponsor-intake-resolve-upload",
+            payload_type: "json",
+            data: { filename: tracking },
+          },
+        });
+        return { site: PREVIEW_SITE, dest: res.data[0] };
       }
-    }
-    if (!dest) throw new Error("Could not resolve where this form goes.");
-    const target = dest;
+    });
+    const site = resolved.site;
+    const target = ResolvedSchema.parse(resolved.dest);
 
-    // JotForm's Drive integration can lag the submission a little.
+    // JotForm's Drive integration saves the PDF (named by submission ID)
+    // shortly after the submission. Give it a minute, then look; the
+    // lookup throws while it's missing, so the step retries.
     let pdfId: string | undefined;
     if (submissionId) {
-      for (let n = 1; n <= PDF_LOOKUPS && !pdfId; n++) {
-        const found = await ctx.step("find-staged-pdf-" + n, async () =>
-          sdk.runAction({
+      await ctx.wait("wait-for-staged-pdf", 60);
+      try {
+        const found = await ctx.step("find-staged-pdf", async () => {
+          const res = await sdk.runAction({
             appKey: DRIVE_APP_KEY,
             actionType: "search",
             actionKey: "file_v2",
             connection: DRIVE_CONNECTION,
             inputs: { title: submissionId, folder: STAGING_FOLDER_ID, search_type: "contains" },
-          }),
-        );
+          });
+          if (!res.data[0]) throw new Error("Submission PDF not in the staging folder yet.");
+          return res;
+        });
         pdfId = (found.data[0] as { id?: string } | undefined)?.id;
-        if (!pdfId && n < PDF_LOOKUPS) await ctx.wait("wait-for-staged-pdf-" + n, 30);
+      } catch (e) {
+        pdfId = undefined; // record the submission anyway, below
       }
     }
 
@@ -197,7 +201,16 @@ const workflow = defineDurable<Input, unknown>(
     // reference check) and emails the admins. Recorded even if the PDF
     // never showed up, so the submission isn't lost; the result says so.
     await ctx.step("mark-form-submitted", async () =>
-      postTo(site + "/.netlify/functions/sponsor-intake-form-submitted", { filename: tracking }),
+      sdk.runAction({
+        appKey: WEBHOOKS_APP_KEY,
+        actionType: "write",
+        actionKey: "post",
+        inputs: {
+          url: site + "/.netlify/functions/sponsor-intake-form-submitted",
+          payload_type: "json",
+          data: { filename: tracking },
+        },
+      }),
     );
 
     return { tracking, submissionId, filed: !!pdfId, filename: target.filename, site };
