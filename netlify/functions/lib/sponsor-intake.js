@@ -196,13 +196,18 @@ function stepOrPlaceholder(cl, key) {
 // The JotForm link an admin hands to someone else (a reference) for an
 // ASRS Document step. It carries the same app_filename tracking field as a
 // sponsor form, so the submission files itself into the sponsor's Drive
-// folder and completes the step. applicantName prefills the form's
-// "Applicant name" question (JotForm's default unique name for that label).
+// folder and completes the step, and the sponsor's name prefills the
+// form's "Applicant name" question.
 function adminFormLink(intake, step) {
   if (step.type !== 'document' || !step.formUrl) return '';
   const url = new URL(step.formUrl);
   url.searchParams.set('app_filename', formFilename(intake.id, step.key));
-  url.searchParams.set('applicantName', intake.name || '');
+  // "Applicant name" is a JotForm Full Name field (unique name
+  // applicantName), which prefills from separate first/last parameters.
+  const parts = (intake.name || '').trim().split(/\s+/);
+  const last = parts.length > 1 ? parts.pop() : '';
+  url.searchParams.set('applicantName[first]', parts.join(' '));
+  url.searchParams.set('applicantName[last]', last);
   return url.toString();
 }
 
