@@ -127,6 +127,7 @@
         fd.append('part', String(i + 1));
         fd.append('total', String(files.length));
         fd.append('ext', extOf(files[i].name));
+        fd.append('site', location.origin); // where the workflow resolves the ticket
         const res = await fetch(config.webhookUrl, { method: 'POST', body: fd });
         if (!res.ok) throw new Error(files[i].name + ' didn\'t upload. Please try again.');
         states[i] = 'Uploaded';

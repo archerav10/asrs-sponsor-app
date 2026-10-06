@@ -6,12 +6,16 @@ const {
 
 // Zapier-facing: tells the intake Zaps where a file goes. Two callers:
 //
-//   Direct upload Zap — { secret, ticket, part, total, ext } from the
-//   Catch Hook; the ticket comes from sponsor-intake-upload-ticket.
+//   Direct upload workflow — { ticket, part, total, ext } from the
+//   Catch Hook; the ticket comes from sponsor-intake-upload-ticket. The
+//   ticket is the credential (encrypted, 2-hour, one intake and step), so
+//   no secret is needed and none has to live in the Zapier workflow.
+//   It only reveals names the ticket holder already knows.
 //
 //   JotForm Zap — { secret, filename }: a form's native Google Drive
 //   integration drops the submission PDF into a staging folder named
 //   after its prefilled app_filename, and the Zap passes that name here.
+//   A filename alone proves nothing, so this path needs the shared secret.
 //
 // Either way it returns the root folder ID plus the sponsor and stage
 // folder names for two Find/Create Folder steps, and the file's final name.
@@ -23,7 +27,7 @@ exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || '{}');
     const secret = process.env.ANNUAL_PLANNING_FORM_WEBHOOK_SECRET; // shared across admin-dashboard Zapier-facing endpoints
-    if (!secret || body.secret !== secret) {
+    if (!body.ticket && (!secret || body.secret !== secret)) {
       return json(403, { error: 'Missing or incorrect secret.' });
     }
     const rootFolderId = process.env.SPONSOR_INTAKE_ROOT_FOLDER_ID;
