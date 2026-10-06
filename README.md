@@ -1275,6 +1275,297 @@ report's own date range is already baked into its filename:
    the webhook's `file`, filename = the webhook's `filename`.
 7. Publish the Zap.
 
+### Sponsor Intake (seventh process — prospective sponsors, no login)
+
+A one-time, stage-by-stage checklist for a **prospective** sponsor. It
+started as 9 stages and 77 items from "Sponsor Intake Process – Master
+3.2", and **the checklist itself lives in Notion** (see "Editing the
+checklist" below), so it can change without a deploy. Unlike every other process here it has no
+location, no resident and no cycle, and **the sponsor never logs in**.
+They only ever see:
+
+1. **Request emails.** An admin ticks sponsor items on the intake page
+   and clicks **Send request**. That button is the only thing that ever
+   emails a sponsor. Each item in the email has its own button, which
+   opens either a single-item upload page (`/intake/upload.html`) or that
+   item's JotForm.
+2. **A read-only status page** (`/intake/?t=<token>`) behind a private
+   48-character token. It's linked at the bottom of every email and shows
+   stage progress, "Waiting on you" items with their buttons, "ASRS is
+   working on", upcoming scheduled meetings, and each stage's
+   sponsor-visible items. `sponsorStatus` builds it from an allowlist:
+   only sponsor items and steps marked `visible: true` are named. Admin
+   notes, filenames and everything on the admin side of the Background
+   stage never appear there.
+
+**Item lifecycle.** Sponsor items go Requested → Received → Complete
+(Accept), or Received → Returned with a reason. The reason shows on the
+status page and in the next request email, and the item stays Returned
+until the sponsor resubmits. An admin can mark **any** step **Not
+Applicable** with a required reason. It's greyed out, counts as done for
+stage progress, and the reason shows on the sponsor's status page. It's
+the one admin-entered note a sponsor ever sees. Reopen undoes it. Events go Scheduled (date and optional time)
+→ Complete. Admin documents and trainings go straight to Complete, by
+upload or by date. Any item can be reopened. Rows are created lazily, one
+per intake and step, the same way Staff Training works. A stage is
+complete when every item in it is Complete, and the current stage is the
+first one that isn't.
+
+**Checklist cleanups agreed during design:** 1.7/1.8 dropped (insurance
+is collected at 4.14/4.15). The unnumbered Assessment steps are now
+2.3a/2.4a. 7.8 moved to Forms & Review as 4.16. The ten signature forms
+are one **Sponsor Agreements packet** (4.1). 2.8–2.10 (care-at-home
+letters) are sponsor uploads.
+
+#### Editing the checklist (Notion, no deploy)
+
+Two databases under **Longstreet Dashboard** define the checklist.
+`loadChecklist` in `lib/sponsor-intake.js` reads them, caching for 30
+seconds on sponsor-facing pages. Admin pages always read fresh, so an edit
+shows on the next reload.
+
+- **Intake Stages**: Name, Number (the order), Sponsor Note (what the
+  sponsor sees under "ASRS is working on"), and Active. Stage counts
+  everywhere ("Stage 2 of 9", the progress bars) follow this list.
+  Unchecking Active on a stage also retires its steps.
+- **Intake Steps**: one row per step, with these fields:
+  - **Label**: the step's name.
+  - **Key**: e.g. `2.3`, `2.3a`, or `2.A1` for an admin-only step.
+  - **Stage**: the stage's Number.
+  - **Order**: sort order within the stage. Values are 10, 20, 30… so
+    there's room to insert.
+  - **Type**: Sponsor Upload, Sponsor Form, Meeting / Event, ASRS
+    Document, or Training.
+  - **Admin Only**: the step never appears on the sponsor's status page.
+    In the master list these are the unnumbered "999" rows, keyed `3.A1`,
+    `4.A2`, and so on. A Sponsor Upload/Form step can't be admin only.
+  - **Instructions**: guidance for ASRS staff. It shows on the admin page
+    and on printed sheets, never to the sponsor.
+  - **Licensing** and **Certificate** (training only).
+  - **Form Link**: a Sponsor Form's JotForm URL. If it's blank, the
+    sponsor gets an upload link instead. On an **ASRS Document** step,
+    it's a form someone else fills in for ASRS (the Reference Check:
+    2.2a, 2.2b and 2.2c, one per required reference). On the admin page,
+    enter the reference's name and email and click **Email form**
+    (`sponsor-intake-send-reference`). The reference gets an email with
+    the form link, carrying the tracking field and the applicant's name
+    and never the sponsor's status link. The step then shows **Emailed**,
+    with who it went to (stored in the Items row's Sent To), and the
+    sponsor's status page shows it as "In progress". **Copy form link** and
+    **Open form** are there too, for filling it in on a call. When the
+    form is submitted, the PDF files itself and the step is marked
+    **Complete** rather than Received. Reference letters the sponsor has
+    on hand are a separate sponsor upload (1.9).
+  - **Blank Form Link**: Sponsor Upload only. A blank PDF the sponsor
+    downloads, fills in, signs and uploads. It's shown as "Download the
+    blank form" in the email, on the upload page and on the status page.
+    It's used for forms that contain an SSN (the W-9 and the background
+    check disclosures), so SSNs never sit in JotForm. The disclosure
+    template is served from `public/intake/forms/`.
+  - **Includes** and **Agenda**: one line each.
+  - **Active**.
+
+Rules:
+- **Never change a step's Key once any sponsor has progress on it.**
+  Progress rows are keyed by it. Rename the Label instead. A retired
+  step's progress rows stay in Notion but are ignored.
+- A row the app can't use is skipped and listed in a yellow "Checklist
+  rows in Notion that need fixing" box on the Sponsor Intake tab. For
+  example: a missing Key or Type, a duplicate Key, a Key that isn't like
+  `2.3`, or a Stage number with no active stage. A bad row never breaks
+  the sponsor's pages.
+- Moving a step to another stage changes where *future* uploads are
+  filed. Earlier files stay where they are.
+
+**Who can use it:** any admin-dashboard session, narrowed to
+`SPONSOR_INTAKE_ADMIN_EMAILS` if that's set, because intake folders hold
+background check results.
+
+#### Printing (binder sheets)
+
+`/admin-dashboard/print.html` renders a letter-size sheet and opens the
+browser's print dialog, where "Save as PDF" produces the file. There are
+three ways in:
+- **Print progress sheet** on an intake: the current status, dates and
+  initials. Admin-only steps are marked ADMIN, N/A rows are greyed with
+  their reason, and each stage ends with its meetings and agendas.
+- **Print blank checklist** on an intake: the same layout with every
+  row empty, for handwriting.
+- **Print all active intakes** on the Sponsor Intake tab: every
+  unfinished intake, each starting on a new page.
+
+Every sheet ends with a signature block (completed by, reviewed by,
+sponsor acknowledgment). The logo is `public/intake/logo.jpg`. If that
+file is missing, the header simply leaves it out.
+
+#### Notion: two new databases
+
+Both already exist under **Longstreet Dashboard** in Notion, alongside
+Sponsors. Their Data Source IDs are in the env vars below. For reference,
+these are the schemas the app expects:
+
+**Sponsor Intakes** (`SPONSOR_INTAKES_DB_ID`), one row per sponsor:
+
+| Property | Type |
+|---|---|
+| Sponsor Name | Title |
+| Email | Email |
+| Phone | Phone |
+| Status Token | Text |
+| Started Date | Date |
+| Last Request Sent | Date |
+| Created By | Text |
+| Active | Checkbox (uncheck to hide an intake and disable its status link) |
+
+**Sponsor Intake Items** (`SPONSOR_INTAKE_ITEMS_DB_ID`), one row per
+intake and step, created as needed:
+
+| Property | Type |
+|---|---|
+| Record Title | Title |
+| Intake ID | Text |
+| Step Key | Text (e.g. `1.3`, `2.3a`) |
+| Status | Select: Requested, Received, Returned, Scheduled, Complete, Not Applicable |
+| Event Date | Date (with time for meetings) |
+| Requested Date | Date |
+| Received Date | Date |
+| Completed Date | Date |
+| Filename | Text |
+| Return Reason | Text |
+| Not Applicable Reason | Text (required for Not Applicable; shown to the sponsor) |
+| Notes | Text |
+| Sent To | Text (reference checks: `Name <email>` the form was emailed to) |
+| Last Updated By | Text |
+
+#### Environment variables
+
+| Variable | Value |
+|---|---|
+| `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
+| `SPONSOR_INTAKE_STAGES_DB_ID` | `813f9810-4bfb-45e5-9782-bbb21d90a9bc` (Intake Stages) |
+| `SPONSOR_INTAKE_STEPS_DB_ID` | `446736ee-ef52-4068-8c06-411513ff3492` (Intake Steps, Master 3.3) |
+| `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
+| `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
+| `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
+| `EMAILJS_INTAKE_TEMPLATE_ID` | The intake EmailJS template (below) |
+| `SPONSOR_INTAKE_REPLY_TO` | Address sponsor and reference replies should go to |
+| `SPONSOR_INTAKE_NOTIFY_EMAILS` | Optional. Comma-separated addresses emailed whenever a sponsor submits something or a reference form comes back |
+| `SPONSOR_INTAKE_ADMIN_EMAILS` | Optional. Comma-separated. Limits the Sponsor Intake tab to these admins |
+| `SPONSOR_INTAKE_BASE_URL` | Optional. Forces the site URL used in email links and the email logo. Unset, links follow the site that handled the request, so a deploy preview's test emails open the preview |
+| `SPONSOR_INTAKE_TIME_ZONE` | Optional. Defaults to `America/New_York` |
+
+Netlify only reads these at build time. After adding or changing one,
+redeploy (Deploys → Trigger deploy, or **Retry deploy** on a deploy
+preview), or the functions keep running with the old values.
+
+JotForm links are set per step in the **Form Link** column of Intake
+Steps, not here. A Sponsor Form step with no link still works: the
+sponsor gets an upload link instead, and the admin page flags it. The Zapier-facing endpoints reuse
+`ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`, like Staff Training does.
+
+#### Drive layout
+
+`{root}/{Sponsor Name}/{n Stage}/{step} {label} - {Sponsor Name} - {date}.{ext}`,
+e.g. `Maria Lopez/1 Application/1.3 Photo ID - Maria Lopez - 2026-09-24 (1 of 2).jpg`.
+Every folder is Find-or-Create by name in the Zaps, so nothing has to be
+set up per sponsor.
+
+#### Zap 1: Sponsor Intake Uploads (direct uploads, sponsor and admin)
+
+Built as a Zapier durable workflow, **ASRS Sponsor Intake Uploads**
+(private, in the Zapier account that owns the Google Drive connection).
+Its source is kept in `zapier/sponsor-intake-uploads.workflow.ts`; the
+live copy is edited in Zapier. Its Catch Hook URL is
+`ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL`.
+
+The browser never gets a Drive folder ID, unlike the admin-only upload
+flows. Instead, `sponsor-intake-upload-ticket` gives it a 2-hour
+encrypted **ticket** naming the intake and step, and the workflow trades
+that ticket for the real destination. A leaked webhook URL alone can't
+write anywhere, and no secret is stored in Zapier: a valid ticket is
+what `sponsor-intake-resolve-upload` checks.
+
+1. **Catch Hook** receives `file`, `ticket`, `part`, `total`, `ext`, and
+   `site` (the page's origin, so a deploy preview resolves against
+   itself; only `asrs-sponsor-app.netlify.app` and its previews are
+   accepted).
+2. **Webhooks POST** `{site}/.netlify/functions/sponsor-intake-resolve-upload`
+   with `{ ticket, part, total, ext }`. It returns `rootFolderId`,
+   `sponsorFolderName`, `stageFolderName` and `filename`. (The workflow
+   sandbox can't reach outside hosts directly, hence Webhooks by Zapier.)
+3. **Google Drive: Find a Folder**, else **Create Folder**, named
+   `sponsorFolderName` inside `rootFolderId`; then the same for
+   `stageFolderName` inside it. For a multi-file upload, parts 2+ wait a
+   little so part 1 creates any missing folders first.
+4. **Google Drive: Upload File** into the stage folder, named `filename`.
+
+The browser then calls `sponsor-intake-upload-complete` with the same
+ticket. That marks a sponsor upload Received (and emails
+`SPONSOR_INTAKE_NOTIFY_EMAILS`) or an admin upload Complete.
+
+#### Zap 2: Sponsor Intake Forms (one workflow per JotForm)
+
+Zapier durable workflows named **ASRS Sponsor Intake Forms - {form}**,
+one per intake form because a workflow has a single trigger. They share
+the source in `zapier/sponsor-intake-forms.workflow.ts`.
+
+Every intake form link is opened with a prefilled hidden field
+`app_filename` = `Intake_{intakeId}_{step}_{sig}` (e.g.
+`Intake_39fff13f…_1-4_ef1f1936a56ef4fc`). `sig` is an HMAC of the intake
+and step (`formSignature` in `lib/sponsor-intake.js`), so the value
+proves the app made the link: the endpoints accept a signed value
+without the shared secret, and nobody can edit a link to report a
+different sponsor or step. For **each** intake JotForm:
+
+- Add a **hidden field** whose unique name is `app_filename`.
+- Turn on the form's native **Google Drive** integration, saving the
+  submission PDF into the staging folder **Completed Jotforms**
+  (`13Lwic9c_nljgkk3TtU_g6oQ_Ig6gotns`), with the integration's **File
+  Name** set to the `app_filename` field so the PDF carries the tracking
+  value.
+- Create a copy of the workflow with that form as its trigger.
+
+Live copies (all private, in the account that owns the Drive connection):
+
+| Workflow | Form | Step |
+|---|---|---|
+| Reference Check | 262776339597073 | 2.2a–c |
+| Room & Board Rate Sheet | 262776584421061 | 4.A5 |
+| Sponsor Application | 262776986838079 | 1.2 |
+| Monthly Budget | 261867275422059 | 1.4 |
+| Direct Deposit | 262776474165064 | 4.1 |
+| Statement of Understanding | 262777101527054 | 4.A6 |
+
+The hidden `app_filename` field must be a plain Short Text field: a
+Unique ID field can't be prefilled and always submits its own number.
+
+Each workflow:
+
+1. **JotForm: New Submission** for its form. Submissions without a
+   tracking value (not sent from the app) are skipped.
+2. **Webhooks POST** `/sponsor-intake-resolve-upload` with `{ filename }`
+   (the tracking value), trying production first and then the deploy
+   preview.
+3. Waits 20 seconds, then finds the PDF in the staging folder by the
+   tracking value in its name, or by submission ID for a form still on
+   JotForm's default naming. The lookup retries while it's missing.
+4. **Find/Create** the sponsor folder, then the stage folder (as Zap 1),
+   **Move** the PDF there and **rename** it to step 2's `filename`.
+5. **Webhooks POST** `/sponsor-intake-form-submitted` with `{ filename }`.
+   This marks the item Received (Complete for an ASRS step such as a
+   reference check). It runs even if the PDF never appeared, so a
+   submission is never lost.
+
+#### EmailJS template
+
+Create a new template (separate from the digest's). Set **To** to
+`{{to_email}}`, **Subject** to `{{subject}}`, **Reply To** to
+`{{reply_to}}`, and set the **Content**, in the HTML/code editor, to
+exactly `{{{message}}}`. The triple braces pass the branded HTML
+through unescaped. `lib/sponsor-intake-email.js` builds the whole
+layout: header, one button per item, any return reasons, and the
+status-page link in the footer. Put its ID in `EMAILJS_INTAKE_TEMPLATE_ID`.
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not
