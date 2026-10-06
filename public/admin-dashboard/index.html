@@ -259,6 +259,14 @@
     border-radius: 6px;
     background: #fff;
   }
+  /* "Email sent" confirmation after any Sponsor Intake email */
+  .sent-dialog { border: 0; border-radius: 12px; padding: 0; width: min(420px, calc(100vw - 32px)); box-shadow: 0 12px 40px rgba(0,0,0,0.25); color: var(--ink); }
+  .sent-dialog::backdrop { background: rgba(22, 51, 43, 0.35); }
+  .sent-dialog-body { padding: 26px 24px 22px; text-align: center; }
+  .sent-dialog-check { width: 52px; height: 52px; border-radius: 50%; background: #DDEEE3; color: #1B7A3D; display: grid; place-items: center; font-size: 26px; font-weight: 700; margin: 0 auto 12px; }
+  .sent-dialog h2 { margin: 0 0 6px; font-size: 20px; }
+  .sent-dialog p { margin: 0; font-size: 15px; color: #444; overflow-wrap: anywhere; }
+  .sent-dialog button { margin-top: 18px; }
 </style>
 </head>
 <body>
@@ -417,6 +425,15 @@
     <div id="quarterly-detail-body"></div>
   </section>
 </main>
+
+<dialog class="sent-dialog" id="sent-dialog" aria-labelledby="sent-dialog-title">
+  <div class="sent-dialog-body">
+    <div class="sent-dialog-check" aria-hidden="true">&#10003;</div>
+    <h2 id="sent-dialog-title">Email sent</h2>
+    <p id="sent-dialog-text"></p>
+    <button type="button" id="sent-dialog-close">Close</button>
+  </div>
+</dialog>
 
 <script>
 (function () {
@@ -1861,6 +1878,29 @@
   // sponsor sent, and clicks "Send request" — the only thing that ever
   // emails them.
   let currentIntakeId = null;
+  let currentIntake = null;
+
+  // Closable confirmation after every Sponsor Intake email. Clicking the
+  // backdrop or pressing Esc closes it too.
+  function showSentDialog(text) {
+    const dlg = document.getElementById('sent-dialog');
+    document.getElementById('sent-dialog-text').textContent = text;
+    if (typeof dlg.showModal === 'function') {
+      if (!dlg.open) dlg.showModal();
+    } else {
+      window.alert('Email sent. ' + text);
+    }
+  }
+  document.getElementById('sent-dialog-close').addEventListener('click', function () {
+    document.getElementById('sent-dialog').close();
+  });
+  document.getElementById('sent-dialog').addEventListener('click', function (e) {
+    if (e.target === this) this.close();
+  });
+
+  function sponsorLabel() {
+    return currentIntake ? currentIntake.name + ' (' + currentIntake.email + ')' : 'the sponsor';
+  }
   let intakeSelected = {};
   let intakeOpenStages = {}; // stage num -> open, kept across reloads after each save
 
@@ -1958,6 +1998,7 @@
       ['intake-new-name', 'intake-new-email', 'intake-new-phone'].forEach(function (id) { document.getElementById(id).value = ''; });
       document.getElementById('intake-new').open = false;
       openIntakeDetail(data.id);
+      if (data.welcomeSent) showSentDialog('Their status page link went to ' + name + ' (' + email + ').');
     } catch (e) {
       setError('intake-new-error', e.message);
     } finally {
@@ -1967,6 +2008,7 @@
 
   function openIntakeDetail(id) {
     currentIntakeId = id;
+    currentIntake = null;
     intakeSelected = {};
     intakeOpenStages = {};
     document.getElementById('intake-send-note').value = '';
@@ -2008,6 +2050,7 @@
       const scrollY = window.scrollY;
       await loadIntakeDetail();
       window.scrollTo(0, scrollY);
+      showSentDialog('The reference form went to ' + name + ' (' + email + ').');
     } catch (e) {
       setError('intake-detail-error', e.message);
       window.scrollTo(0, 0);
@@ -2305,6 +2348,7 @@
     try {
       const data = await apiFetch('/sponsor-intake-get?id=' + encodeURIComponent(currentIntakeId));
       const intake = data.intake;
+      currentIntake = intake;
       const progress = data.progress;
       bodyEl.innerHTML = '';
 
@@ -2333,8 +2377,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: currentIntakeId, stepKeys: [] })
           });
-          btn.textContent = 'Sent';
-          setTimeout(function () { btn.textContent = 'Email status link'; }, 2000);
+          showSentDialog('Their status page link went to ' + sponsorLabel() + '.');
         } catch (e) {
           setError('intake-detail-error', e.message);
         } finally {
@@ -2405,6 +2448,7 @@
       intakeSelected = {};
       document.getElementById('intake-send-note').value = '';
       await loadIntakeDetail();
+      showSentDialog('A request for ' + keys.length + ' item' + (keys.length === 1 ? '' : 's') + ' went to ' + sponsorLabel() + '.');
     } catch (e) {
       setError('intake-detail-error', e.message);
       window.scrollTo(0, 0);
