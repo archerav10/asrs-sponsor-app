@@ -734,11 +734,15 @@ intake and step, created as needed:
 | `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
 | `EMAILJS_INTAKE_TEMPLATE_ID` | The intake EmailJS template (below) |
-| `SPONSOR_INTAKE_REPLY_TO` | Address sponsor replies should go to |
-| `SPONSOR_INTAKE_NOTIFY_EMAILS` | Optional. Comma-separated addresses emailed whenever a sponsor submits something |
+| `SPONSOR_INTAKE_REPLY_TO` | Address sponsor and reference replies should go to |
+| `SPONSOR_INTAKE_NOTIFY_EMAILS` | Optional. Comma-separated addresses emailed whenever a sponsor submits something or a reference form comes back |
 | `SPONSOR_INTAKE_ADMIN_EMAILS` | Optional. Comma-separated. Limits the Sponsor Intake tab to these admins |
 | `SPONSOR_INTAKE_BASE_URL` | Optional. Site URL used in email links. Defaults to Netlify's own `URL` |
 | `SPONSOR_INTAKE_TIME_ZONE` | Optional. Defaults to `America/New_York` |
+
+Netlify only reads these at build time. After adding or changing one,
+redeploy (Deploys → Trigger deploy, or **Retry deploy** on a deploy
+preview), or the functions keep running with the old values.
 
 JotForm links are set per step in the **Form Link** column of Intake
 Steps, not here. A Sponsor Form step with no link still works: the
