@@ -5,48 +5,68 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Longstreet Group Home Vacancy – Highland Springs | Arch Support Residential Services</title>
 <link rel="icon" href="/logo.jpg">
-<meta name="description" content="Group home vacancy on Longstreet in the Highland Springs area. Text, email, or call Arch Support Residential Services.">
+<meta name="description" content="Group Home Vacancy at our Longstreet home in the Highland Springs area. Text, email, or call Arch Support Residential Services.">
 <meta property="og:title" content="Group Home Vacancy – Longstreet, Highland Springs">
 <meta property="og:description" content="Text, email, or call Arch Support Residential Services about this vacancy.">
 <meta property="og:image" content="https://vagrouphomes.com/vacancy/longstreet/flyer.jpg">
-<style>
-  :root { --green: #1e4d2b; --green-dark: #143620; --ink: #1b1b1b; --muted: #555; --bg: #f4f5f2; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); }
-  main { max-width: 520px; margin: 0 auto; padding: 16px 16px 32px; }
-  .actions { display: grid; gap: 12px; margin: 0 0 16px; }
-  .btn { display: block; text-align: center; text-decoration: none; font-weight: 700; border-radius: 14px; padding: 18px 16px; font-size: 1.25rem; }
-  .btn-primary { background: var(--green); color: #fff; box-shadow: 0 4px 12px rgba(30,77,43,.3); }
-  .btn-primary:active { background: var(--green-dark); }
-  .btn-outline { background: #fff; color: var(--green); border: 2px solid var(--green); font-size: 1.05rem; padding: 14px 16px; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .note { text-align: center; color: var(--muted); font-size: .95rem; margin: 0 0 16px; }
-  img { width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
-  footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 20px; }
-  footer a { color: var(--green); }
-</style>
+<link rel="stylesheet" href="/assets/vacancy.css">
 </head>
 <body>
-<main>
-  <div class="actions">
-    <a class="btn btn-primary"
-       href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Longstreet%20Group%20Home%20vacancy%20in%20Highland%20Springs">
-      💬 Tap to Text Us
-    </a>
-    <div class="row">
-      <a class="btn btn-outline"
-         href="mailto:archera@archsupportres.com?subject=Longstreet%20Group%20Home%20Vacancy&amp;body=Hi%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Longstreet%20Group%20Home%20vacancy%20in%20Highland%20Springs.">
-        ✉️ Email Us
-      </a>
-      <a class="btn btn-outline" href="tel:+18043999709">📞 Call Us</a>
+<main class="vac">
+  <div class="flyer">
+    <a href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Longstreet%20Group%20Home%20vacancy%20in%20Highland%20Springs"><img src="flyer.jpg" alt="Group Home Vacancy, Highland Springs Area. Arch Support Residential Services: Where Home is Where You Want to Be." width="1105" height="1430"></a>
+  </div>
+
+  <div class="contact">
+    <h1>Group Home Vacancy</h1>
+    <p class="where">Longstreet · Highland Springs</p>
+
+    <div class="actions mobile-only">
+      <a class="btn btn-primary" href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Longstreet%20Group%20Home%20vacancy%20in%20Highland%20Springs">💬 Tap to Text Us</a>
+      <div class="row">
+        <a class="btn btn-outline" href="#interest" data-open-interest>✉️ Email Us</a>
+        <a class="btn btn-outline" href="tel:+18043999709">📞 Call Us</a>
+      </div>
+    </div>
+    <p class="note mobile-only">Tapping “Text Us” opens your messages with a note already written — just hit send.</p>
+
+    <div class="desktop-only">
+      <button type="button" class="btn btn-primary" data-open-interest>I’m Interested</button>
+      <p class="lines">Call or text <a class="plain" href="tel:+18043999709">(804) 399-9709</a><br>
+      Email <a class="plain" href="mailto:archera@archsupportres.com">archera@archsupportres.com</a></p>
     </div>
   </div>
-  <p class="note">Text or email opens with a note already written — just hit send.<br>Call or text: (804) 399-9709 · archera@archsupportres.com</p>
-  <a href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Longstreet%20Group%20Home%20vacancy%20in%20Highland%20Springs"><img src="flyer.jpg" alt="Group Home Vacancy, Highland Springs Area. Arch Support Residential Services: Where Home is Where You Want to Be." width="1105" height="1430"></a>
+
   <footer>
     <p>Arch Support Residential Services<br>“Where Home is Where You Want to Be”</p>
     <p><a href="/vacancy">See all vacancies</a></p>
   </footer>
 </main>
+
+<div class="modal" id="interestModal" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <div class="modal-card">
+    <button type="button" class="modal-close" aria-label="Close">&times;</button>
+    <div id="formWrap">
+      <h2 id="formTitle">Interested? Let’s talk.</h2>
+      <p class="sub">Leave your email and/or phone number and Anthony will reach out to you about the Longstreet vacancy.</p>
+      <form name="interest" id="interestForm" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" novalidate>
+        <input type="hidden" name="form-name" value="interest">
+        <input type="hidden" name="home" value="Longstreet (Highland Springs, VA)">
+        <p class="hp" aria-hidden="true"><label>Don’t fill this out <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+        <div class="field"><label for="fName">Your name</label><input type="text" id="fName" name="name" autocomplete="name"></div>
+        <div class="field"><label for="fEmail">Email</label><input type="email" id="fEmail" name="email" autocomplete="email" placeholder="you@example.com"></div>
+        <div class="field"><label for="fPhone">Phone</label><input type="tel" id="fPhone" name="phone" autocomplete="tel" placeholder="(804) 555-0123"></div>
+        <button type="submit" class="btn btn-primary" id="formSubmit">Send</button>
+        <div class="status" id="formStatus" role="status" aria-live="polite"></div>
+      </form>
+      <div class="modal-foot">Prefer to reach out yourself?<br>Call or text <a href="tel:+18043999709">(804) 399-9709</a> or email <a href="mailto:archera@archsupportres.com">archera@archsupportres.com</a></div>
+    </div>
+    <div id="formThanks" style="display:none;">
+      <h2>Thank you!</h2>
+      <p class="sub">Arch Support Residential Services has your information and will be in touch soon.</p>
+    </div>
+  </div>
+</div>
+<script src="/assets/vacancy.js"></script>
 </body>
 </html>
