@@ -1,3 +1,5 @@
-/vacancies  /vacancy  301
-/text       /vacancy  301
-/*          /         302
+# Old/short links
+/vacancies   /vacancy              301
+/text        /vacancy/longstreet   301
+# Anything unknown goes home
+/*           /                     302

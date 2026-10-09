@@ -3,43 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Group Home Vacancy – Highland Springs | Arch Support Residential Services</title>
+<title>Current Vacancies | Arch Support Residential Services</title>
 <link rel="icon" href="/logo.jpg">
-<meta name="description" content="Group home vacancy in the Highland Springs area. Tap to text Arch Support Residential Services.">
-<meta property="og:title" content="Group Home Vacancy – Highland Springs">
-<meta property="og:description" content="Tap to text Arch Support Residential Services about our current vacancy.">
-<meta property="og:image" content="https://vagrouphomes.com/vacancy/flyer.jpg">
+<meta name="description" content="Current group home vacancies with Arch Support Residential Services.">
 <style>
-  :root { --green: #1e4d2b; --green-dark: #143620; --ink: #1b1b1b; --muted: #555; --bg: #f4f5f2; }
+  :root { --green: #1e4d2b; --ink: #1b1b1b; --muted: #555; --bg: #f4f5f2; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); }
-  main { max-width: 520px; margin: 0 auto; padding: 16px 16px 32px; }
-  .actions { display: grid; gap: 12px; margin: 0 0 16px; }
-  .btn { display: block; text-align: center; text-decoration: none; font-weight: 700; border-radius: 14px; padding: 18px 16px; font-size: 1.25rem; }
-  .btn-text { background: var(--green); color: #fff; box-shadow: 0 4px 12px rgba(30,77,43,.3); }
-  .btn-text:active { background: var(--green-dark); }
-  .btn-call { background: #fff; color: var(--green); border: 2px solid var(--green); font-size: 1.05rem; padding: 14px 16px; }
-  .note { text-align: center; color: var(--muted); font-size: .95rem; margin: 0 0 16px; }
-  img { width: 100%; height: auto; display: block; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
-  footer { text-align: center; color: var(--muted); font-size: .9rem; margin-top: 20px; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 1.5rem; text-align: center; margin: 0 0 20px; }
+  .vacancy { display: flex; gap: 14px; align-items: center; background: #fff; border-radius: 16px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,.08); text-decoration: none; color: inherit; margin-bottom: 14px; }
+  .vacancy img { width: 88px; height: auto; border-radius: 8px; flex-shrink: 0; }
+  .vacancy h2 { margin: 0; font-size: 1.15rem; color: var(--green); }
+  .vacancy p { margin: 2px 0 0; color: var(--muted); }
+  footer { text-align: center; margin-top: 24px; }
   footer a { color: var(--green); }
 </style>
 </head>
 <body>
 <main>
-  <div class="actions">
-    <a class="btn btn-text"
-       href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Group%20Home%20vacancy">
-      💬 Tap to Text Us
-    </a>
-    <a class="btn btn-call" href="tel:+18043999709">📞 Call (804) 399-9709</a>
-  </div>
-  <p class="note">Tapping “Text Us” opens your messages with a note already written — just hit send.</p>
-  <a href="sms:+18043999709?&amp;body=Hey%2C%20I%27m%20interested%20in%20learning%20more%20about%20your%20Group%20Home%20vacancy"><img src="flyer.jpg" alt="Group Home Vacancy, Highland Springs Area. Arch Support Residential Services: Where Home is Where You Want to Be." width="1105" height="1430"></a>
-  <footer>
-    <p>Arch Support Residential Services<br>“Where Home is Where You Want to Be”</p>
-    <p><a href="https://asrsvacancies.my.canva.site/">See all vacancies</a></p>
-  </footer>
+  <h1>Current Vacancies</h1>
+  <!-- One card per vacancy; each vacancy lives at /vacancy/<street>/ -->
+  <a class="vacancy" href="/vacancy/longstreet">
+    <img src="/vacancy/longstreet/flyer.jpg" alt="" width="88" height="114">
+    <div>
+      <h2>Longstreet</h2>
+      <p>Highland Springs Area</p>
+    </div>
+  </a>
+  <footer><a href="/">Arch Support Residential Services</a></footer>
 </main>
 </body>
 </html>
