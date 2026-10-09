@@ -5,6 +5,9 @@ project `regal-kitsune-4100fb` (custom domain vagrouphomes.com).
 
 - `/` – home page with contact buttons
 - `/vacancy` – list of current vacancies
+- `/alerts` – vacancy-alert sign-up for support coordinators (Netlify Form `alerts`,
+  with SMS consent checkbox; `?src=` is saved in the `source` field)
+- `/privacy` – privacy policy (needed for SMS carrier registration)
 - `/vacancy/<street>/` – one page per vacancy (e.g. `/vacancy/longstreet`), with
   the flyer as `flyer.jpg` and Text / Email / Call buttons. The same page is
   used for both text-message and email campaigns.

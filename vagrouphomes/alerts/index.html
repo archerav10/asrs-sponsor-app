@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get Vacancy Alerts | Arch Support Residential Services</title>
+<link rel="icon" href="/logo.jpg">
+<meta name="description" content="Support coordinators: get a text when an Arch Support Residential Services home has an opening, plus one monthly roundup. No spam.">
+<meta property="og:title" content="Get Vacancy Alerts – Arch Support Residential Services">
+<meta property="og:description" content="A text when a home opens, plus one monthly roundup. That's it.">
+<meta property="og:image" content="https://vagrouphomes.com/alerts/flyer.jpg">
+<style>
+  :root { --green: #1e4d2b; --green-dark: #143620; --ink: #1b1b1b; --muted: #555; --bg: #f4f5f2; --gold: #e4cd8e; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.5; }
+  header { background: var(--green); color: #fff; text-align: center; padding: 22px 16px 26px; }
+  header img { width: 84px; height: auto; border-radius: 6px; }
+  header h1 { margin: 10px 0 4px; font-size: 1.7rem; line-height: 1.2; }
+  header p { margin: 0; opacity: .9; }
+  main { max-width: 520px; margin: 0 auto; padding: 20px 16px 40px; }
+  .card { background: #fff; border-radius: 16px; padding: 20px 18px; box-shadow: 0 2px 10px rgba(0,0,0,.08); margin-bottom: 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 1.15rem; color: var(--green); }
+  .what { list-style: none; padding: 0; margin: 0; }
+  .what li { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; }
+  .what .ic { font-size: 1.4rem; line-height: 1.2; }
+  .what b { display: block; }
+  .what span { color: var(--muted); font-size: .95rem; }
+  .promise { margin: 10px 0 0; padding: 10px 12px; background: #f0f3ef; border-radius: 10px; font-weight: 600; color: var(--green); text-align: center; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #444; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 13px 14px; font: inherit; font-size: 1rem; border: 1.5px solid #ccc; border-radius: 10px; background: #fff; }
+  .field input:focus { outline: none; border-color: var(--green); }
+  .opt { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .prefs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .prefs label { position: relative; border: 1.5px solid #ccc; border-radius: 10px; padding: 10px 6px; text-align: center; font-weight: 600; cursor: pointer; font-size: .95rem; }
+  .prefs input { position: absolute; opacity: 0; width: 1px; height: 1px; padding: 0; }
+  .prefs label:has(input:checked) { border-color: var(--green); background: #eef4ef; color: var(--green); }
+  .consent { display: flex; gap: 10px; align-items: flex-start; font-size: .88rem; color: #333; margin: 6px 0 16px; }
+  .consent input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; }
+  .btn { display: block; width: 100%; padding: 16px; font: inherit; font-size: 1.15rem; font-weight: 700; color: #fff; background: var(--green); border: 0; border-radius: 14px; cursor: pointer; }
+  .btn:hover { background: var(--green-dark); }
+  .status { margin-top: 10px; min-height: 1.2em; font-size: .95rem; }
+  .status.err { color: #b3261e; }
+  .hp { position: absolute; left: -9999px; }
+  .thanks { text-align: center; }
+  .thanks h2 { font-size: 1.4rem; }
+  footer { text-align: center; color: var(--muted); font-size: .88rem; }
+  footer a { color: var(--green); }
+</style>
+</head>
+<body>
+<header>
+  <img src="/logo.jpg" alt="Arch Support Residential Services" width="272" height="246">
+  <h1>Get Vacancy Alerts</h1>
+  <p>For support coordinators &amp; case managers</p>
+</header>
+<main>
+  <section class="card">
+    <h2>What you’ll get — and that’s all</h2>
+    <ul class="what">
+      <li><span class="ic">📣</span><div><b>A heads-up when a home opens</b><span>One text with a flyer and link when a new opening becomes available.</span></div></li>
+      <li><span class="ic">🗓️</span><div><b>One monthly roundup</b><span>A single text each month with all current openings — only if we have any.</span></div></li>
+    </ul>
+    <p class="promise">No spam. Reply STOP anytime.</p>
+  </section>
+
+  <section class="card" id="formCard">
+    <div id="formWrap">
+      <h2>Sign up</h2>
+      <form name="alerts" id="alertsForm" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" novalidate>
+        <input type="hidden" name="form-name" value="alerts">
+        <input type="hidden" name="source" id="fSource" value="">
+        <p class="hp" aria-hidden="true"><label>Don’t fill this out <input name="bot-field" tabindex="-1" autocomplete="off"></label></p>
+        <div class="field"><label for="fName">Your name</label><input type="text" id="fName" name="name" autocomplete="name"></div>
+        <div class="field"><label for="fAgency">Agency / CSB</label><input type="text" id="fAgency" name="agency" autocomplete="organization" placeholder="e.g. Henrico Area MH&amp;DS"></div>
+        <div class="field"><label for="fArea">Area you serve <span class="opt">(optional)</span></label><input type="text" id="fArea" name="area" placeholder="e.g. Henrico, Chesterfield"></div>
+        <div class="field"><label for="fPhone">Mobile phone</label><input type="tel" id="fPhone" name="phone" autocomplete="tel" placeholder="(804) 555-0123"></div>
+        <div class="field"><label for="fEmail">Email <span class="opt">(optional)</span></label><input type="email" id="fEmail" name="email" autocomplete="email" placeholder="you@agency.org"></div>
+        <div class="field">
+          <label>How should we reach you?</label>
+          <div class="prefs">
+            <label><input type="radio" name="preference" value="Text" checked> Text</label>
+            <label><input type="radio" name="preference" value="Text + Email"> Both</label>
+            <label><input type="radio" name="preference" value="Email only"> Email</label>
+          </div>
+        </div>
+        <label class="consent"><input type="checkbox" id="fConsent" name="consent" value="Yes – agreed to vacancy alerts">
+          <span>I agree to receive vacancy alerts from Arch Support Residential Services by the method(s) above: a message when a new opening becomes available, plus one monthly roundup of current openings. Msg &amp; data rates may apply. Reply STOP to opt out or HELP for help. See our <a href="/privacy">privacy policy</a>.</span></label>
+        <button type="submit" class="btn" id="fSubmit">Sign Me Up</button>
+        <div class="status" id="fStatus" role="status" aria-live="polite"></div>
+      </form>
+    </div>
+    <div class="thanks" id="formThanks" style="display:none;">
+      <h2>You’re on the list! 🎉</h2>
+      <p>You’ll hear from us when a home opens, plus one monthly roundup. That’s it.</p>
+      <p><a href="/vacancy" style="color:var(--green);font-weight:700;">See current openings</a></p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Questions? Call or text <a href="tel:+18043999709">(804) 399-9709</a><br>Arch Support Residential Services · “Where Home is Where You Want to Be”</p>
+  </footer>
+</main>
+<script>
+(function () {
+  // Remember where the sign-up came from, e.g. /alerts?src=csb-flyer
+  var src = new URLSearchParams(location.search).get('src');
+  if (src) document.getElementById('fSource').value = src.slice(0, 60);
+
+  var form = document.getElementById('alertsForm');
+  var statusEl = document.getElementById('fStatus');
+  var btn = document.getElementById('fSubmit');
+  function fail(msg, id) { statusEl.textContent = msg; statusEl.className = 'status err'; if (id) document.getElementById(id).focus(); }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    statusEl.textContent = ''; statusEl.className = 'status';
+    var pref = form.querySelector('input[name="preference"]:checked').value;
+    var phone = document.getElementById('fPhone').value.trim();
+    var email = document.getElementById('fEmail').value.trim();
+    if (!document.getElementById('fName').value.trim()) return fail('Please enter your name.', 'fName');
+    if (pref !== 'Email only' && phone.replace(/\D/g, '').length < 10) return fail('Please enter a 10-digit mobile number for text alerts.', 'fPhone');
+    if (pref !== 'Text' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Please enter a valid email address.', 'fEmail');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('That email address doesn’t look right.', 'fEmail');
+    if (!document.getElementById('fConsent').checked) return fail('Please check the box to agree to receive alerts.', 'fConsent');
+    btn.disabled = true; btn.textContent = 'Signing you up…';
+    fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(new FormData(form)).toString()
+    }).then(function (res) {
+      if (!res.ok) throw new Error('bad status');
+      document.getElementById('formWrap').style.display = 'none';
+      document.getElementById('formThanks').style.display = 'block';
+    }).catch(function () {
+      fail('Something went wrong. Please text or call (804) 399-9709 instead.');
+      btn.disabled = false; btn.textContent = 'Sign Me Up';
+    });
+  });
+})();
+</script>
+</body>
+</html>
