@@ -22,6 +22,7 @@ NAV = [
     ("homes", "/homes/", "Our Homes"),
     ("openings", "/openings/", "Openings"),
     ("careers", "/careers/", "Careers"),
+    ("rights", "/residents-rights/", "Resident’s Rights"),
 ]
 
 HEAD = """<!doctype html>
