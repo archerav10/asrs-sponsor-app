@@ -1,4 +1,0 @@
-# vagrouphomes.com – static site, no build step.
-[build]
-  publish = "."
-  command = ""
