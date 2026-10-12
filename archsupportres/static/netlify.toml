@@ -1,0 +1,9 @@
+# archsupportres.com – prebuilt static site (see ../build.py). No build step.
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
