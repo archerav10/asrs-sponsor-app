@@ -325,7 +325,7 @@
   .wfc-actions button { width: auto; flex: 1; min-width: 140px; margin: 0; }
   #wfc-also label { display: flex; gap: 8px; align-items: center; font-weight: 400; margin: 6px 0; }
   #wfc-also input { width: auto; margin: 0; }
-  #wfc-preview-frame { width: 100%; height: 900px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .wfc-preview-host { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
   .wf-plan-state { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
   @media (max-width: 520px) { .wf-tiles { grid-template-columns: repeat(2, 1fr); } }
   .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
@@ -637,7 +637,7 @@
 
     <div id="wfc-preview-wrap" style="display:none;">
       <p class="item-section-title" id="wfc-preview-title">Preview</p>
-      <iframe id="wfc-preview-frame" title="Email preview" sandbox=""></iframe>
+      <div id="wfc-preview-host" class="wfc-preview-host"></div>
     </div>
   </section>
 
@@ -2603,7 +2603,14 @@
         body: JSON.stringify(Object.assign({ weekOf: wfcData.weekOf, sponsorId: wfcData.sponsorId }, wfcReadForm()))
       });
       document.getElementById('wfc-preview-title').textContent = 'Preview: “' + res.subject + '” to ' + res.to;
-      document.getElementById('wfc-preview-frame').srcdoc = res.html;
+      // Rendered in a shadow root rather than an iframe: the email's own
+      // inline styles stay isolated from the dashboard either way, and a
+      // shadow root can't be blocked the way some browsers block frames.
+      // The HTML is built server-side with every field escaped.
+      const host = document.getElementById('wfc-preview-host');
+      const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
+      shadow.innerHTML = res.html;
+      shadow.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); }); });
       document.getElementById('wfc-preview-wrap').style.display = '';
       document.getElementById('wfc-preview-wrap').scrollIntoView({ behavior: 'smooth' });
     } catch (e) {
