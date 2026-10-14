@@ -278,6 +278,15 @@
     font-family: inherit;
   }
   .item-section-title { font-size: 14px; font-weight: 700; margin: 26px 0 10px; }
+  .med-type-row { display: flex; align-items: center; gap: 10px; }
+  .med-type-row .med-type-name { flex: 1; font-weight: 600; font-size: 15px; }
+  .med-type-row .med-type-date { font-size: 14px; color: #444; text-align: right; }
+  .med-type-due { font-size: 13px; color: #666; margin: 4px 0 0 21px; }
+  .med-type-due.flagged { color: #D9480F; font-weight: 700; }
+  .med-earlier { margin: 8px 0 0 21px; font-size: 13px; color: #555; }
+  .med-earlier summary { cursor: pointer; color: var(--forest); }
+  .med-earlier ul { margin: 6px 0 0; padding-left: 18px; }
+  .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
   .dpn-t-version-card {
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -357,6 +366,7 @@
       <button class="tab-button" id="tab-intake" type="button">Sponsor Intake</button>
       <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
       <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
+      <button class="tab-button" id="tab-medical" type="button">Medical</button>
     </div>
 
     <div id="mar-tab-content">
@@ -413,6 +423,12 @@
       <p class="error-text" id="dpn-dashboard-error"></p>
       <div id="dpn-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
       <button type="button" id="dpn-manage-templates-button" class="secondary" style="margin-top: 18px;">Manage Question Templates</button>
+    </div>
+
+    <div id="medical-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Every appointment is logged with its document. Physical, Dental, Labwork and TB Test are due 12 months after the last one &mdash; yellow 30 days before, red once overdue or if none is on file.</p>
+      <p class="error-text" id="medical-dashboard-error"></p>
+      <div id="medical-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -488,6 +504,32 @@
     <div class="ap-banner" id="checklist-detail-banner">Loading&hellip;</div>
     <p class="error-text" id="checklist-detail-error"></p>
     <div id="checklist-detail-body"></div>
+  </section>
+
+  <!-- Screen 9: Medical Appointments — per resident -->
+  <section id="screen-medical-detail" class="screen">
+    <button class="back-button" id="medical-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="medical-detail-title"></p>
+      <p class="meta" id="medical-detail-meta"></p>
+    </div>
+    <div class="ap-banner" id="medical-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="medical-detail-error"></p>
+
+    <div class="ap-step" id="medical-log-section">
+      <p class="ap-step-title">Log an Appointment</p>
+      <p class="ap-step-status">Pick the date and type first, then upload the document (visit summary, results, etc.).</p>
+      <label for="medical-log-date" style="margin-top: 0;">Appointment Date</label>
+      <input type="date" id="medical-log-date">
+      <label for="medical-log-type">Appointment Type</label>
+      <select id="medical-log-type"></select>
+      <label for="medical-log-file">Document</label>
+      <input type="file" id="medical-log-file" accept="image/*,application/pdf" disabled>
+      <p class="help-text" id="medical-log-hint">Choose a date and type to enable the upload.</p>
+    </div>
+
+    <p class="item-section-title">Last Appointment by Type</p>
+    <div id="medical-detail-body"></div>
   </section>
 
   <!-- Screen 8: Daily Progress Notes — self-service question-version management -->
@@ -567,7 +609,8 @@
     quarterlyDetail: document.getElementById('screen-quarterly-detail'),
     intakeDetail: document.getElementById('screen-intake-detail'),
     checklistDetail: document.getElementById('screen-checklist-detail'),
-    dpnTemplates: document.getElementById('screen-dpn-templates')
+    dpnTemplates: document.getElementById('screen-dpn-templates'),
+    medicalDetail: document.getElementById('screen-medical-detail')
   };
 
   let activeTabKey = 'mar'; // widens the page while the Sponsor Intake tab is showing
@@ -863,7 +906,8 @@
     quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard },
     intake: { button: document.getElementById('tab-intake'), content: document.getElementById('intake-tab-content'), load: loadIntakeDashboard },
     checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard },
-    dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard }
+    dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard },
+    medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -1686,6 +1730,336 @@
     } catch (e) {
       document.getElementById('staff-detail-banner').textContent = '';
       setError('staff-detail-error', e.message);
+    }
+  }
+
+  // --- Screen 3h/9: Medical Appointments ---
+  // Status labels for the four compliance types (Physical, Dental,
+  // Labwork, TB Test) — the server decides green/yellow/red
+  // (computeMedicalCompliance in lib/medical-appointments.js); this only
+  // turns that into words.
+  function medicalComplianceSummary(compliance) {
+    const missing = [], overdue = [], dueSoon = [];
+    compliance.items.forEach(function (item) {
+      if (item.state === 'missing') missing.push(item.label);
+      else if (item.state === 'overdue') overdue.push(item.label);
+      else if (item.state === 'dueSoon') dueSoon.push(item.label + ' ' + formatDate(item.dueDate));
+    });
+    const parts = [];
+    if (overdue.length) parts.push('Overdue: ' + overdue.join(', '));
+    if (missing.length) parts.push('None on file: ' + missing.join(', '));
+    if (dueSoon.length) parts.push('Due soon: ' + dueSoon.join(', '));
+    return parts.length ? parts.join(' · ') : 'All current';
+  }
+
+  function renderMedicalButton(location, row) {
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot status-' + row.compliance.overall;
+    const initials = document.createElement('span');
+    initials.className = 'ap-resident-initials';
+    initials.textContent = row.resident;
+    left.appendChild(dot);
+    left.appendChild(initials);
+
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    status.textContent = medicalComplianceSummary(row.compliance);
+
+    btn.appendChild(left);
+    btn.appendChild(status);
+    btn.addEventListener('click', function () { openMedicalDetail(location, row.resident); });
+    return btn;
+  }
+
+  async function loadMedicalDashboard() {
+    const listEl = document.getElementById('medical-dashboard-list');
+    setError('medical-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-medical-appointments-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active residents found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (row) { listEl.appendChild(renderMedicalButton(loc.location, row)); });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('medical-dashboard-error', e.message);
+    }
+  }
+
+  let currentMedicalLocation = null;
+  let currentMedicalResident = null;
+  let currentMedicalByType = [];
+
+  const medicalDateInput = document.getElementById('medical-log-date');
+  const medicalTypeSelect = document.getElementById('medical-log-type');
+  const medicalFileInput = document.getElementById('medical-log-file');
+  const medicalHint = document.getElementById('medical-log-hint');
+
+  function localTodayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function openMedicalDetail(location, resident) {
+    currentMedicalLocation = location;
+    currentMedicalResident = resident;
+    medicalDateInput.value = '';
+    medicalTypeSelect.value = '';
+    medicalFileInput.value = '';
+    showScreen('medicalDetail');
+    loadMedicalDetail();
+  }
+
+  document.getElementById('medical-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadMedicalDashboard();
+  });
+
+  // The upload stays disabled until both a date and a type are chosen —
+  // they're what file the document and date the appointment, so neither
+  // can be left for afterward.
+  function refreshMedicalUploadState() {
+    const date = medicalDateInput.value;
+    const ready = !!date && !!medicalTypeSelect.value && date <= localTodayISO();
+    medicalFileInput.disabled = !ready;
+    if (date && date > localTodayISO()) {
+      medicalHint.textContent = 'The appointment date can’t be in the future.';
+    } else {
+      medicalHint.textContent = ready ? 'Now choose the document to upload.' : 'Choose a date and type to enable the upload.';
+    }
+  }
+  medicalDateInput.addEventListener('input', refreshMedicalUploadState);
+  medicalTypeSelect.addEventListener('change', refreshMedicalUploadState);
+
+  medicalFileInput.addEventListener('change', async function () {
+    const file = medicalFileInput.files[0];
+    if (!file) return;
+    const appointmentDate = medicalDateInput.value;
+    const typeKey = medicalTypeSelect.value;
+    const typeLabel = medicalTypeSelect.options[medicalTypeSelect.selectedIndex].textContent;
+    if (!appointmentDate || !typeKey) {
+      medicalFileInput.value = '';
+      refreshMedicalUploadState();
+      return;
+    }
+
+    // Same type on the same date is almost always the same document
+    // picked twice; ask rather than silently logging a duplicate.
+    const sameType = currentMedicalByType.filter(function (t) { return t.key === typeKey; })[0];
+    const alreadyLogged = sameType && [sameType.latest].concat(sameType.earlier).some(function (a) { return a.date === appointmentDate; });
+    if (alreadyLogged && !confirm(typeLabel + ' on ' + formatDate(appointmentDate) + ' is already on file. Log another one anyway?')) {
+      medicalFileInput.value = '';
+      return;
+    }
+
+    const dot = file.name.lastIndexOf('.');
+    const extension = dot > 0 ? file.name.slice(dot) : '';
+
+    setError('medical-detail-error', '');
+    medicalFileInput.disabled = true;
+    medicalHint.textContent = 'Uploading…';
+    try {
+      const config = await apiFetch('/get-medical-appointment-upload-config?location=' + encodeURIComponent(currentMedicalLocation) +
+        '&resident=' + encodeURIComponent(currentMedicalResident) +
+        '&typeKey=' + encodeURIComponent(typeKey) +
+        '&appointmentDate=' + encodeURIComponent(appointmentDate) +
+        '&extension=' + encodeURIComponent(extension));
+
+      const formData = new FormData();
+      formData.append('file', file, config.filename);
+      formData.append('filename', config.filename);
+      formData.append('location', currentMedicalLocation);
+      formData.append('residentInitials', currentMedicalResident);
+      formData.append('residentFullName', config.residentFullName);
+      formData.append('appointmentType', typeLabel);
+      formData.append('appointmentDate', appointmentDate);
+
+      const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+      if (!uploadRes.ok) {
+        throw new Error('The document failed to upload. Try again.');
+      }
+
+      await apiFetch('/save-medical-appointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: currentMedicalLocation,
+          resident: currentMedicalResident,
+          typeKey: typeKey,
+          appointmentDate: appointmentDate,
+          extension: extension
+        })
+      });
+
+      medicalDateInput.value = '';
+      medicalTypeSelect.value = '';
+      medicalFileInput.value = '';
+      await loadMedicalDetail();
+      medicalHint.textContent = typeLabel + ' on ' + formatDate(appointmentDate) + ' saved. Choose a date and type to log another.';
+    } catch (e) {
+      setError('medical-detail-error', e.message);
+      medicalFileInput.value = '';
+      refreshMedicalUploadState();
+    }
+  });
+
+  function renderMedicalTypeSection(container, entry, complianceItem) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const row = document.createElement('div');
+    row.className = 'med-type-row';
+    const dot = document.createElement('span');
+    // Only the four compliance types get a colored light; everything
+    // else is history only and shows a neutral spacer to keep the
+    // names lined up.
+    if (complianceItem) {
+      dot.className = 'status-dot status-' + complianceItem.status;
+    } else {
+      dot.className = 'status-dot';
+      dot.style.background = 'transparent';
+    }
+    const name = document.createElement('span');
+    name.className = 'med-type-name';
+    name.textContent = entry.label;
+    if (entry.isCompliance) {
+      const tag = document.createElement('span');
+      tag.className = 'med-tag';
+      tag.textContent = 'Annual';
+      name.appendChild(tag);
+    }
+    const date = document.createElement('span');
+    date.className = 'med-type-date';
+    date.textContent = formatDate(entry.latest.date);
+    row.appendChild(dot);
+    row.appendChild(name);
+    row.appendChild(date);
+    wrap.appendChild(row);
+
+    if (complianceItem) {
+      const due = document.createElement('p');
+      due.className = 'med-type-due' + (complianceItem.status === 'green' ? '' : ' flagged');
+      due.textContent = complianceItem.state === 'overdue'
+        ? 'Overdue since ' + formatDate(complianceItem.dueDate)
+        : 'Next due ' + formatDate(complianceItem.dueDate);
+      wrap.appendChild(due);
+    }
+
+    const file = document.createElement('p');
+    file.className = 'med-type-due';
+    file.textContent = (entry.latest.filename || 'Document on file') + (entry.latest.loggedBy ? ' · logged by ' + entry.latest.loggedBy : '');
+    wrap.appendChild(file);
+
+    if (entry.earlier.length) {
+      const details = document.createElement('details');
+      details.className = 'med-earlier';
+      const summary = document.createElement('summary');
+      summary.textContent = entry.earlier.length + ' earlier appointment' + (entry.earlier.length === 1 ? '' : 's');
+      details.appendChild(summary);
+      const list = document.createElement('ul');
+      entry.earlier.forEach(function (a) {
+        const li = document.createElement('li');
+        li.textContent = formatDate(a.date) + (a.filename ? ' — ' + a.filename : '');
+        list.appendChild(li);
+      });
+      details.appendChild(list);
+      wrap.appendChild(details);
+    }
+
+    container.appendChild(wrap);
+  }
+
+  async function loadMedicalDetail() {
+    document.getElementById('medical-detail-title').textContent = currentMedicalResident || 'Loading…';
+    document.getElementById('medical-detail-meta').textContent = currentMedicalLocation || '';
+    const bannerEl = document.getElementById('medical-detail-banner');
+    bannerEl.textContent = 'Loading…';
+    setError('medical-detail-error', '');
+    const bodyEl = document.getElementById('medical-detail-body');
+    bodyEl.innerHTML = '';
+
+    try {
+      const data = await apiFetch('/get-medical-appointments?location=' + encodeURIComponent(currentMedicalLocation) +
+        '&resident=' + encodeURIComponent(currentMedicalResident));
+      currentMedicalByType = data.byType || [];
+
+      document.getElementById('medical-detail-title').textContent = data.residentFullName
+        ? data.residentFullName + ' (' + data.resident + ')'
+        : data.resident;
+      document.getElementById('medical-detail-meta').textContent = data.location;
+
+      // Rebuilt every load (cheap) but keeps whatever was picked, so a
+      // reload after a failed upload doesn't wipe the admin's choice.
+      const picked = medicalTypeSelect.value;
+      medicalTypeSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '— Choose a type —';
+      medicalTypeSelect.appendChild(placeholder);
+      (data.appointmentTypes || []).forEach(function (t) {
+        const opt = document.createElement('option');
+        opt.value = t.key;
+        opt.textContent = t.label;
+        medicalTypeSelect.appendChild(opt);
+      });
+      medicalTypeSelect.value = picked;
+      medicalDateInput.max = localTodayISO();
+      refreshMedicalUploadState();
+
+      bannerEl.innerHTML = '';
+      const dot = document.createElement('span');
+      dot.className = 'status-dot status-' + data.compliance.overall;
+      dot.style.marginRight = '8px';
+      bannerEl.appendChild(dot);
+      bannerEl.appendChild(document.createTextNode('Annual appointments: ' + medicalComplianceSummary(data.compliance)));
+      if (!data.residentFullName) {
+        const warn = document.createElement('p');
+        warn.className = 'resident-line flagged';
+        warn.style.margin = '8px 0 0';
+        warn.textContent = 'No full name on file for this resident, so uploads can’t find their Drive folder. Add one in Daily Progress Notes → Manage Question Templates.';
+        bannerEl.appendChild(warn);
+      }
+
+      if (!currentMedicalByType.length) {
+        bodyEl.innerHTML = '<p class="empty-text">No appointments on file yet.</p>';
+        return;
+      }
+      const complianceByKey = {};
+      data.compliance.items.forEach(function (i) { complianceByKey[i.key] = i; });
+      currentMedicalByType.forEach(function (entry) {
+        renderMedicalTypeSection(bodyEl, entry, complianceByKey[entry.key]);
+      });
+    } catch (e) {
+      bannerEl.textContent = '';
+      setError('medical-detail-error', e.message);
     }
   }
 

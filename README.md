@@ -57,6 +57,8 @@ workflow as your other portals.
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
+| `MEDICAL_APPOINTMENTS_DB_ID` | Data Source ID of the new "Resident Medical Appointments" database — see Medical Appointments below |
+| `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL from your "Medical Appointments" Zap — see Medical Appointments below |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -1565,6 +1567,100 @@ exactly `{{{message}}}`. The triple braces pass the branded HTML
 through unescaped. `lib/sponsor-intake-email.js` builds the whole
 layout: header, one button per item, any return reasons, and the
 status-page link in the footer. Put its ID in `EMAILJS_INTAKE_TEMPLATE_ID`.
+
+### Medical Appointments (eighth process — per resident, append-only log)
+
+A **Medical** tab on the admin dashboard. One button per resident (same
+resident list as Annual Planning — anyone with a medication on file),
+each with a red/yellow/green dot for their four **annual** appointment
+types. Tapping a resident opens their screen:
+
+- **Log an Appointment:** pick the appointment date and type first —
+  the file picker stays disabled until both are chosen, and a future
+  date is refused (in the browser and again server-side) — then upload
+  the document. The document goes straight from the browser to Drive
+  via Zapier, and only after that succeeds is the appointment saved to
+  Notion, so every appointment on file has a document behind it.
+  Logging the same type on the same date twice asks for confirmation
+  first.
+- **Last Appointment by Type:** the most recent appointment of every
+  type that has any history (types never used for this resident aren't
+  shown), with older ones of that type tucked under "N earlier
+  appointments." The four annual types always come first and carry
+  their own dot and next-due date.
+- **18 appointment types** (`APPOINTMENT_TYPES` in
+  `lib/medical-appointments.js`): Physical, Dental, Labwork, TB Test,
+  Psychiatric, Endocrinologist, Nephrologist, Physical Medicine,
+  Urologist, Gastrointestinal, Emergency, Flu Shot, Covid Shot,
+  Cardiologist, Oncologist, Orthopedic, Pain Management, Check-up. Add
+  one there (and as a select option in Notion) to extend the list.
+
+**Compliance rule** (`computeMedicalCompliance`): Physical, Dental,
+Labwork and TB Test (`COMPLIANCE_TYPE_KEYS`) are each due 12 months
+after the most recent one on file. Yellow 30 days before that
+(`DUE_SOON_DAYS`), red once it passes — and also red when that type has
+**no appointment on file at all**, since there's nothing showing it was
+ever done. A resident's overall dot is the worst of the four. Every
+other type is history only and never affects the dot.
+
+**Append-only, not row-per-type.** Unlike Staff Training (one row per
+item, overwritten on renewal), every appointment is its own row, so a
+resident's medical history is kept. Nothing on this screen edits or
+deletes a row; to correct a mistake, uncheck `Active` on that row in
+Notion and it disappears from the app.
+
+**No per-resident folder link to set up.** Unlike Annual Planning and
+Staff Training, the Zap finds the resident's Drive folder by name, the
+same chain the Medication Administration Report uses. That needs the
+resident's **full name**, which (as for the Medication Report and Daily
+Progress Note PDFs) comes from their Daily Progress Notes template. A
+resident with no template on file gets a warning on their screen and
+uploads are refused until a full name is added there — better than
+sending a document the Zap can't place.
+
+**Notion setup** — create a database named **Resident Medical
+Appointments**, connect your integration to it ("..." -> Connections),
+and put its Data Source ID in `MEDICAL_APPOINTMENTS_DB_ID`. Properties
+(this app never creates schema, only rows):
+
+| Property | Type |
+|---|---|
+| `Record Title` | Title |
+| `Location` | Select (same options as your other databases) |
+| `Resident Initials` | Text |
+| `Appointment Type` | Select — the 18 labels above, spelled exactly as listed |
+| `Appointment Date` | Date |
+| `Filename` | Text |
+| `Logged By` | Text |
+| `Logged Date` | Date |
+| `Active` | Checkbox |
+
+**Zap setup** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — same shape
+as the Medication Administration Records Zap above:
+
+1. Webhooks by Zapier -> Catch Hook. Copy its URL into
+   `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`. Incoming fields: `file`,
+   `filename` (built server-side as
+   `YYYY-MM-DD_Medical_{TypeKey}_{Location}_{ResidentInitials}.ext`,
+   date first so the folder sorts chronologically), `location`,
+   `residentInitials`, `residentFullName`, `appointmentType` (the
+   label, e.g. "TB Test") and `appointmentDate`.
+2. Google Drive -> Find a Folder, title = `location`, inside your
+   facilities root folder. Find-only.
+3. Google Drive -> Find a Folder, title `Residents`, inside step 2.
+   Find-only.
+4. Google Drive -> Find a Folder, title = `residentFullName`, inside
+   step 3. Find-only.
+5. Google Drive -> Find a Folder, title `Medical Appointments`, inside
+   step 4, **create if it doesn't exist**.
+6. Google Drive -> Upload File, folder = step 5, file = `file`,
+   filename = `filename`.
+7. Publish the Zap.
+
+**New files:** `lib/medical-appointments.js`,
+`get-medical-appointments-oversight.js`, `get-medical-appointments.js`,
+`get-medical-appointment-upload-config.js` (also builds the filename
+and checks type/date *before* the upload), `save-medical-appointment.js`.
 
 ## Weekly admin email digest
 
