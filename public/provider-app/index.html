@@ -601,6 +601,36 @@
   .gm-dose-row.gm-not-open { opacity: 0.55; }
   .gm-not-open-line { font-size: 13px; color: #777; margin: 0; font-style: italic; }
   .gm-slot-title-note { font-weight: 400; text-transform: none; color: #999; font-style: italic; }
+  /* Weekly Focus */
+  .wf-home-button { width: 100%; margin: 0 0 24px; border: 2px solid var(--forest); }
+  .wf-home-button .wf-home-title { display: flex; align-items: center; gap: 8px; }
+  .wf-card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 16px 18px; margin-bottom: 14px; }
+  .wf-kicker { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--forest-light); font-weight: 700; margin: 0 0 8px; }
+  .wf-quote { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 18px; color: var(--forest); margin: 0; }
+  .wf-quote-author { font-size: 13px; color: #666; margin: 6px 0 0; }
+  .wf-focus-title { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+  .wf-check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--border); font-size: 15px; cursor: pointer; }
+  .wf-check:first-of-type { border-top: 0; }
+  .wf-check input { width: 20px; height: 20px; margin: 1px 0 0; flex-shrink: 0; accent-color: var(--forest-light); }
+  .wf-carried { display: block; font-size: 12px; color: #9A5B0E; margin-top: 2px; }
+  .wf-doc-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 15px; }
+  .wf-doc-row:first-of-type { border-top: 0; }
+  .wf-pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; align-self: center; }
+  .wf-pill.ok { background: #E3F1E7; color: #1B7A3D; }
+  .wf-pill.warn { background: #FDEDEC; color: var(--error); }
+  .wf-pill.muted { background: #ECE8DE; color: #6B6659; }
+  .wf-rag { display: grid; gap: 8px; }
+  .wf-rag label { display: flex; gap: 10px; align-items: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 12px; margin: 0; font-weight: 400; cursor: pointer; background: #fff; }
+  .wf-rag label.selected { border-color: var(--forest-light); background: var(--cream); }
+  .wf-rag input { width: auto; margin: 0; accent-color: var(--forest-light); }
+  .wf-swatch { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+  .wf-banner { border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 14px; }
+  .wf-banner.info { background: #fff; border: 1px solid var(--border); color: #444; }
+  .wf-banner.warn { background: #FBF3D6; border: 1px solid #EAD9A0; color: #6B5200; }
+  .wf-done { border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 15px; display: none; }
+  .wf-past { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 0 0 8px; font-weight: 400; font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
+  .wf-past.current { border-color: var(--forest-light); }
+  .wf-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px; font-family: inherit; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -644,6 +674,11 @@
       <p class="meta" id="home-meta"></p>
       <p class="meta site-visit" id="home-site-visit"></p>
     </div>
+
+    <button type="button" class="action-button wf-home-button" id="home-weekly-focus" style="display:none;">
+      <span class="wf-home-title"><span id="home-wf-dot" class="status-dot status-green"></span><span>Weekly Focus check-in</span></span>
+      <span class="sub" id="home-wf-status"></span>
+    </button>
 
     <div id="mar-buttons-container" class="mar-section"></div>
     <div id="dpn-buttons-container" class="mar-section"></div>
@@ -728,6 +763,17 @@
     <div class="confirm-bar">
       <button id="fa-confirm">Confirm Everything Is Correct</button>
     </div>
+  </section>
+
+  <!-- Weekly Focus check-in -->
+  <section id="screen-weekly-focus" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Weekly Focus</p>
+    <p class="help-text" id="wf-week-label" style="margin-top:-6px;"></p>
+    <p class="error-text" id="wf-error"></p>
+    <div id="wf-body"><p class="help-text">Loading&hellip;</p></div>
   </section>
 
   <!-- Screen 5: Fire Drill Report -->
@@ -1037,7 +1083,8 @@
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
-    giveMeds: document.getElementById('screen-give-meds')
+    giveMeds: document.getElementById('screen-give-meds'),
+    weeklyFocus: document.getElementById('screen-weekly-focus')
   };
 
   function getStoredSession() {
@@ -1152,6 +1199,7 @@
       }));
       renderHome(data.session);
       showScreen('home');
+      openWeeklyFocusFromLink(data.session);
     } catch (e) {
       setError('otp-error', 'Could not reach the server. Check your connection and try again.');
     } finally {
@@ -1216,6 +1264,7 @@
     renderDpnButtons(session.residentInitials);
     renderGiveMedsButtons(session.residentInitials);
     loadInfoStatuses(session);
+    loadHomeWeeklyFocus(session);
   }
 
   // Last/Next Site Visit come from the admin dashboard's Monthly
@@ -3366,6 +3415,276 @@
     showScreen('login');
   });
 
+  // --- Weekly Focus check-in ---
+  // The Tuesday email's buttons link here as ?weekly=<weekOf>&status=green|yellow|red.
+  // The link is remembered across the login screens (sessionStorage) and
+  // then removed from the address bar, so a reload doesn't reopen it.
+  const WF_INTENT_KEY = 'asrs_weekly_focus_intent';
+  const WF_STATUS_LABELS = { Green: 'All good', Yellow: 'I need to discuss something', Red: 'Please contact me ASAP', Pending: 'Not answered yet' };
+  const WF_SWATCH = { Green: '#1B7A3D', Yellow: '#C9A227', Red: 'var(--error)' };
+  (function captureWeeklyFocusLink() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('weekly')) return;
+      const status = (params.get('status') || '').toLowerCase();
+      const preset = { green: 'Green', yellow: 'Yellow', red: 'Red' }[status] || '';
+      const weekOf = /^\d{4}-\d{2}-\d{2}$/.test(params.get('weekly')) ? params.get('weekly') : '';
+      sessionStorage.setItem(WF_INTENT_KEY, JSON.stringify({ weekOf: weekOf, status: preset }));
+      history.replaceState(null, '', window.location.pathname);
+    } catch (e) {
+      // sessionStorage unavailable: the sponsor just lands on Home.
+    }
+  })();
+
+  function openWeeklyFocusFromLink(session) {
+    let intent = null;
+    try {
+      intent = JSON.parse(sessionStorage.getItem(WF_INTENT_KEY) || 'null');
+      sessionStorage.removeItem(WF_INTENT_KEY);
+    } catch (e) { intent = null; }
+    if (!intent || !session || session.accountType !== 'sponsor') return;
+    openWeeklyFocus(intent.weekOf, intent.status);
+  }
+
+  function wfDayLabel(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+
+  function wfWeekLabel(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+  }
+
+  async function loadHomeWeeklyFocus(session) {
+    const btn = document.getElementById('home-weekly-focus');
+    btn.style.display = 'none';
+    if (!session || session.accountType !== 'sponsor') return;
+    try {
+      const data = await apiFetch('/get-weekly-focus');
+      if (!data.hasWeeks) return;
+      const week = data.week;
+      const dot = document.getElementById('home-wf-dot');
+      const statusEl = document.getElementById('home-wf-status');
+      if (week.status === 'Pending' && week.isOpen) {
+        dot.className = 'status-dot ' + (week.isPastDue ? 'status-red' : 'status-yellow');
+        statusEl.textContent = (week.isPastDue ? 'Past due — was due ' : 'Response needed by ') + wfDayLabel(week.dueDate);
+      } else {
+        dot.className = 'status-dot status-green';
+        statusEl.textContent = 'Week of ' + wfWeekLabel(week.weekOf) + ': ' + WF_STATUS_LABELS[week.status];
+      }
+      btn.style.display = '';
+    } catch (e) {
+      // Leave the button hidden rather than showing a broken one.
+    }
+  }
+
+  document.getElementById('home-weekly-focus').addEventListener('click', function () {
+    openWeeklyFocus('', '');
+  });
+
+  function openWeeklyFocus(weekOf, presetStatus) {
+    showScreen('weeklyFocus');
+    loadWeeklyFocus(weekOf, presetStatus);
+  }
+
+  function wfEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  async function loadWeeklyFocus(weekOf, presetStatus) {
+    const body = document.getElementById('wf-body');
+    setError('wf-error', '');
+    document.getElementById('wf-week-label').textContent = '';
+    body.innerHTML = '<p class="help-text">Loading&hellip;</p>';
+
+    let data;
+    try {
+      data = await apiFetch('/get-weekly-focus' + (weekOf ? '?weekOf=' + encodeURIComponent(weekOf) : ''));
+    } catch (e) {
+      body.innerHTML = '';
+      setError('wf-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+    if (!data.hasWeeks) {
+      body.appendChild(wfEl('p', 'help-text', 'No Weekly Focus has been sent to you yet. It goes out Tuesday mornings.'));
+      return;
+    }
+
+    const week = data.week;
+    const content = data.content || {};
+    const editable = week.isOpen;
+    document.getElementById('wf-week-label').textContent = 'Week of ' + wfWeekLabel(week.weekOf) + ' · due ' + wfDayLabel(week.dueDate);
+
+    if (!data.requestedWeekFound) {
+      body.appendChild(wfEl('div', 'wf-banner info', 'That link was for a week we couldn’t find, so here’s your latest week.'));
+    }
+    if (!editable) {
+      body.appendChild(wfEl('div', 'wf-banner info', 'This week has closed. ' +
+        (week.status === 'Pending' ? 'No response was recorded.' : 'You answered: ' + WF_STATUS_LABELS[week.status] + (week.late ? ' (late).' : '.'))));
+    } else if (week.status === 'Pending' && week.isPastDue) {
+      body.appendChild(wfEl('div', 'wf-banner warn', 'This was due ' + wfDayLabel(week.dueDate) + '. Please answer now. It will be marked late.'));
+    } else if (week.status !== 'Pending') {
+      body.appendChild(wfEl('div', 'wf-banner info', 'You answered: ' + WF_STATUS_LABELS[week.status] + '. You can update your answer until next week’s goes out.'));
+    }
+
+    if (content.quote) {
+      const card = wfEl('div', 'wf-card');
+      card.appendChild(wfEl('p', 'wf-quote', '“' + content.quote + '”'));
+      if (content.quoteAuthor) card.appendChild(wfEl('p', 'wf-quote-author', '— ' + content.quoteAuthor));
+      body.appendChild(card);
+    }
+
+    if (content.focusTitle || content.focusMessage) {
+      const card = wfEl('div', 'wf-card');
+      card.appendChild(wfEl('p', 'wf-kicker', 'Focus of the week'));
+      if (content.focusTitle) card.appendChild(wfEl('p', 'wf-focus-title', content.focusTitle));
+      if (content.focusMessage) card.appendChild(wfEl('p', null, content.focusMessage)).style.margin = '0';
+      body.appendChild(card);
+    }
+
+    const checks = [];
+    if (week.checklist.length) {
+      const card = wfEl('div', 'wf-card');
+      card.appendChild(wfEl('p', 'wf-kicker', 'Your checklist this week'));
+      week.checklist.forEach(function (item) {
+        const label = wfEl('label', 'wf-check');
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = !!item.done;
+        box.disabled = !editable;
+        checks.push(box);
+        const text = wfEl('span', null, item.text);
+        if (item.fromWeek && item.fromWeek !== week.weekOf) {
+          text.appendChild(wfEl('span', 'wf-carried', 'Still open from the week of ' + wfWeekLabel(item.fromWeek)));
+        }
+        label.appendChild(box);
+        label.appendChild(text);
+        card.appendChild(label);
+      });
+      body.appendChild(card);
+    }
+
+    if (data.documentation && data.documentation.length) {
+      const card = wfEl('div', 'wf-card');
+      card.appendChild(wfEl('p', 'wf-kicker', 'Daily documentation'));
+      data.documentation.forEach(function (d) {
+        const row = wfEl('div', 'wf-doc-row');
+        row.appendChild(wfEl('span', null, d.resident));
+        let pill;
+        if (d.unknown) pill = wfEl('span', 'wf-pill muted', 'Couldn’t check');
+        else if (d.daysBehind > 0) pill = wfEl('span', 'wf-pill warn', d.daysBehind + ' day' + (d.daysBehind === 1 ? '' : 's') + ' behind');
+        else if (d.notStarted) pill = wfEl('span', 'wf-pill warn', 'Not started');
+        else pill = wfEl('span', 'wf-pill ok', 'Up to date');
+        row.appendChild(pill);
+        card.appendChild(row);
+      });
+      card.appendChild(wfEl('p', 'help-text', 'From your Daily Progress Notes. Today’s note isn’t counted until tomorrow.'));
+      body.appendChild(card);
+    }
+
+    const checkIn = wfEl('div', 'wf-card');
+    checkIn.appendChild(wfEl('p', 'wf-kicker', 'Check in with me'));
+    checkIn.appendChild(wfEl('p', 'help-text', 'Anything management should know about? Need help with something? Questions?')).style.marginTop = '0';
+    const comment = document.createElement('textarea');
+    comment.rows = 4;
+    comment.placeholder = 'Optional';
+    comment.value = week.comment || '';
+    comment.disabled = !editable;
+    checkIn.appendChild(comment);
+    body.appendChild(checkIn);
+
+    const ragCard = wfEl('div', 'wf-card');
+    ragCard.appendChild(wfEl('p', 'wf-kicker', 'Response required'));
+    const rag = wfEl('div', 'wf-rag');
+    let selected = (editable && presetStatus) ? presetStatus : (week.status !== 'Pending' ? week.status : '');
+    const submit = wfEl('button', null, week.status === 'Pending' ? 'Submit check-in' : 'Update check-in');
+    submit.type = 'button';
+    const labels = [];
+    function refresh() {
+      labels.forEach(function (l) { l.classList.toggle('selected', l.dataset.status === selected); });
+      submit.disabled = !editable || !selected;
+    }
+    ['Green', 'Yellow', 'Red'].forEach(function (status) {
+      const label = wfEl('label');
+      label.dataset.status = status;
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'wf-status';
+      radio.checked = selected === status;
+      radio.disabled = !editable;
+      radio.addEventListener('change', function () { selected = status; refresh(); });
+      const swatch = wfEl('span', 'wf-swatch');
+      swatch.style.background = WF_SWATCH[status];
+      label.appendChild(radio);
+      label.appendChild(swatch);
+      label.appendChild(wfEl('span', null, WF_STATUS_LABELS[status]));
+      labels.push(label);
+      rag.appendChild(label);
+    });
+    ragCard.appendChild(rag);
+    const done = wfEl('div', 'wf-done');
+    if (editable) {
+      ragCard.appendChild(submit);
+      ragCard.appendChild(done);
+    }
+    body.appendChild(ragCard);
+    refresh();
+
+    submit.addEventListener('click', async function () {
+      if (!selected) return;
+      setError('wf-error', '');
+      submit.disabled = true;
+      try {
+        const res = await apiFetch('/save-weekly-focus-response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            responseId: week.responseId,
+            status: selected,
+            comment: comment.value,
+            done: checks.map(function (c, i) { return c.checked ? i : -1; }).filter(function (i) { return i >= 0; })
+          })
+        });
+        const messages = {
+          Green: '✓ Thank you! Your check-in is recorded as All good. Have a great week.',
+          Yellow: 'Thank you. Recorded as I need to discuss something. Your manager will reach out within 1 business day.',
+          Red: 'Recorded as Please contact me ASAP. ' + (res.adminsAlerted ? 'Your manager has been texted and will call you shortly. ' : 'Your manager will call you shortly. ') + 'If anyone is in danger, call 911.'
+        };
+        const colors = { Green: ['#E3F1E7', '#1B7A3D'], Yellow: ['#FBF3D6', '#6B5200'], Red: ['#FDEDEC', '#B3261E'] };
+        done.textContent = messages[res.status] + (res.late ? ' (Marked late.)' : '');
+        done.style.background = colors[res.status][0];
+        done.style.color = colors[res.status][1];
+        done.style.display = 'block';
+        submit.textContent = 'Update check-in';
+        week.status = res.status;
+        const stored = getStoredSession();
+        if (stored) loadHomeWeeklyFocus(stored.session);
+      } catch (e) {
+        setError('wf-error', e.message);
+      } finally {
+        submit.disabled = !selected;
+      }
+    });
+
+    if (data.pastWeeks.length > 1) {
+      body.appendChild(wfEl('p', 'wf-kicker', 'Your weeks')).style.marginTop = '22px';
+      data.pastWeeks.forEach(function (w) {
+        const b = wfEl('button', 'wf-past' + (w.weekOf === week.weekOf ? ' current' : ''));
+        b.type = 'button';
+        b.appendChild(wfEl('span', null, wfWeekLabel(w.weekOf) + (w.focusTitle ? ' · ' + w.focusTitle : '')));
+        b.appendChild(wfEl('span', null, WF_STATUS_LABELS[w.status] + (w.late ? ' (late)' : '')));
+        b.addEventListener('click', function () {
+          loadWeeklyFocus(w.weekOf, '');
+          window.scrollTo(0, 0);
+        });
+        body.appendChild(b);
+      });
+    }
+  }
+
   // --- Restore existing session on load ---
   (function init() {
     const stored = localStorage.getItem(SESSION_KEY);
@@ -3374,6 +3693,7 @@
       const parsed = JSON.parse(stored);
       renderHome(parsed.session);
       showScreen('home');
+      openWeeklyFocusFromLink(parsed.session);
     } catch (e) {
       localStorage.removeItem(SESSION_KEY);
     }

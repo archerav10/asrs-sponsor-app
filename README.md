@@ -59,6 +59,8 @@ workflow as your other portals.
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 | `MEDICAL_APPOINTMENTS_DB_ID` | Data Source ID of the new "Resident Medical Appointments" database — see Medical Appointments below |
 | `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
+| `WEEKLY_FOCUS_DB_ID` | `e0ab3391-ddb7-45d8-9ca6-9f1aed7f1a23` — the Weekly Focus content database |
+| `WEEKLY_FOCUS_RESPONSES_DB_ID` | `42a2aa61-dc05-4fe7-95fa-ca147346b783` — one row per sponsor per week |
 | `FACILITY_REPORTING_ROOT_FOLDER_ID` | Drive folder ID of `Facility Reporting` (`19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv`) — the root the Medical Appointments workflow walks down from |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
@@ -1669,6 +1671,80 @@ Zap. Its Catch Hook URL is what goes in
 and checks type/date *before* the upload), `save-medical-appointment.js`,
 `medical-appointment-resolve-upload.js`, and the workflow source in
 `zapier/medical-appointment-uploads.workflow.ts`.
+
+### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
+
+A weekly communication to every sponsor with app access (`Provider App
+Enabled`), plus a required check-in. Each sponsor's is private to them.
+
+**The week, end to end**
+
+1. **You write it** in the **Weekly Focus** Notion database
+   (`WEEKLY_FOCUS_DB_ID`): one row per week, `Week Of` = that week's
+   Tuesday, with Quote, Quote Author, Focus Title, Focus Message and up
+   to three Checklist items. Check **Ready to Send** when it's final.
+2. **Tuesday 8:00 AM Eastern** (`weekly-focus-send`): every sponsor
+   gets a branded email (`lib/weekly-focus-email.js` — the same layout
+   and EmailJS template as Sponsor Intake, `EMAILJS_INTAKE_TEMPLATE_ID`)
+   and, only if their `SMS Consent Status` is **Opted In**, a short text.
+   The email has no resident details: the documentation check is a count
+   ("1 resident's notes need attention") and the Green/Yellow/Red
+   buttons open the sponsor app's check-in, after login, with that
+   answer preselected. If that week's row is missing or not Ready,
+   nothing is sent and every admin gets a text instead; fix the row and
+   use **Send now** on the dashboard.
+3. **The check-in** (Sponsor App, "Weekly Focus check-in" button on
+   Home, or the email's links): quote, focus, checklist to tick, each of
+   the sponsor's residents' Daily Progress Notes status (days behind,
+   from the same day-walk the notes screen enforces), a "Check in with
+   me" note, and the required Green / Yellow / Red answer. It can be
+   changed until the next week goes out. Answers after Thursday are
+   accepted and marked **Late**. Older weeks are read-only and listed
+   under "Your weeks".
+4. **Red** texts every admin granted that sponsor's location right away
+   (ignoring the routine-notification opt-out, like a Serious Incident;
+   every enabled admin if nobody is granted it). The text never includes
+   the sponsor's comment.
+5. **Thursday 9:00 AM Eastern** (`weekly-focus-reminders`): one
+   reminder email (and text if opted in) to anyone still Pending.
+6. **Friday's admin digest** now opens with a Weekly Focus section:
+   counts, open Yellow/Red follow-ups from any week, who hasn't answered
+   (with "N weeks in a row"), and carried-over checklist items.
+7. **Admin Dashboard -> Weekly Focus tab:** this week's status and
+   counts, **Send now**, open follow-ups with **Mark followed up** and a
+   note (they stay open across weeks until marked), and an 8-week
+   history grid; tap a square for that week's answer, comment, checklist
+   and follow-up.
+
+**Carry-over:** checklist items a sponsor didn't tick roll into their
+next week as "Still open from the week of …", keeping the week they
+first appeared, until ticked. An item that's also on the new week's list
+isn't repeated.
+
+**Data:** the **Weekly Focus Responses** database
+(`WEEKLY_FOCUS_RESPONSES_DB_ID`) has one row per sponsor per week,
+created at send time as Pending, so "no response" and history need no
+extra bookkeeping. The checklist is stored as JSON in `Checklist`.
+
+**Timing and limits:** the schedules fire at two UTC hours and only act
+at 8:00 / 9:00 Eastern, so the time is right in both daylight and
+standard time. Scheduled functions only get 30 seconds and EmailJS
+allows one email per second, so they (and Send now) hand off to
+`weekly-focus-run-background` (15 minutes) with a short-lived encrypted
+job ticket. Re-running is safe: a sponsor who already has that week's
+row is skipped, and each reminder is sent once.
+
+**Previewing:** `test-weekly-focus?secret=…` (the same
+`NOTIFICATION_TEST_SECRET` as the other test endpoints) is a dry run of
+the send (`&job=remind` for the reminder, `&weekOf=YYYY-MM-DD` for
+another week); `&preview=<sponsor email>` returns that sponsor's actual
+email as a page. It never sends or writes anything.
+
+**Setup:** both databases are created; connect your Notion integration
+to each ("..." -> Connections). New env vars: `WEEKLY_FOCUS_DB_ID`,
+`WEEKLY_FOCUS_RESPONSES_DB_ID`, optional `WEEKLY_FOCUS_REPLY_TO`
+(falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
+whatever your EmailJS service sends from.
 
 ## Weekly admin email digest
 

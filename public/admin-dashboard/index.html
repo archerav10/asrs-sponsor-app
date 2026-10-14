@@ -286,6 +286,34 @@
   .med-earlier { margin: 8px 0 0 21px; font-size: 13px; color: #555; }
   .med-earlier summary { cursor: pointer; color: var(--forest); }
   .med-earlier ul { margin: 6px 0 0; padding-left: 18px; }
+  .wf-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .wf-tile { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #fff; }
+  .wf-tile .n { font-size: 24px; font-weight: 700; line-height: 1.1; }
+  .wf-tile .l { font-size: 12px; color: #666; }
+  .wf-followup { border: 1px solid var(--border); border-left-width: 5px; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .wf-followup.red { border-left-color: var(--error); }
+  .wf-followup.yellow { border-left-color: #C9A227; }
+  .wf-followup .who { font-weight: 600; }
+  .wf-followup .when { font-size: 12px; color: #777; }
+  .wf-followup .comment { font-size: 14px; margin: 6px 0 0; white-space: pre-wrap; }
+  .wf-followup textarea { min-height: 44px; font-size: 14px; padding: 8px 10px; margin-top: 8px; }
+  .wf-followup button { width: auto; margin-top: 8px; padding: 8px 14px; font-size: 14px; }
+  .wf-grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .wf-grid { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 520px; }
+  .wf-grid th, .wf-grid td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+  .wf-grid th { font-size: 11px; color: #777; font-weight: 600; background: var(--cream); }
+  .wf-grid td:first-child, .wf-grid th:first-child { text-align: left; padding-left: 12px; position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 1px 0 0 var(--border); }
+  .wf-grid th:first-child { background: var(--cream); }
+  .wf-grid tr:last-child td { border-bottom: 0; }
+  .wf-cell { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; border: 0; padding: 0; margin: 0; }
+  .wf-cell.Green { background: #1B7A3D; color: #fff; }
+  .wf-cell.Yellow { background: #C9A227; color: #1C1C1A; }
+  .wf-cell.Red { background: var(--error); color: #fff; }
+  .wf-cell.Pending { background: #ECE8DE; color: #777; border: 2px dashed #C9C3B3; }
+  .wf-cell.selected { outline: 3px solid var(--forest-light); outline-offset: 1px; }
+  .wf-detail { margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 14px; font-size: 14px; }
+  .wf-detail ul { margin: 6px 0 0; padding-left: 18px; }
+  @media (max-width: 520px) { .wf-tiles { grid-template-columns: repeat(2, 1fr); } }
   .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
   .dpn-t-version-card {
     border: 1px solid var(--border);
@@ -367,6 +395,7 @@
       <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
       <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
       <button class="tab-button" id="tab-medical" type="button">Medical</button>
+      <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
     </div>
 
     <div id="mar-tab-content">
@@ -429,6 +458,12 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Every appointment is logged with its document. Physical, Dental, Labwork and TB Test are due 12 months after the last one &mdash; yellow 30 days before, red once overdue or if none is on file.</p>
       <p class="error-text" id="medical-dashboard-error"></p>
       <div id="medical-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="weekly-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Goes to every sponsor Tuesday 8:00 AM, reminder Thursday 9:00 AM. Write each week in the <a href="https://app.notion.com/p/22c16ee844474b5fa688b53bac27c507" target="_blank" rel="noopener">Weekly Focus</a> database and check Ready to Send.</p>
+      <p class="error-text" id="weekly-dashboard-error"></p>
+      <div id="weekly-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -907,7 +942,8 @@
     intake: { button: document.getElementById('tab-intake'), content: document.getElementById('intake-tab-content'), load: loadIntakeDashboard },
     checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard },
     dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard },
-    medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard }
+    medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
+    weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -2060,6 +2096,187 @@
       bannerEl.textContent = '';
       setError('medical-detail-error', e.message);
     }
+  }
+
+  // --- Weekly Focus ---
+  const WF_LABELS = { Green: 'All good', Yellow: 'Discuss', Red: 'Contact ASAP', Pending: 'No response' };
+
+  function wfShortDate(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function wfDateTime(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function wfEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  function renderWeeklyFollowUp(container, f) {
+    const card = wfEl('div', 'wf-followup ' + f.status.toLowerCase());
+    const top = wfEl('div');
+    top.appendChild(wfEl('span', 'who', (f.status === 'Red' ? '🔴 ' : '🟡 ') + f.sponsorName + ' · ' + f.location));
+    top.appendChild(wfEl('div', 'when', 'Week of ' + wfShortDate(f.weekOf) + (f.respondedAt ? ' · answered ' + wfDateTime(f.respondedAt) : '')));
+    card.appendChild(top);
+    if (f.comment) card.appendChild(wfEl('p', 'comment', '“' + f.comment + '”'));
+    const note = document.createElement('textarea');
+    note.placeholder = 'Follow-up note (optional), e.g. "Called Wednesday, resolved"';
+    card.appendChild(note);
+    const btn = wfEl('button', null, 'Mark followed up');
+    btn.type = 'button';
+    btn.addEventListener('click', async function () {
+      btn.disabled = true;
+      setError('weekly-dashboard-error', '');
+      try {
+        await apiFetch('/save-weekly-focus-follow-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responseId: f.responseId, note: note.value })
+        });
+        loadWeeklyDashboard();
+      } catch (e) {
+        setError('weekly-dashboard-error', e.message);
+        btn.disabled = false;
+      }
+    });
+    card.appendChild(btn);
+    container.appendChild(card);
+  }
+
+  function renderWeeklyDetail(detailEl, sponsor, week, entry) {
+    detailEl.innerHTML = '';
+    detailEl.appendChild(wfEl('div', null, sponsor.name + ' · ' + sponsor.location + ' · week of ' + wfShortDate(week.weekOf) + (week.focusTitle ? ' · ' + week.focusTitle : ''))).style.fontWeight = '700';
+    detailEl.appendChild(wfEl('div', null, WF_LABELS[entry.status] + (entry.late ? ' (answered late)' : '') + (entry.respondedAt ? ' · ' + wfDateTime(entry.respondedAt) : '')));
+    if (entry.comment) detailEl.appendChild(wfEl('p', null, '“' + entry.comment + '”')).style.margin = '6px 0 0';
+    if (entry.checklist && entry.checklist.length) {
+      const list = wfEl('ul');
+      entry.checklist.forEach(function (item) {
+        list.appendChild(wfEl('li', null, (item.done ? '✓ ' : '○ ') + item.text + (item.fromWeek && item.fromWeek !== week.weekOf ? ' (carried from ' + wfShortDate(item.fromWeek) + ')' : '')));
+      });
+      detailEl.appendChild(list);
+    }
+    if (entry.followedUp) {
+      detailEl.appendChild(wfEl('p', 'help-text', 'Followed up' + (entry.followedUpBy ? ' by ' + entry.followedUpBy : '') +
+        (entry.followedUpDate ? ' on ' + formatDate(entry.followedUpDate) : '') + (entry.followUpNote ? ': ' + entry.followUpNote : '')));
+    }
+  }
+
+  async function loadWeeklyDashboard() {
+    const body = document.getElementById('weekly-dashboard-body');
+    setError('weekly-dashboard-error', '');
+    body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    let data;
+    try {
+      data = await apiFetch('/get-weekly-focus-oversight');
+    } catch (e) {
+      body.innerHTML = '';
+      setError('weekly-dashboard-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+
+    // This week
+    const head = wfEl('div', 'home-card');
+    head.appendChild(wfEl('p', 'name', 'Week of ' + wfShortDate(data.thisWeek) + (data.content && data.content.focusTitle ? ' · ' + data.content.focusTitle : '')));
+    let state;
+    if (!data.content) state = 'No row for this week in the Weekly Focus database yet.';
+    else if (!data.content.ready) state = 'Not marked Ready to Send yet.';
+    else if (!data.content.sent) state = 'Ready. Goes out Tuesday 8:00 AM, or send it now.';
+    else state = 'Sent. Responses due ' + new Date(data.dueDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + '.';
+    head.appendChild(wfEl('p', 'meta', state));
+    if (data.content && data.content.ready) {
+      const send = wfEl('button', 'secondary', data.content.sent ? 'Send to anyone who didn’t get it' : 'Send now');
+      send.type = 'button';
+      send.style.width = 'auto';
+      send.style.padding = '8px 14px';
+      send.addEventListener('click', async function () {
+        if (!confirm('Send this week’s Weekly Focus now? Sponsors who already have it are skipped.')) return;
+        send.disabled = true;
+        try {
+          await apiFetch('/admin-weekly-focus-send-now', { method: 'POST' });
+          send.textContent = 'Sending… refresh in a minute';
+        } catch (e) {
+          setError('weekly-dashboard-error', e.message);
+          send.disabled = false;
+        }
+      });
+      head.appendChild(send);
+    }
+    body.appendChild(head);
+
+    if (data.counts) {
+      const tiles = wfEl('div', 'wf-tiles');
+      [['Green', '#1B7A3D', '#E3F1E7'], ['Yellow', '#6B5200', '#FBF3D6'], ['Red', '#B3261E', '#FDEDEC'], ['Pending', '#6B6659', '#ECE8DE']].forEach(function (t) {
+        const tile = wfEl('div', 'wf-tile');
+        tile.style.background = t[2];
+        const n = wfEl('div', 'n', String(data.counts[t[0]] || 0));
+        n.style.color = t[1];
+        tile.appendChild(n);
+        tile.appendChild(wfEl('div', 'l', WF_LABELS[t[0]]));
+        tiles.appendChild(tile);
+      });
+      body.appendChild(tiles);
+    }
+
+    body.appendChild(wfEl('p', 'item-section-title', 'Open follow-ups'));
+    if (!data.followUps.length) body.appendChild(wfEl('p', 'empty-text', 'Nothing waiting on you.'));
+    data.followUps.forEach(function (f) { renderWeeklyFollowUp(body, f); });
+
+    body.appendChild(wfEl('p', 'item-section-title', 'History · tap a square for details'));
+    if (!data.sponsors.length) {
+      body.appendChild(wfEl('p', 'empty-text', 'No Weekly Focus has gone out yet.'));
+      return;
+    }
+    const wrap = wfEl('div', 'wf-grid-wrap');
+    const table = wfEl('table', 'wf-grid');
+    const headRow = wfEl('tr');
+    headRow.appendChild(wfEl('th', null, 'Sponsor'));
+    data.weeks.forEach(function (w) { headRow.appendChild(wfEl('th', null, wfShortDate(w.weekOf))); });
+    headRow.appendChild(wfEl('th', null, 'Answered'));
+    table.appendChild(headRow);
+    const detail = wfEl('div', 'wf-detail', 'Tap a square to see that week’s answer, comment, checklist and follow-up.');
+    data.sponsors.forEach(function (sponsor) {
+      const row = wfEl('tr');
+      const nameCell = wfEl('td', null, sponsor.name);
+      nameCell.appendChild(wfEl('div', 'help-text', sponsor.location)).style.margin = '0';
+      row.appendChild(nameCell);
+      let sent = 0, answered = 0;
+      data.weeks.forEach(function (w) {
+        const td = wfEl('td');
+        const entry = sponsor.weeks[w.weekOf];
+        if (entry) {
+          sent++;
+          if (entry.status !== 'Pending') answered++;
+          const cell = wfEl('button', 'wf-cell ' + entry.status, entry.late ? 'L' : '');
+          cell.type = 'button';
+          cell.title = WF_LABELS[entry.status];
+          cell.addEventListener('click', function () {
+            table.querySelectorAll('.wf-cell.selected').forEach(function (c) { c.classList.remove('selected'); });
+            cell.classList.add('selected');
+            renderWeeklyDetail(detail, sponsor, w, entry);
+          });
+          td.appendChild(cell);
+        } else {
+          td.textContent = '·';
+          td.style.color = '#ccc';
+        }
+        row.appendChild(td);
+      });
+      const rate = wfEl('td', null, answered + '/' + sent);
+      if (sent && answered / sent < 0.7) { rate.style.color = 'var(--error)'; rate.style.fontWeight = '700'; }
+      row.appendChild(rate);
+      table.appendChild(row);
+    });
+    wrap.appendChild(table);
+    body.appendChild(wrap);
+    body.appendChild(wfEl('p', 'help-text', 'Green all good · Yellow discuss · Red contact ASAP · dashed no response · L answered late'));
+    body.appendChild(detail);
   }
 
   // --- Screen 3d/6: Quarterly Reporting ---
