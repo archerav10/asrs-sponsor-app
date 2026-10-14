@@ -45,6 +45,7 @@ exports.handler = async function (event) {
       const draft = results[0].filter(function (c) { return !c.ready && c.sponsorIds.indexOf(wf.normId(s.id)) !== -1; })[0];
       const sent = sentThisWeek[s.email.toLowerCase()];
       return {
+        sponsorId: s.id,
         name: s.name,
         location: s.location,
         focusTitle: sent ? (titles[wf.normId(sent.contentId)] || '') : row ? row.focusTitle : draft ? draft.focusTitle : '',

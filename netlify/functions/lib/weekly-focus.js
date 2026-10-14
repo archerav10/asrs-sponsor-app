@@ -117,6 +117,35 @@ async function contentSince(weekOf) {
   return pages.map(contentFromPage);
 }
 
+// Every row ever written for one sponsor, newest week first.
+async function contentsForSponsor(sponsorId) {
+  const pages = await queryDatabaseAll(WEEKLY_FOCUS_DB_ID, { property: 'Sponsor', relation: { contains: sponsorId } });
+  return pages.map(contentFromPage).sort(function (a, b) { return a.weekOf < b.weekOf ? 1 : a.weekOf > b.weekOf ? -1 : 0; });
+}
+
+// Creates or updates one Weekly Focus row from the Compose screen.
+// fields: { weekOf, sponsorIds, sponsorNames, quote, quoteAuthor,
+// focusTitle, focusMessage, checklist: [up to 3], ready }
+async function saveContent(id, fields) {
+  const checklist = (fields.checklist || []).slice(0, 3);
+  while (checklist.length < 3) checklist.push('');
+  const props = {
+    'Week Title': { title: [{ text: { content: formatWeekLabel(fields.weekOf) + ' - ' + fields.sponsorNames.join(', ') } }] },
+    'Week Of': { date: { start: fields.weekOf } },
+    'Sponsor': { relation: fields.sponsorIds.map(function (sid) { return { id: sid }; }) },
+    'Quote': richText(fields.quote),
+    'Quote Author': richText(fields.quoteAuthor),
+    'Focus Title': richText(fields.focusTitle),
+    'Focus Message': richText(fields.focusMessage),
+    'Checklist 1': richText(checklist[0]),
+    'Checklist 2': richText(checklist[1]),
+    'Checklist 3': richText(checklist[2]),
+    'Ready to Send': { checkbox: !!fields.ready }
+  };
+  const page = id ? await updatePage(id, props) : await createPage(WEEKLY_FOCUS_DB_ID, props);
+  return contentFromPage(page);
+}
+
 async function markContentSent(contentId) {
   await updatePage(contentId, {
     'Sent': { checkbox: true },
@@ -336,6 +365,8 @@ module.exports = {
   contentById,
   rowsForSponsor,
   contentSince,
+  contentsForSponsor,
+  saveContent,
   markContentSent,
   activeSponsors,
   documentationStatus,

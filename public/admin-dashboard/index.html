@@ -315,6 +315,17 @@
   .wf-detail ul { margin: 6px 0 0; padding-left: 18px; }
   .wf-plan-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
   .wf-plan-row:first-of-type { margin-top: 10px; }
+  .wf-plan-row.clickable { cursor: pointer; }
+  .wf-plan-row.clickable:hover { background: var(--cream); }
+  .wf-plan-edit { font-size: 12px; color: var(--forest); text-decoration: underline; margin-left: 8px; }
+  .wfc-quote-tools { display: flex; gap: 8px; align-items: center; }
+  .wfc-quote-tools select { flex: 1; padding: 10px 12px; font-size: 15px; }
+  .wfc-quote-tools button { width: auto; margin: 0; padding: 10px 14px; white-space: nowrap; }
+  .wfc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .wfc-actions button { width: auto; flex: 1; min-width: 140px; margin: 0; }
+  #wfc-also label { display: flex; gap: 8px; align-items: center; font-weight: 400; margin: 6px 0; }
+  #wfc-also input { width: auto; margin: 0; }
+  #wfc-preview-frame { width: 100%; height: 900px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
   .wf-plan-state { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
   @media (max-width: 520px) { .wf-tiles { grid-template-columns: repeat(2, 1fr); } }
   .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
@@ -570,6 +581,66 @@
     <div id="medical-detail-body"></div>
   </section>
 
+  <!-- Screen 10: Weekly Focus — compose one sponsor's message -->
+  <section id="screen-weekly-compose" class="screen">
+    <button class="back-button" id="wfc-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name">Compose Weekly Focus</p>
+      <p class="meta">Each sponsor gets their own message. It goes out Tuesday 8:00 AM once it's marked Ready.</p>
+    </div>
+
+    <label for="wfc-week" style="margin-top:0;">Week</label>
+    <select id="wfc-week"></select>
+    <label for="wfc-sponsor">Sponsor</label>
+    <select id="wfc-sponsor"></select>
+    <details id="wfc-also-wrap" style="margin-top:10px;">
+      <summary style="cursor:pointer; color: var(--forest); font-size: 14px;">Also send this same message to&hellip;</summary>
+      <p class="help-text">Each sponsor you tick gets their own private copy. Sponsors who already have a message this week aren't listed.</p>
+      <div id="wfc-also"></div>
+    </details>
+
+    <div class="ap-banner" id="wfc-status" style="margin-top:16px; display:none;"></div>
+    <p class="error-text" id="wfc-error"></p>
+
+    <div id="wfc-form">
+      <button type="button" class="secondary" id="wfc-start-previous" style="display:none; width:auto; padding:8px 14px;"></button>
+
+      <p class="item-section-title">Inspiration</p>
+      <div class="wfc-quote-tools">
+        <select id="wfc-theme" aria-label="Quote theme"></select>
+        <button type="button" class="secondary" id="wfc-suggest">Suggest a quote</button>
+      </div>
+      <label for="wfc-quote">Quote</label>
+      <textarea id="wfc-quote" rows="3"></textarea>
+      <label for="wfc-author">Said by</label>
+      <input type="text" id="wfc-author">
+      <p class="help-text" id="wfc-quote-note"></p>
+
+      <p class="item-section-title">Focus of the week</p>
+      <label for="wfc-focus-title" style="margin-top:0;">Title</label>
+      <input type="text" id="wfc-focus-title" placeholder="e.g. Annual Planning is due">
+      <label for="wfc-focus-message">Message</label>
+      <textarea id="wfc-focus-message" rows="5"></textarea>
+
+      <p class="item-section-title">Checklist (up to 3)</p>
+      <input type="text" id="wfc-check-1" placeholder="Item 1">
+      <input type="text" id="wfc-check-2" placeholder="Item 2" style="margin-top:8px;">
+      <input type="text" id="wfc-check-3" placeholder="Item 3" style="margin-top:8px;">
+      <p class="help-text">Anything this sponsor left unticked last week is added automatically.</p>
+
+      <div class="wfc-actions">
+        <button type="button" class="secondary" id="wfc-preview">Preview email</button>
+        <button type="button" class="secondary" id="wfc-save-draft">Save draft</button>
+        <button type="button" id="wfc-save-ready">Save &amp; mark Ready</button>
+      </div>
+    </div>
+
+    <div id="wfc-preview-wrap" style="display:none;">
+      <p class="item-section-title" id="wfc-preview-title">Preview</p>
+      <iframe id="wfc-preview-frame" title="Email preview" sandbox=""></iframe>
+    </div>
+  </section>
+
   <!-- Screen 8: Daily Progress Notes — self-service question-version management -->
   <section id="screen-dpn-templates" class="screen">
     <button class="back-button" id="dpn-templates-back">&larr; Back</button>
@@ -648,7 +719,8 @@
     intakeDetail: document.getElementById('screen-intake-detail'),
     checklistDetail: document.getElementById('screen-checklist-detail'),
     dpnTemplates: document.getElementById('screen-dpn-templates'),
-    medicalDetail: document.getElementById('screen-medical-detail')
+    medicalDetail: document.getElementById('screen-medical-detail'),
+    weeklyCompose: document.getElementById('screen-weekly-compose')
   };
 
   let activeTabKey = 'mar'; // widens the page while the Sponsor Intake tab is showing
@@ -2191,15 +2263,27 @@
     const PLAN_LABELS = { sent: ['Sent', '#1B7A3D'], ready: ['Ready, not sent yet', '#2F5D45'], draft: ['Draft, not marked Ready', '#9A5B0E'], none: ['No message written', 'var(--error)'] };
     if (!data.plan.length) head.appendChild(wfEl('p', 'help-text', 'No sponsors with app access at your locations.'));
     data.plan.forEach(function (p) {
-      const row = wfEl('div', 'wf-plan-row');
+      const row = wfEl('div', 'wf-plan-row' + (p.state === 'sent' ? '' : ' clickable'));
+      if (p.state !== 'sent') {
+        row.title = 'Open in Compose';
+        row.addEventListener('click', function () { openWeeklyCompose(p.sponsorId, data.thisWeek); });
+      }
       const who = wfEl('div', null, p.name + ' · ' + p.location);
       if (p.focusTitle) who.appendChild(wfEl('div', 'help-text', p.focusTitle)).style.margin = '0';
       row.appendChild(who);
       const state = wfEl('span', 'wf-plan-state', PLAN_LABELS[p.state][0]);
       state.style.color = PLAN_LABELS[p.state][1];
+      if (p.state !== 'sent') state.appendChild(wfEl('span', 'wf-plan-edit', p.state === 'none' ? 'Write' : 'Edit'));
       row.appendChild(state);
       head.appendChild(row);
     });
+    const compose = wfEl('button', null, '+ Compose a message');
+    compose.type = 'button';
+    compose.style.width = 'auto';
+    compose.style.padding = '8px 14px';
+    compose.style.marginRight = '8px';
+    compose.addEventListener('click', function () { openWeeklyCompose('', ''); });
+    head.appendChild(compose);
     if (data.plan.some(function (p) { return p.state === 'ready'; })) {
       const send = wfEl('button', 'secondary', 'Send the Ready ones now');
       send.type = 'button';
@@ -2288,6 +2372,283 @@
     body.appendChild(wfEl('p', 'help-text', 'Green all good · Yellow discuss · Red contact ASAP · dashed no response · L answered late'));
     body.appendChild(detail);
   }
+
+  // --- Weekly Focus: Compose ---
+  // One sponsor's message for one week. Opens blank, or on the message
+  // they already have for that week (to edit until it's sent). "Start
+  // from last week" copies their previous message in as a starting point.
+  let wfcData = null;      // last get-weekly-focus-compose response
+  let wfcDirty = false;
+  let wfcLoading = false;
+  const wfcFieldIds = ['wfc-quote', 'wfc-author', 'wfc-focus-title', 'wfc-focus-message', 'wfc-check-1', 'wfc-check-2', 'wfc-check-3'];
+
+  function wfcVal(id) { return document.getElementById(id).value.trim(); }
+
+  function wfcReadForm() {
+    return {
+      quote: wfcVal('wfc-quote'),
+      quoteAuthor: wfcVal('wfc-author'),
+      focusTitle: wfcVal('wfc-focus-title'),
+      focusMessage: wfcVal('wfc-focus-message'),
+      checklist: [wfcVal('wfc-check-1'), wfcVal('wfc-check-2'), wfcVal('wfc-check-3')].filter(Boolean)
+    };
+  }
+
+  function wfcFillForm(m) {
+    m = m || {};
+    const checklist = m.checklist || [];
+    document.getElementById('wfc-quote').value = m.quote || '';
+    document.getElementById('wfc-author').value = m.quoteAuthor || '';
+    document.getElementById('wfc-focus-title').value = m.focusTitle || '';
+    document.getElementById('wfc-focus-message').value = m.focusMessage || '';
+    document.getElementById('wfc-check-1').value = checklist[0] || '';
+    document.getElementById('wfc-check-2').value = checklist[1] || '';
+    document.getElementById('wfc-check-3').value = checklist[2] || '';
+    document.getElementById('wfc-quote-note').textContent = '';
+  }
+
+  function wfcSetEditable(editable) {
+    wfcFieldIds.concat(['wfc-theme', 'wfc-suggest', 'wfc-save-draft', 'wfc-save-ready', 'wfc-start-previous']).forEach(function (id) {
+      document.getElementById(id).disabled = !editable;
+    });
+    document.querySelectorAll('#wfc-also input').forEach(function (el) { el.disabled = !editable; });
+  }
+
+  wfcFieldIds.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () { wfcDirty = true; });
+  });
+
+  function wfcConfirmDiscard() {
+    return !wfcDirty || confirm('Discard the changes you haven’t saved?');
+  }
+
+  function openWeeklyCompose(sponsorId, weekOf) {
+    wfcDirty = false;
+    document.getElementById('wfc-preview-wrap').style.display = 'none';
+    showScreen('weeklyCompose');
+    window.scrollTo(0, 0);
+    loadWeeklyCompose(weekOf || '', sponsorId || '');
+  }
+
+  document.getElementById('wfc-back').addEventListener('click', function () {
+    if (!wfcConfirmDiscard()) return;
+    wfcDirty = false;
+    showScreen('dashboard');
+    loadWeeklyDashboard();
+  });
+
+  async function loadWeeklyCompose(weekOf, sponsorId) {
+    wfcLoading = true;
+    setError('wfc-error', '');
+    const statusEl = document.getElementById('wfc-status');
+    statusEl.style.display = 'none';
+    try {
+      const qs = '?weekOf=' + encodeURIComponent(weekOf) + '&sponsorId=' + encodeURIComponent(sponsorId);
+      wfcData = await apiFetch('/get-weekly-focus-compose' + qs);
+    } catch (e) {
+      setError('wfc-error', e.message);
+      wfcLoading = false;
+      return;
+    }
+    const data = wfcData;
+
+    const weekSel = document.getElementById('wfc-week');
+    weekSel.innerHTML = '';
+    data.weeks.forEach(function (w) {
+      const o = document.createElement('option');
+      o.value = w.weekOf;
+      o.textContent = w.label;
+      weekSel.appendChild(o);
+    });
+    weekSel.value = data.weekOf;
+
+    const sponsorSel = document.getElementById('wfc-sponsor');
+    sponsorSel.innerHTML = '';
+    const pick = document.createElement('option');
+    pick.value = '';
+    pick.textContent = data.sponsors.length ? '— Choose a sponsor —' : 'No sponsors with app access at your locations';
+    sponsorSel.appendChild(pick);
+    data.sponsors.forEach(function (s) {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name + ' · ' + s.location;
+      sponsorSel.appendChild(o);
+    });
+    sponsorSel.value = data.sponsorId || '';
+
+    const theme = document.getElementById('wfc-theme');
+    if (!theme.options.length) {
+      ['Any theme'].concat(data.themes).forEach(function (t, i) {
+        const o = document.createElement('option');
+        o.value = i === 0 ? '' : t;
+        o.textContent = t;
+        theme.appendChild(o);
+      });
+    }
+
+    const form = document.getElementById('wfc-form');
+    const startPrev = document.getElementById('wfc-start-previous');
+    const alsoWrap = document.getElementById('wfc-also-wrap');
+    const also = document.getElementById('wfc-also');
+    also.innerHTML = '';
+
+    if (!data.sponsorId) {
+      form.style.display = 'none';
+      alsoWrap.style.display = 'none';
+      wfcLoading = false;
+      return;
+    }
+    form.style.display = '';
+    alsoWrap.style.display = '';
+
+    const existing = data.existing;
+    wfcFillForm(existing || {});
+    wfcDirty = false;
+
+    // "Also send to": other sponsors who don't already have a message this
+    // week (the server refuses a second one), plus anyone already on this row.
+    const onRow = new Set(existing ? existing.sponsorIds : []);
+    data.sponsors.forEach(function (s) {
+      const id = s.id.replace(/-/g, '').toLowerCase();
+      if (s.id === data.sponsorId) return;
+      if ((data.takenSponsorIds || []).indexOf(id) !== -1) return;
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = s.id;
+      box.checked = onRow.has(id);
+      box.addEventListener('change', function () { wfcDirty = true; });
+      label.appendChild(box);
+      label.appendChild(document.createTextNode(s.name + ' · ' + s.location));
+      also.appendChild(label);
+    });
+    alsoWrap.open = !!(existing && existing.sponsorIds.length > 1);
+
+    statusEl.style.display = '';
+    if (existing && existing.sent) {
+      statusEl.textContent = 'This message has already been sent, so it can’t be changed.';
+    } else if (existing) {
+      statusEl.textContent = (existing.ready ? 'Ready to send.' : 'Draft (not marked Ready yet).') +
+        (existing.sponsorNames.length > 1 ? ' Shared with: ' + existing.sponsorNames.join(', ') + '. Changes apply to all of them.' : '');
+    } else {
+      statusEl.textContent = 'No message for this sponsor this week yet.';
+    }
+    wfcSetEditable(!(existing && existing.sent));
+
+    if (data.previous && !(existing && existing.sent)) {
+      startPrev.style.display = '';
+      startPrev.textContent = 'Start from their message for the week of ' + wfShortDate(data.previous.weekOf);
+    } else {
+      startPrev.style.display = 'none';
+    }
+    wfcLoading = false;
+  }
+
+  function wfcReload() {
+    const weekSel = document.getElementById('wfc-week');
+    const sponsorSel = document.getElementById('wfc-sponsor');
+    if (!wfcConfirmDiscard()) {
+      weekSel.value = wfcData.weekOf;
+      sponsorSel.value = wfcData.sponsorId || '';
+      return;
+    }
+    wfcDirty = false;
+    document.getElementById('wfc-preview-wrap').style.display = 'none';
+    loadWeeklyCompose(weekSel.value, sponsorSel.value);
+  }
+  document.getElementById('wfc-week').addEventListener('change', wfcReload);
+  document.getElementById('wfc-sponsor').addEventListener('change', wfcReload);
+
+  document.getElementById('wfc-start-previous').addEventListener('click', function () {
+    const p = wfcData && wfcData.previous;
+    if (!p) return;
+    if (wfcReadForm().focusTitle && !confirm('Replace what’s in the form with their earlier message?')) return;
+    // The quote is left out on purpose: a fresh one each week.
+    wfcFillForm({ focusTitle: p.focusTitle, focusMessage: p.focusMessage, checklist: p.checklist });
+    wfcDirty = true;
+  });
+
+  // A random library quote in the chosen theme that this sponsor hasn't
+  // had in the last six months (and isn't the one already showing).
+  document.getElementById('wfc-suggest').addEventListener('click', function () {
+    const theme = document.getElementById('wfc-theme').value;
+    const recent = new Set((wfcData.recentQuotes || []).concat([wfcVal('wfc-quote')]));
+    let pool = wfcData.quotes.filter(function (q) { return (!theme || q.theme === theme) && !recent.has(q.text); });
+    let note = '';
+    if (!pool.length) {
+      pool = wfcData.quotes.filter(function (q) { return !theme || q.theme === theme; });
+      note = 'Every ' + (theme || '') + ' quote has been used for this sponsor recently, so this one is a repeat.';
+    }
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    document.getElementById('wfc-quote').value = q.text;
+    document.getElementById('wfc-author').value = q.author;
+    document.getElementById('wfc-quote-note').textContent = note || ('Theme: ' + q.theme + '. Press again for another.');
+    wfcDirty = true;
+  });
+
+  function wfcSelectedSponsorIds() {
+    const ids = [document.getElementById('wfc-sponsor').value];
+    document.querySelectorAll('#wfc-also input:checked').forEach(function (el) { ids.push(el.value); });
+    return ids.filter(Boolean);
+  }
+
+  document.getElementById('wfc-preview').addEventListener('click', async function () {
+    const btn = this;
+    setError('wfc-error', '');
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/preview-weekly-focus-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ weekOf: wfcData.weekOf, sponsorId: wfcData.sponsorId }, wfcReadForm()))
+      });
+      document.getElementById('wfc-preview-title').textContent = 'Preview: “' + res.subject + '” to ' + res.to;
+      document.getElementById('wfc-preview-frame').srcdoc = res.html;
+      document.getElementById('wfc-preview-wrap').style.display = '';
+      document.getElementById('wfc-preview-wrap').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      setError('wfc-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function wfcSave(ready) {
+    setError('wfc-error', '');
+    const fields = wfcReadForm();
+    if (!fields.focusTitle) {
+      setError('wfc-error', 'Add a Focus of the week title.');
+      return;
+    }
+    if (ready && !fields.quote && !confirm('There’s no quote. Mark it Ready anyway?')) return;
+    const buttons = ['wfc-save-draft', 'wfc-save-ready'].map(function (id) { return document.getElementById(id); });
+    buttons.forEach(function (b) { b.disabled = true; });
+    try {
+      await apiFetch('/save-weekly-focus-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({
+          id: wfcData.existing ? wfcData.existing.id : '',
+          weekOf: wfcData.weekOf,
+          sponsorIds: wfcSelectedSponsorIds(),
+          ready: ready
+        }, fields))
+      });
+      wfcDirty = false;
+      await loadWeeklyCompose(wfcData.weekOf, wfcData.sponsorId);
+      document.getElementById('wfc-status').textContent = ready
+        ? 'Saved and marked Ready. It goes out Tuesday 8:00 AM (or use Send the Ready ones now on the Weekly Focus tab).'
+        : 'Draft saved. Mark it Ready when it’s final.';
+      window.scrollTo(0, 0);
+    } catch (e) {
+      setError('wfc-error', e.message);
+    } finally {
+      buttons.forEach(function (b) { b.disabled = false; });
+      if (wfcData && wfcData.existing && wfcData.existing.sent) wfcSetEditable(false);
+    }
+  }
+  document.getElementById('wfc-save-draft').addEventListener('click', function () { wfcSave(false); });
+  document.getElementById('wfc-save-ready').addEventListener('click', function () { wfcSave(true); });
 
   // --- Screen 3d/6: Quarterly Reporting ---
   // Tied entirely to Annual Planning — no independent effective date, no

@@ -1724,6 +1724,29 @@ ever sees what was written for them.
    history grid; tap a square for that week's answer, comment, checklist
    and follow-up.
 
+**Compose** (Weekly Focus tab -> "+ Compose a message", or tap a sponsor
+in this week's list): the easy way to write the rows above without
+opening Notion. Pick the week (this week or the next three) and the
+sponsor; it opens their existing message for that week to edit, or a
+blank one. "Start from their message for the week of …" copies in their
+previous focus and checklist (never the quote). "Also send this same
+message to…" adds other sponsors to the same row (each gets a private
+copy; sponsors who already have a message that week aren't offered).
+**Preview email** shows exactly what that sponsor will receive, with
+their own carry-over and documentation count. Save draft, or Save & mark
+Ready. A message that has already been sent is read-only. A sponsor can
+only have one message per week (`save-weekly-focus-content` refuses a
+second).
+
+**Suggest a quote** picks from a hand-picked library
+(`lib/weekly-focus-quotes.js`, ~50 quotes in 7 themes: Kindness,
+Service, Teamwork, Perseverance, Hope, Self-care, Safety), optionally by
+theme, never one that sponsor has had in the last 26 weeks. It's a
+curated list rather than AI on purpose: these go out under the Executive
+Director's name, AI is known to invent quotes or misattribute them, and
+widely shared quotes with doubtful attributions are left out. Add more
+quotes to that file.
+
 **Carry-over:** checklist items a sponsor didn't tick roll into their
 next week as "Still open from the week of …", keeping the week they
 first appeared, until ticked. An item that's also on the new week's list
