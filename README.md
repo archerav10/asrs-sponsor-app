@@ -57,11 +57,18 @@ workflow as your other portals.
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
-| `MEDICAL_APPOINTMENTS_DB_ID` | Data Source ID of the new "Resident Medical Appointments" database — see Medical Appointments below |
 | `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
-| `WEEKLY_FOCUS_DB_ID` | `e0ab3391-ddb7-45d8-9ca6-9f1aed7f1a23` — the Weekly Focus content database |
-| `WEEKLY_FOCUS_RESPONSES_DB_ID` | `42a2aa61-dc05-4fe7-95fa-ca147346b783` — one row per sponsor per week |
-| `FACILITY_REPORTING_ROOT_FOLDER_ID` | Drive folder ID of `Facility Reporting` (`19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv`) — the root the Medical Appointments workflow walks down from |
+
+**Keep this list short.** AWS Lambda caps each function's environment
+at 4 KB in total, and this site has reached it: a deploy fails with
+"Your environment variables exceed the 4KB limit". New IDs that aren't
+secret (Notion data source IDs, Drive folder IDs) go in
+`netlify/functions/lib/ids.js` instead. That's where
+`MEDICAL_APPOINTMENTS_DB_ID`, `WEEKLY_FOCUS_DB_ID`,
+`WEEKLY_FOCUS_RESPONSES_DB_ID` and `FACILITY_REPORTING_ROOT_FOLDER_ID`
+live; an env var of the same name still overrides them. Turning off
+"Lambda compatibility mode" for functions in Netlify removes the limit
+altogether (https://ntl.fyi/functions-migrate).
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -1623,7 +1630,7 @@ sending a document the Zap can't place.
 
 **Notion setup** — the **Resident Medical Appointments** database
 (Data Source ID `389478b3-1169-4b1d-8dcb-abb37e621173`, in
-`MEDICAL_APPOINTMENTS_DB_ID`). Like every database here, it needs your
+`lib/ids.js`). Like every database here, it needs your
 integration connected to it ("..." -> Connections). Properties
 (this app never creates schema, only rows):
 
@@ -1656,7 +1663,7 @@ Zap. Its Catch Hook URL is what goes in
   resident's name never travels through the webhook payload. Posts from
   any site other than `asrs-sponsor-app.netlify.app` (or one of its
   deploy previews) are skipped.
-- Folder path: `Facility Reporting` (`FACILITY_REPORTING_ROOT_FOLDER_ID`)
+- Folder path: `Facility Reporting` (`FACILITY_REPORTING_ROOT_FOLDER_ID` in `lib/ids.js`)
   -> `{Location}` -> `Residents` -> `{Full Name}` -> `Medical
   Appointments`. The first three must already exist (find-only, so a
   missing or misspelled folder fails loudly in Zapier instead of
@@ -1774,8 +1781,8 @@ another week); `&preview=<sponsor email>` returns that sponsor's actual
 email as a page. It never sends or writes anything.
 
 **Setup:** both databases are created; connect your Notion integration
-to each ("..." -> Connections). New env vars: `WEEKLY_FOCUS_DB_ID`,
-`WEEKLY_FOCUS_RESPONSES_DB_ID`, optional `WEEKLY_FOCUS_REPLY_TO`
+to each ("..." -> Connections). Their IDs are in `lib/ids.js`. Optional
+env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
 

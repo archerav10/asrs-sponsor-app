@@ -1,4 +1,5 @@
 const { decryptToken } = require('./lib/crypto');
+const { id: configId } = require('./lib/ids');
 
 // Zapier-facing: tells the Medical Appointments workflow where an
 // uploaded document goes. Same shape as sponsor-intake-resolve-upload:
@@ -20,8 +21,7 @@ exports.handler = async function (event) {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const rootFolderId = process.env.FACILITY_REPORTING_ROOT_FOLDER_ID;
-    if (!rootFolderId) return json(500, { error: 'FACILITY_REPORTING_ROOT_FOLDER_ID is not set.' });
+    const rootFolderId = configId('FACILITY_REPORTING_ROOT_FOLDER_ID');
 
     let ticket;
     try {

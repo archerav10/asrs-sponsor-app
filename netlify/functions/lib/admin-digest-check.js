@@ -320,7 +320,6 @@ async function buildAdminDigests(today, now) {
 // for the admin's granted locations only. Sponsor comments are left out
 // of the email; they're on the dashboard's Weekly Focus tab.
 async function loadWeeklyFocusData(now) {
-  if (!process.env.WEEKLY_FOCUS_RESPONSES_DB_ID) return null;
   const thisWeek = wf.weekOfFor(now);
   const since = wf.addDaysISO(thisWeek, -7 * 7);
   const results = await Promise.all([wf.responsesSince(since), wf.openFollowUps()]);

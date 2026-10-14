@@ -1,8 +1,10 @@
 const { queryDatabase, queryDatabaseAll, createPage, updatePage, getPage, getPlainText } = require('./notion');
 const { getResidentDayWalk } = require('./daily-progress-notes');
 
-const WEEKLY_FOCUS_DB_ID = process.env.WEEKLY_FOCUS_DB_ID;
-const RESPONSES_DB_ID = process.env.WEEKLY_FOCUS_RESPONSES_DB_ID;
+const { id: configId } = require('./ids');
+
+const WEEKLY_FOCUS_DB_ID = configId('WEEKLY_FOCUS_DB_ID');
+const RESPONSES_DB_ID = configId('WEEKLY_FOCUS_RESPONSES_DB_ID');
 const SPONSORS_DB_ID = process.env.SPONSORS_DB_ID;
 
 // The Sponsored Residential Weekly Focus. Each week is keyed by its

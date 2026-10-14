@@ -1,7 +1,9 @@
 const { queryDatabaseAll, createPage, getPlainText, queryDatabase } = require('./notion');
 const { findAllQuestionRows } = require('./daily-progress-notes');
 
-const MEDICAL_APPOINTMENTS_DB_ID = process.env.MEDICAL_APPOINTMENTS_DB_ID;
+const { id: configId } = require('./ids');
+
+const MEDICAL_APPOINTMENTS_DB_ID = configId('MEDICAL_APPOINTMENTS_DB_ID');
 const MAR_DB_ID = process.env.MAR_DB_ID;
 
 // Every appointment is its own row (an append-only log, never one row
