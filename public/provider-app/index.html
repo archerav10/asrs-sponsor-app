@@ -630,6 +630,24 @@
   .wf-done { border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 15px; display: none; }
   .wf-past { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 0 0 8px; font-weight: 400; font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
   .wf-past.current { border-color: var(--forest-light); }
+  .status-dot.status-unknown { background: #C9C3B3; }
+  .mc-overall { display: flex; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 14px 16px; margin-bottom: 14px; }
+  .mc-light { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; color: #fff; font-size: 20px; font-weight: 700; }
+  .mc-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .mc-pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; }
+  .mc-group { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--forest-light); font-weight: 700; margin: 18px 0 8px; }
+  .mc-area { border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-bottom: 8px; }
+  .mc-area summary { list-style: none; cursor: pointer; display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
+  .mc-area summary::-webkit-details-marker { display: none; }
+  .mc-area-text { flex: 1; min-width: 0; }
+  .mc-area-text b { display: block; font-size: 15px; }
+  .mc-area-text span { display: block; font-size: 13px; color: #666; }
+  .mc-chev { color: #999; transition: transform .15s; }
+  .mc-area[open] .mc-chev { transform: rotate(90deg); }
+  .mc-detail { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px 8px 36px; border-top: 1px solid var(--border); font-size: 14px; }
+  .mc-detail .mc-d-text { color: #555; text-align: right; }
+  .mc-detail .mc-d-text.flag { color: var(--error); font-weight: 600; }
+  .mc-detail .mc-d-text.soon { color: #6B5200; font-weight: 600; }
   .wf-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px; font-family: inherit; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
 </style>
 </head>
@@ -674,6 +692,11 @@
       <p class="meta" id="home-meta"></p>
       <p class="meta site-visit" id="home-site-visit"></p>
     </div>
+
+    <button type="button" class="action-button wf-home-button" id="home-compliance">
+      <span class="wf-home-title"><span id="home-compliance-dot" class="status-dot"></span><span>My Home's Compliance</span></span>
+      <span class="sub" id="home-compliance-status">Checking&hellip;</span>
+    </button>
 
     <button type="button" class="action-button wf-home-button" id="home-weekly-focus" style="display:none;">
       <span class="wf-home-title"><span id="home-wf-dot" class="status-dot status-green"></span><span>Weekly Focus check-in</span></span>
@@ -763,6 +786,17 @@
     <div class="confirm-bar">
       <button id="fa-confirm">Confirm Everything Is Correct</button>
     </div>
+  </section>
+
+  <!-- My Home's Compliance -->
+  <section id="screen-compliance" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">My Home's Compliance</p>
+    <p class="help-text" id="mc-meta" style="margin-top:-6px;"></p>
+    <p class="error-text" id="mc-error"></p>
+    <div id="mc-body"><p class="help-text">Checking&hellip;</p></div>
   </section>
 
   <!-- Weekly Focus check-in -->
@@ -1084,7 +1118,8 @@
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
     giveMeds: document.getElementById('screen-give-meds'),
-    weeklyFocus: document.getElementById('screen-weekly-focus')
+    weeklyFocus: document.getElementById('screen-weekly-focus'),
+    compliance: document.getElementById('screen-compliance')
   };
 
   function getStoredSession() {
@@ -1265,6 +1300,7 @@
     renderGiveMedsButtons(session.residentInitials);
     loadInfoStatuses(session);
     loadHomeWeeklyFocus(session);
+    loadHomeCompliance();
   }
 
   // Last/Next Site Visit come from the admin dashboard's Monthly
@@ -3683,6 +3719,104 @@
         body.appendChild(b);
       });
     }
+  }
+
+  // --- My Home's Compliance ---
+  // One light per area for this sponsor's home (lib/compliance.js decides
+  // every color). Grouped the way sponsors think about it: residents,
+  // training, and the home itself.
+  const MC_GROUPS = [
+    { label: 'Residents', keys: ['medical', 'annual', 'quarterly'] },
+    { label: 'Training', keys: ['training'] },
+    { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
+  ];
+  const MC_COLORS = { green: '#1B7A3D', yellow: '#C9A227', red: 'var(--error)', unknown: '#C9C3B3' };
+
+  async function loadHomeCompliance() {
+    const dot = document.getElementById('home-compliance-dot');
+    const statusEl = document.getElementById('home-compliance-status');
+    dot.className = 'status-dot status-unknown';
+    statusEl.textContent = 'Checking…';
+    try {
+      const data = await apiFetch('/get-my-compliance');
+      dot.className = 'status-dot status-' + data.overall;
+      const flagged = data.counts.red + data.counts.yellow;
+      statusEl.textContent = flagged
+        ? flagged + ' area' + (flagged === 1 ? ' needs' : 's need') + ' attention'
+        : 'Everything is current';
+    } catch (e) {
+      statusEl.textContent = 'Tap to check';
+    }
+  }
+
+  document.getElementById('home-compliance').addEventListener('click', function () {
+    showScreen('compliance');
+    window.scrollTo(0, 0);
+    loadCompliance();
+  });
+
+  async function loadCompliance() {
+    const body = document.getElementById('mc-body');
+    setError('mc-error', '');
+    body.innerHTML = '<p class="help-text">Checking&hellip;</p>';
+    let data;
+    try {
+      data = await apiFetch('/get-my-compliance');
+    } catch (e) {
+      body.innerHTML = '';
+      setError('mc-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+    document.getElementById('mc-meta').textContent = data.location + ' · as of ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const overall = wfEl('div', 'mc-overall');
+    const light = wfEl('div', 'mc-light', data.overall === 'green' ? '✓' : '!');
+    light.style.background = MC_COLORS[data.overall];
+    overall.appendChild(light);
+    const txt = wfEl('div');
+    txt.appendChild(wfEl('div', null, data.overall === 'green' ? 'Everything is current' : data.overall === 'yellow' ? 'Some items are coming due' : 'Some items are overdue or missing')).style.fontWeight = '700';
+    const counts = wfEl('div', 'mc-counts');
+    [['green', 'Green', '#E3F1E7', '#1B7A3D'], ['yellow', 'Yellow', '#FBF3D6', '#6B5200'], ['red', 'Red', '#FDEDEC', '#B3261E']].forEach(function (c) {
+      if (!data.counts[c[0]]) return;
+      const pill = wfEl('span', 'mc-pill', data.counts[c[0]] + ' ' + c[1]);
+      pill.style.background = c[2];
+      pill.style.color = c[3];
+      counts.appendChild(pill);
+    });
+    txt.appendChild(counts);
+    overall.appendChild(txt);
+    body.appendChild(overall);
+
+    const byKey = {};
+    data.areas.forEach(function (a) { byKey[a.key] = a; });
+    MC_GROUPS.forEach(function (group) {
+      body.appendChild(wfEl('p', 'mc-group', group.label));
+      group.keys.forEach(function (key) {
+        const a = byKey[key];
+        if (!a) return;
+        const det = wfEl('details', 'mc-area');
+        const sum = wfEl('summary');
+        const d = wfEl('span', 'status-dot status-' + a.status);
+        sum.appendChild(d);
+        const t = wfEl('span', 'mc-area-text');
+        t.appendChild(wfEl('b', null, a.label));
+        t.appendChild(wfEl('span', null, a.summary));
+        sum.appendChild(t);
+        // A one-line area (e.g. Fire Drill) already says it all in its summary.
+        const rows = a.details.filter(function (item) { return item.label !== a.label; });
+        if (rows.length) sum.appendChild(wfEl('span', 'mc-chev', '›'));
+        det.appendChild(sum);
+        rows.forEach(function (item) {
+          const row = wfEl('div', 'mc-detail');
+          row.appendChild(wfEl('span', null, item.label));
+          row.appendChild(wfEl('span', 'mc-d-text' + (item.status === 'red' ? ' flag' : item.status === 'yellow' ? ' soon' : ''), item.text));
+          det.appendChild(row);
+        });
+        body.appendChild(det);
+      });
+    });
+    body.appendChild(wfEl('p', 'help-text', 'Green: up to date · Yellow: coming due · Red: overdue, expired or missing. Tap an area for details.'));
   }
 
   // --- Restore existing session on load ---

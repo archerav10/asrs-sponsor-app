@@ -318,6 +318,23 @@
   .wf-plan-row.clickable { cursor: pointer; }
   .wf-plan-row.clickable:hover { background: var(--cream); }
   .wf-plan-edit { font-size: 12px; color: var(--forest); text-decoration: underline; margin-left: 8px; }
+  .cp-card { border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-bottom: 10px; }
+  .cp-card > summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+  .cp-card > summary::-webkit-details-marker { display: none; }
+  .cp-head { display: flex; align-items: center; gap: 10px; }
+  .cp-head .cp-name { flex: 1; font-weight: 600; font-size: 15px; }
+  .cp-head .cp-sub { font-size: 13px; color: #666; font-weight: 400; }
+  .cp-lights { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 10px; }
+  .cp-light { text-align: center; font-size: 10px; color: #777; line-height: 1.2; }
+  .cp-light .status-dot { display: block; margin: 0 auto 3px; width: 14px; height: 14px; }
+  .status-dot.status-unknown { background: #C9C3B3; }
+  .cp-area { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+  .cp-area-head { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .cp-area-sum { font-size: 13px; color: #666; margin: 2px 0 0 19px; }
+  .cp-detail { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin: 3px 0 0 19px; }
+  .cp-detail .flag { color: var(--error); font-weight: 600; }
+  .cp-detail .soon { color: #6B5200; font-weight: 600; }
+  .cp-detail .ok { color: #666; }
   .wfc-quote-tools { display: flex; gap: 8px; align-items: center; }
   .wfc-quote-tools select { flex: 1; padding: 10px 12px; font-size: 15px; }
   .wfc-quote-tools button { width: auto; margin: 0; padding: 10px 14px; white-space: nowrap; }
@@ -410,6 +427,7 @@
       <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
       <button class="tab-button" id="tab-medical" type="button">Medical</button>
       <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
+      <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
     </div>
 
     <div id="mar-tab-content">
@@ -478,6 +496,12 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor gets their own message, Tuesday 8:00 AM, with a reminder Thursday 9:00 AM. Write one row per sponsor in the <a href="https://app.notion.com/p/22c16ee844474b5fa688b53bac27c507" target="_blank" rel="noopener">Weekly Focus</a> database (pick the Sponsor) and check Ready to Send.</p>
       <p class="error-text" id="weekly-dashboard-error"></p>
       <div id="weekly-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="compliance-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor's home, exactly as they see it in the app under My Home's Compliance. Tap a sponsor for details.</p>
+      <p class="error-text" id="compliance-dashboard-error"></p>
+      <div id="compliance-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -1018,7 +1042,8 @@
     checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard },
     dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard },
     medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
-    weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard }
+    weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
+    compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -2656,6 +2681,113 @@
   }
   document.getElementById('wfc-save-draft').addEventListener('click', function () { wfcSave(false); });
   document.getElementById('wfc-save-ready').addEventListener('click', function () { wfcSave(true); });
+
+  // --- Compliance (all sponsors) ---
+  // Lists every sponsor, then loads each one's home separately so a slow
+  // home never holds up (or times out) the whole tab.
+  const CP_SHORT = { medical: 'Medical', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
+  const CP_ORDER = ['medical', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
+  let cpLoadId = 0;
+
+  function cpRenderCard(card, sponsor, data) {
+    card.innerHTML = '';
+    const sum = wfEl('summary');
+    const head = wfEl('div', 'cp-head');
+    head.appendChild(wfEl('span', 'status-dot status-' + (data ? data.overall : 'unknown')));
+    const name = wfEl('span', 'cp-name', sponsor.name);
+    name.appendChild(wfEl('div', 'cp-sub', sponsor.residents.length ? 'Residents: ' + sponsor.residents.join(', ') : 'No residents assigned'));
+    head.appendChild(name);
+    if (data) {
+      const flagged = data.counts.red + data.counts.yellow;
+      head.appendChild(wfEl('span', 'cp-sub', flagged ? flagged + ' need attention' : 'All current'));
+    } else {
+      head.appendChild(wfEl('span', 'cp-sub', 'Checking…'));
+    }
+    sum.appendChild(head);
+    if (data) {
+      const byKey = {};
+      data.areas.forEach(function (a) { byKey[a.key] = a; });
+      const lights = wfEl('div', 'cp-lights');
+      CP_ORDER.forEach(function (key) {
+        const a = byKey[key];
+        const l = wfEl('div', 'cp-light');
+        l.appendChild(wfEl('span', 'status-dot status-' + (a ? a.status : 'unknown')));
+        l.appendChild(document.createTextNode(CP_SHORT[key]));
+        l.title = a ? a.label + ': ' + a.summary : '';
+        lights.appendChild(l);
+      });
+      sum.appendChild(lights);
+    }
+    card.appendChild(sum);
+    if (!data) return;
+
+    // Details, worst first.
+    const rank = { red: 0, yellow: 1, unknown: 2, green: 3 };
+    data.areas.slice().sort(function (a, b) { return rank[a.status] - rank[b.status]; }).forEach(function (a) {
+      const block = wfEl('div', 'cp-area');
+      const h = wfEl('div', 'cp-area-head');
+      h.appendChild(wfEl('span', 'status-dot status-' + a.status));
+      h.appendChild(document.createTextNode(a.label));
+      block.appendChild(h);
+      block.appendChild(wfEl('div', 'cp-area-sum', a.summary));
+      a.details.filter(function (d) { return d.status !== 'green' && d.label !== a.label; }).forEach(function (d) {
+        const row = wfEl('div', 'cp-detail');
+        row.appendChild(wfEl('span', null, d.label));
+        row.appendChild(wfEl('span', d.status === 'red' ? 'flag' : 'soon', d.text));
+        block.appendChild(row);
+      });
+      card.appendChild(block);
+    });
+  }
+
+  async function loadComplianceDashboard() {
+    const loadId = ++cpLoadId;
+    const body = document.getElementById('compliance-dashboard-body');
+    setError('compliance-dashboard-error', '');
+    body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    let data;
+    try {
+      data = await apiFetch('/get-compliance-sponsors');
+    } catch (e) {
+      body.innerHTML = '';
+      setError('compliance-dashboard-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+    if (!data.sponsors.length) {
+      body.innerHTML = '<p class="empty-text">No sponsors with app access at your locations.</p>';
+      return;
+    }
+    let lastLocation = null;
+    const jobs = [];
+    data.sponsors.forEach(function (sponsor) {
+      if (sponsor.location !== lastLocation) {
+        lastLocation = sponsor.location;
+        body.appendChild(wfEl('p', 'location-title', sponsor.location));
+      }
+      const card = wfEl('details', 'cp-card');
+      cpRenderCard(card, sponsor, null);
+      body.appendChild(card);
+      jobs.push(function () {
+        return apiFetch('/get-sponsor-compliance?sponsorId=' + encodeURIComponent(sponsor.id))
+          .then(function (res) { if (loadId === cpLoadId) cpRenderCard(card, sponsor, res); })
+          .catch(function (e) {
+            if (loadId !== cpLoadId) return;
+            card.innerHTML = '';
+            const s = wfEl('summary');
+            s.appendChild(wfEl('span', 'cp-name', sponsor.name + ': couldn’t check (' + e.message + ')'));
+            card.appendChild(s);
+          });
+      });
+    });
+    // A few at a time, so a long list doesn't flood Notion with requests.
+    let next = 0;
+    function worker() {
+      if (next >= jobs.length || loadId !== cpLoadId) return Promise.resolve();
+      return jobs[next++]().then(worker);
+    }
+    await Promise.all([worker(), worker(), worker()]);
+  }
 
   // --- Screen 3d/6: Quarterly Reporting ---
   // Tied entirely to Annual Planning — no independent effective date, no

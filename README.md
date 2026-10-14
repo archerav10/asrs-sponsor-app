@@ -1786,6 +1786,37 @@ env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
 
+### My Home's Compliance (tenth process — one view of every area)
+
+**Sponsor App:** a **My Home's Compliance** button on Home, with the
+home's overall light and "N areas need attention". It opens a screen
+with one light per area, grouped Residents / Training / Home, each with
+a one-line reason and, tapped, the detail (per resident, per staff
+member). **Admin Dashboard -> Compliance tab:** every sponsor with app
+access at your locations, grouped by home, with all eight lights in a
+row; tap a sponsor for the same detail they see, worst first. The tab
+lists sponsors first (`get-compliance-sponsors`) and then loads each
+home separately (`get-sponsor-compliance`, three at a time) so one slow
+home never holds up or times out the page.
+
+All the rules live in `lib/compliance.js` (`homeCompliance`), built on
+each area's own helpers so its lights agree with the area's own screens:
+
+| Area | Rule |
+|---|---|
+| Residents' Medical | Physical, Dental, Labwork, TB Test each due 12 months after the last one; yellow 30 days before; red when overdue or none on file |
+| Annual Planning | yellow once the 6-week window opens (the screen unlocks); red once past due, or when a resident has no Annual Planning on file |
+| Quarterly Reporting | each quarter due 15 days after it ends; yellow in the last 7 of those days; red after |
+| Training & Certification | per staff member at the home: yellow 30 days before an item expires; red when expired or any item never completed |
+| First Aid, Emergency Supplies, Physical Environment, Fire Drill | unchanged from the Home screen's own lights (`lib/report-due-date.js`) |
+
+Resident areas use the sponsor's own residents (`Resident Initials` on
+their Sponsors row). An area whose lookup fails shows grey "Couldn't
+check right now" and doesn't count toward the overall light. The Home
+screen's existing Annual Planning and Quarterly Reporting dots now use
+the same rules as this card (they used to turn yellow only 7 days before
+due, and had no 15-day quarterly deadline).
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not

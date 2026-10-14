@@ -1,16 +1,16 @@
 const { requireSession } = require('./lib/session');
 const { findRecordsForResident, computeAnnualPlanningWindow } = require('./lib/annual-planning');
-const { statusForDaysUntilDue, worstOf } = require('./lib/report-due-date');
+const { worstOf } = require('./lib/report-due-date');
+const { annualStatus } = require('./lib/compliance');
 
 // Read-only, sponsor-facing traffic light — no steps, no folder link, no
 // finalize action. Sponsors see only whether each of their residents is on
-// track (green), coming due within a week (yellow), or overdue (red); the
-// actual Annual Planning workflow stays on the admin dashboard.
+// track (green), in its 6-week window (yellow), or overdue (red) — the
+// same rule as My Home's Compliance (lib/compliance.js); the actual
+// Annual Planning workflow stays on the admin dashboard.
 function statusForWindow(windowState) {
   if (!windowState.hasCycle) return 'green';
-  if (windowState.isFinalizedForTarget) return 'green';
-  if (!windowState.isWindowOpen) return 'green';
-  return statusForDaysUntilDue(Math.ceil((windowState.dueDate.getTime() - Date.now()) / 86400000));
+  return annualStatus(windowState).status;
 }
 
 exports.handler = async function (event) {
