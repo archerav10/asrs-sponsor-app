@@ -1639,8 +1639,11 @@ integration connected to it ("..." -> Connections). Properties
 
 **Upload workflow** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — a
 Zapier code workflow, "ASRS Medical Appointment Uploads"
-(`zapier/medical-appointment-uploads.workflow.ts`), built the same way
-as the Sponsor Intake uploads one rather than a click-built Zap:
+(`zapier/medical-appointment-uploads.workflow.ts`; editor:
+https://zapier.com/workflow/01a137f5-10f2-7158-bdd8-cdf87cb41462), built
+the same way as the Sponsor Intake uploads one rather than a click-built
+Zap. Its Catch Hook URL is what goes in
+`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`:
 
 - The browser sends only `file`, `ticket` and `site` to its Catch Hook.
   `get-medical-appointment-upload-config.js` issues the ticket: an
