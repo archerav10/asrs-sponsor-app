@@ -58,7 +58,8 @@ workflow as your other portals.
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 | `MEDICAL_APPOINTMENTS_DB_ID` | Data Source ID of the new "Resident Medical Appointments" database — see Medical Appointments below |
-| `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL from your "Medical Appointments" Zap — see Medical Appointments below |
+| `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
+| `FACILITY_REPORTING_ROOT_FOLDER_ID` | Drive folder ID of `Facility Reporting` (`19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv`) — the root the Medical Appointments workflow walks down from |
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -1618,9 +1619,10 @@ resident with no template on file gets a warning on their screen and
 uploads are refused until a full name is added there — better than
 sending a document the Zap can't place.
 
-**Notion setup** — create a database named **Resident Medical
-Appointments**, connect your integration to it ("..." -> Connections),
-and put its Data Source ID in `MEDICAL_APPOINTMENTS_DB_ID`. Properties
+**Notion setup** — the **Resident Medical Appointments** database
+(Data Source ID `389478b3-1169-4b1d-8dcb-abb37e621173`, in
+`MEDICAL_APPOINTMENTS_DB_ID`). Like every database here, it needs your
+integration connected to it ("..." -> Connections). Properties
 (this app never creates schema, only rows):
 
 | Property | Type |
@@ -1635,32 +1637,35 @@ and put its Data Source ID in `MEDICAL_APPOINTMENTS_DB_ID`. Properties
 | `Logged Date` | Date |
 | `Active` | Checkbox |
 
-**Zap setup** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — same shape
-as the Medication Administration Records Zap above:
+**Upload workflow** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — a
+Zapier code workflow, "ASRS Medical Appointment Uploads"
+(`zapier/medical-appointment-uploads.workflow.ts`), built the same way
+as the Sponsor Intake uploads one rather than a click-built Zap:
 
-1. Webhooks by Zapier -> Catch Hook. Copy its URL into
-   `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`. Incoming fields: `file`,
-   `filename` (built server-side as
-   `YYYY-MM-DD_Medical_{TypeKey}_{Location}_{ResidentInitials}.ext`,
-   date first so the folder sorts chronologically), `location`,
-   `residentInitials`, `residentFullName`, `appointmentType` (the
-   label, e.g. "TB Test") and `appointmentDate`.
-2. Google Drive -> Find a Folder, title = `location`, inside your
-   facilities root folder. Find-only.
-3. Google Drive -> Find a Folder, title `Residents`, inside step 2.
-   Find-only.
-4. Google Drive -> Find a Folder, title = `residentFullName`, inside
-   step 3. Find-only.
-5. Google Drive -> Find a Folder, title `Medical Appointments`, inside
-   step 4, **create if it doesn't exist**.
-6. Google Drive -> Upload File, folder = step 5, file = `file`,
-   filename = `filename`.
-7. Publish the Zap.
+- The browser sends only `file`, `ticket` and `site` to its Catch Hook.
+  `get-medical-appointment-upload-config.js` issues the ticket: an
+  encrypted, 2-hour pass naming the location, the resident's full name
+  and the final filename. The workflow trades it at
+  `medical-appointment-resolve-upload.js` for where the file goes, so a
+  leaked webhook URL alone can't write into a resident's folder, and the
+  resident's name never travels through the webhook payload. Posts from
+  any site other than `asrs-sponsor-app.netlify.app` (or one of its
+  deploy previews) are skipped.
+- Folder path: `Facility Reporting` (`FACILITY_REPORTING_ROOT_FOLDER_ID`)
+  -> `{Location}` -> `Residents` -> `{Full Name}` -> `Medical
+  Appointments`. The first three must already exist (find-only, so a
+  missing or misspelled folder fails loudly in Zapier instead of
+  scattering files into a new one); `Medical Appointments` is created on
+  first use.
+- Filename: `YYYY-MM-DD_Medical_{TypeKey}_{Location}_{ResidentInitials}.ext`,
+  date first so the folder sorts chronologically.
 
 **New files:** `lib/medical-appointments.js`,
 `get-medical-appointments-oversight.js`, `get-medical-appointments.js`,
 `get-medical-appointment-upload-config.js` (also builds the filename
-and checks type/date *before* the upload), `save-medical-appointment.js`.
+and checks type/date *before* the upload), `save-medical-appointment.js`,
+`medical-appointment-resolve-upload.js`, and the workflow source in
+`zapier/medical-appointment-uploads.workflow.ts`.
 
 ## Weekly admin email digest
 

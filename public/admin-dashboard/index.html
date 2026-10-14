@@ -1893,14 +1893,13 @@
         '&appointmentDate=' + encodeURIComponent(appointmentDate) +
         '&extension=' + encodeURIComponent(extension));
 
+      // Only the file and the ticket go to Zapier — the workflow trades
+      // the ticket for the resident's folder at
+      // medical-appointment-resolve-upload.
       const formData = new FormData();
       formData.append('file', file, config.filename);
-      formData.append('filename', config.filename);
-      formData.append('location', currentMedicalLocation);
-      formData.append('residentInitials', currentMedicalResident);
-      formData.append('residentFullName', config.residentFullName);
-      formData.append('appointmentType', typeLabel);
-      formData.append('appointmentDate', appointmentDate);
+      formData.append('ticket', config.ticket);
+      formData.append('site', window.location.origin);
 
       const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
       if (!uploadRes.ok) {

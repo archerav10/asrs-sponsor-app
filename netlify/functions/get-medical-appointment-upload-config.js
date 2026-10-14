@@ -1,14 +1,20 @@
 const { requireSession } = require('./lib/session');
+const { encryptToken } = require('./lib/crypto');
 const { residentsForLocation, residentFullNameFor, validateAppointmentInput, buildFilename } = require('./lib/medical-appointments');
+
+const TICKET_TTL_SECONDS = 2 * 60 * 60;
 
 // Everything the browser needs to upload an appointment document
 // straight to Drive via Zapier — same "don't route file bytes through a
-// Netlify function" pattern as the other upload configs. No folder ID:
-// the Zap finds the resident's folder by name (Location -> Residents ->
-// full name -> Medical Appointments), the same chain the Medication
-// Administration Report upload uses, so there's no one-time folder link
-// to set up per resident. The filename is built here too, so the browser
-// and the saved Notion row can never disagree about it.
+// Netlify function" pattern as the other upload configs. Like Sponsor
+// Intake, the browser gets a short-lived encrypted ticket instead of any
+// folder details; the workflow trades it at
+// medical-appointment-resolve-upload for where the file goes (Facility
+// Reporting -> Location -> Residents -> full name -> Medical
+// Appointments). So a leaked webhook URL alone can't write into a
+// resident's folder, and the resident's name never travels through the
+// webhook payload. The filename is built here too, so the browser and
+// the saved Notion row can never disagree about it.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -51,13 +57,17 @@ exports.handler = async function (event) {
       };
     }
 
+    const filename = buildFilename(params.appointmentDate, params.typeKey, location, resident, params.extension || '');
+    const ticket = encryptToken({
+      kind: 'medical-upload',
+      location: location,
+      residentFullName: residentFullName,
+      filename: filename
+    }, TICKET_TTL_SECONDS);
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        webhookUrl: webhookUrl,
-        residentFullName: residentFullName,
-        filename: buildFilename(params.appointmentDate, params.typeKey, location, resident, params.extension || '')
-      })
+      body: JSON.stringify({ webhookUrl: webhookUrl, filename: filename, ticket: ticket })
     };
   } catch (err) {
     console.error(err);
