@@ -16,7 +16,7 @@ exports.handler = async function (event) {
 
   try {
     const result = job.job === 'send'
-      ? await runWeeklySend({ weekOf: job.weekOf, force: !!job.force })
+      ? await runWeeklySend({ weekOf: job.weekOf })
       : await runReminders({ weekOf: job.weekOf });
     console.log('Weekly Focus ' + job.job + ' finished: ' + JSON.stringify(result));
   } catch (e) {

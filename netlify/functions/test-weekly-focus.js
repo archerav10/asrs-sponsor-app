@@ -18,12 +18,12 @@ exports.handler = async function (event) {
     const weekOf = params.weekOf || wf.weekOfFor(new Date());
 
     if (params.preview) {
-      const content = await wf.contentForWeek(weekOf);
-      if (!content) return { statusCode: 404, body: 'No Weekly Focus row for ' + weekOf + '.' };
       const sponsor = (await wf.activeSponsors()).filter(function (s) {
         return s.email.toLowerCase() === params.preview.toLowerCase();
       })[0];
       if (!sponsor) return { statusCode: 404, body: 'No active sponsor with that email.' };
+      const content = wf.rowsForSponsor(await wf.contentsForWeek(weekOf), sponsor.id)[0];
+      if (!content) return { statusCode: 404, body: 'No Ready Weekly Focus row for ' + sponsor.name + ' for the week of ' + weekOf + '.' };
       const history = await wf.responsesForSponsor(sponsor.email);
       const previous = history.filter(function (r) { return r.weekOf < weekOf; })[0] || null;
       const docs = await wf.documentationStatus(sponsor.location, sponsor.residentInitials);
@@ -33,7 +33,7 @@ exports.handler = async function (event) {
 
     const result = params.job === 'remind'
       ? await runReminders({ weekOf: weekOf, dryRun: true })
-      : await runWeeklySend({ weekOf: weekOf, dryRun: true, force: true });
+      : await runWeeklySend({ weekOf: weekOf, dryRun: true });
     return { statusCode: 200, body: JSON.stringify(result, null, 2) };
   } catch (err) {
     console.error(err);

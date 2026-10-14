@@ -313,6 +313,9 @@
   .wf-cell.selected { outline: 3px solid var(--forest-light); outline-offset: 1px; }
   .wf-detail { margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 14px; font-size: 14px; }
   .wf-detail ul { margin: 6px 0 0; padding-left: 18px; }
+  .wf-plan-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .wf-plan-row:first-of-type { margin-top: 10px; }
+  .wf-plan-state { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
   @media (max-width: 520px) { .wf-tiles { grid-template-columns: repeat(2, 1fr); } }
   .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
   .dpn-t-version-card {
@@ -461,7 +464,7 @@
     </div>
 
     <div id="weekly-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Goes to every sponsor Tuesday 8:00 AM, reminder Thursday 9:00 AM. Write each week in the <a href="https://app.notion.com/p/22c16ee844474b5fa688b53bac27c507" target="_blank" rel="noopener">Weekly Focus</a> database and check Ready to Send.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor gets their own message, Tuesday 8:00 AM, with a reminder Thursday 9:00 AM. Write one row per sponsor in the <a href="https://app.notion.com/p/22c16ee844474b5fa688b53bac27c507" target="_blank" rel="noopener">Weekly Focus</a> database (pick the Sponsor) and check Ready to Send.</p>
       <p class="error-text" id="weekly-dashboard-error"></p>
       <div id="weekly-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
@@ -2150,7 +2153,7 @@
 
   function renderWeeklyDetail(detailEl, sponsor, week, entry) {
     detailEl.innerHTML = '';
-    detailEl.appendChild(wfEl('div', null, sponsor.name + ' · ' + sponsor.location + ' · week of ' + wfShortDate(week.weekOf) + (week.focusTitle ? ' · ' + week.focusTitle : ''))).style.fontWeight = '700';
+    detailEl.appendChild(wfEl('div', null, sponsor.name + ' · ' + sponsor.location + ' · week of ' + wfShortDate(week.weekOf) + (entry.focusTitle ? ' · ' + entry.focusTitle : ''))).style.fontWeight = '700';
     detailEl.appendChild(wfEl('div', null, WF_LABELS[entry.status] + (entry.late ? ' (answered late)' : '') + (entry.respondedAt ? ' · ' + wfDateTime(entry.respondedAt) : '')));
     if (entry.comment) detailEl.appendChild(wfEl('p', null, '“' + entry.comment + '”')).style.margin = '6px 0 0';
     if (entry.checklist && entry.checklist.length) {
@@ -2181,22 +2184,29 @@
     }
     body.innerHTML = '';
 
-    // This week
+    // This week: each sponsor has their own message.
     const head = wfEl('div', 'home-card');
-    head.appendChild(wfEl('p', 'name', 'Week of ' + wfShortDate(data.thisWeek) + (data.content && data.content.focusTitle ? ' · ' + data.content.focusTitle : '')));
-    let state;
-    if (!data.content) state = 'No row for this week in the Weekly Focus database yet.';
-    else if (!data.content.ready) state = 'Not marked Ready to Send yet.';
-    else if (!data.content.sent) state = 'Ready. Goes out Tuesday 8:00 AM, or send it now.';
-    else state = 'Sent. Responses due ' + new Date(data.dueDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + '.';
-    head.appendChild(wfEl('p', 'meta', state));
-    if (data.content && data.content.ready) {
-      const send = wfEl('button', 'secondary', data.content.sent ? 'Send to anyone who didn’t get it' : 'Send now');
+    head.appendChild(wfEl('p', 'name', 'Week of ' + wfShortDate(data.thisWeek)));
+    head.appendChild(wfEl('p', 'meta', 'Responses due ' + new Date(data.dueDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + '.'));
+    const PLAN_LABELS = { sent: ['Sent', '#1B7A3D'], ready: ['Ready, not sent yet', '#2F5D45'], draft: ['Draft, not marked Ready', '#9A5B0E'], none: ['No message written', 'var(--error)'] };
+    if (!data.plan.length) head.appendChild(wfEl('p', 'help-text', 'No sponsors with app access at your locations.'));
+    data.plan.forEach(function (p) {
+      const row = wfEl('div', 'wf-plan-row');
+      const who = wfEl('div', null, p.name + ' · ' + p.location);
+      if (p.focusTitle) who.appendChild(wfEl('div', 'help-text', p.focusTitle)).style.margin = '0';
+      row.appendChild(who);
+      const state = wfEl('span', 'wf-plan-state', PLAN_LABELS[p.state][0]);
+      state.style.color = PLAN_LABELS[p.state][1];
+      row.appendChild(state);
+      head.appendChild(row);
+    });
+    if (data.plan.some(function (p) { return p.state === 'ready'; })) {
+      const send = wfEl('button', 'secondary', 'Send the Ready ones now');
       send.type = 'button';
       send.style.width = 'auto';
       send.style.padding = '8px 14px';
       send.addEventListener('click', async function () {
-        if (!confirm('Send this week’s Weekly Focus now? Sponsors who already have it are skipped.')) return;
+        if (!confirm('Send now to every sponsor whose message is Ready and not sent yet?')) return;
         send.disabled = true;
         try {
           await apiFetch('/admin-weekly-focus-send-now', { method: 'POST' });

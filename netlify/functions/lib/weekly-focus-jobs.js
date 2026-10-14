@@ -22,41 +22,39 @@ async function sendHtmlEmail(toEmail, toName, email) {
   });
 }
 
-// options: { weekOf, dryRun, now, force }
-//   force — send even though the content row is already marked Sent
-//   (still never sends twice to the same sponsor).
+// options: { weekOf, dryRun, now }
+// Each sponsor gets the Ready row addressed to them (see
+// rowsForSponsor). Sponsors with no Ready row are skipped. Afterwards
+// every admin gets one text listing who it went to and who was skipped,
+// so a forgotten sponsor never goes unnoticed. Safe to re-run: a sponsor
+// who already has this week's response row is skipped, which is also what
+// lets a row marked Ready after Tuesday morning go out with Send now.
 async function runWeeklySend(options) {
   options = options || {};
   const now = options.now || new Date();
   const weekOf = options.weekOf || wf.weekOfFor(now);
-  const content = await wf.contentForWeek(weekOf);
-
-  if (!content || !content.ready) {
-    const result = { weekOf: weekOf, sent: false, reason: content ? 'not-ready' : 'no-content' };
-    if (!options.dryRun) {
-      const admins = await allEnabledAdmins();
-      for (const admin of admins) {
-        try { await sendSms(admin.phone, mail.noContentText(weekOf)); } catch (e) { console.error('No-content alert failed for ' + admin.name, e); }
-      }
-      result.adminsAlerted = admins.length;
-    }
-    return result;
-  }
-  if (content.sent && !options.force) {
-    return { weekOf: weekOf, sent: false, reason: 'already-sent' };
-  }
-
+  const contents = await wf.contentsForWeek(weekOf);
   const sponsors = await wf.activeSponsors();
   const existing = await wf.responsesForWeek(weekOf);
   const alreadyHave = new Set(existing.map(function (r) { return r.sponsorEmail.toLowerCase(); }));
   const results = [];
+  const usedRows = new Set();
+  const sentTo = [], skipped = [], duplicates = [], failed = [];
 
   for (const sponsor of sponsors) {
     if (alreadyHave.has(sponsor.email.toLowerCase())) {
       results.push({ sponsor: sponsor.name, skipped: 'already-sent' });
       continue;
     }
-    const entry = { sponsor: sponsor.name, email: sponsor.email };
+    const rows = wf.rowsForSponsor(contents, sponsor.id);
+    if (!rows.length) {
+      skipped.push(sponsor.name);
+      results.push({ sponsor: sponsor.name, skipped: 'no-ready-row' });
+      continue;
+    }
+    if (rows.length > 1) duplicates.push(sponsor.name);
+    const content = rows[0];
+    const entry = { sponsor: sponsor.name, email: sponsor.email, row: content.focusTitle || content.id };
     try {
       const history = await wf.responsesForSponsor(sponsor.email);
       const previous = history.filter(function (r) { return r.weekOf < weekOf; })[0] || null;
@@ -73,7 +71,8 @@ async function runWeeklySend(options) {
       } else {
         // The row first: if the email then fails, the sponsor can still
         // check in from the app, and a re-run won't double-send.
-        await wf.createResponse(sponsor, weekOf, checklist, docsBehind);
+        await wf.createResponse(sponsor, weekOf, content.id, checklist, docsBehind);
+        usedRows.add(content.id);
         await sendHtmlEmail(sponsor.email, sponsor.name, email);
         entry.emailed = true;
         await sleep(1100); // EmailJS: 1 request/second
@@ -86,15 +85,30 @@ async function runWeeklySend(options) {
           }
         }
       }
+      sentTo.push(sponsor.name);
     } catch (e) {
       console.error('Weekly Focus send failed for ' + sponsor.email, e);
       entry.error = e.message;
+      failed.push(sponsor.name);
     }
     results.push(entry);
   }
 
-  if (!options.dryRun) await wf.markContentSent(content.id);
-  return { weekOf: weekOf, sent: !options.dryRun, dryRun: !!options.dryRun, results: results };
+  const summary = { sentTo: sentTo, skipped: skipped, duplicates: duplicates, failed: failed };
+  if (!options.dryRun) {
+    for (const id of usedRows) {
+      try { await wf.markContentSent(id); } catch (e) { console.error('Could not mark ' + id + ' sent', e); }
+    }
+    // Only worth a text when something happened or someone was missed —
+    // a re-run that found nothing new stays quiet.
+    if (sentTo.length || skipped.length || failed.length) {
+      const admins = await allEnabledAdmins();
+      for (const admin of admins) {
+        try { await sendSms(admin.phone, mail.sendSummaryText(weekOf, summary)); } catch (e) { console.error('Send summary failed for ' + admin.name, e); }
+      }
+    }
+  }
+  return Object.assign({ weekOf: weekOf, dryRun: !!options.dryRun, results: results }, summary);
 }
 
 // Thursday morning: one reminder (email, plus a text if they've opted

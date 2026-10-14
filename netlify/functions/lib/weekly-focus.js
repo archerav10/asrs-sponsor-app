@@ -6,10 +6,14 @@ const RESPONSES_DB_ID = process.env.WEEKLY_FOCUS_RESPONSES_DB_ID;
 const SPONSORS_DB_ID = process.env.SPONSORS_DB_ID;
 
 // The Sponsored Residential Weekly Focus. Each week is keyed by its
-// "Week Of" date — the Tuesday it goes out (America/New_York). You write
-// one row of content per week in the Weekly Focus database; sending it
-// creates one Weekly Focus Responses row per sponsor (Status: Pending),
-// which the sponsor's check-in then fills in. Responses are due Thursday;
+// "Week Of" date — the Tuesday it goes out (America/New_York). Sponsors
+// are independent contractors with their own priorities, so there is no
+// shared message: each Weekly Focus row names the sponsor(s) it's for
+// (the Sponsor relation), and a sponsor only ever gets a row addressed
+// to them. Picking several sponsors on one row sends each of them the
+// same message, privately. Sending creates one Weekly Focus Responses row
+// per sponsor (Status: Pending) that remembers which row they were sent
+// (Content ID); the sponsor's check-in then fills it in. Responses are due Thursday;
 // a late answer is still taken (and flagged Late) until the next week
 // goes out, after which that week is read-only.
 
@@ -62,8 +66,12 @@ function richText(s) {
 
 // ---- Content (one row per week) ----
 
+// Notion page IDs come back dashed from the API but undashed elsewhere.
+function normId(id) { return String(id || '').replace(/-/g, '').toLowerCase(); }
+
 function contentFromPage(page) {
   const p = page.properties;
+  const sponsorIds = ((p['Sponsor'] && p['Sponsor'].relation) || []).map(function (r) { return normId(r.id); });
   const checklist = ['Checklist 1', 'Checklist 2', 'Checklist 3']
     .map(function (k) { return (getPlainText(p[k]) || '').trim(); })
     .filter(Boolean);
@@ -75,15 +83,33 @@ function contentFromPage(page) {
     focusTitle: getPlainText(p['Focus Title']),
     focusMessage: getPlainText(p['Focus Message']),
     checklist: checklist,
+    sponsorIds: sponsorIds,
     ready: !!getPlainText(p['Ready to Send']),
     sent: !!getPlainText(p['Sent'])
   };
 }
 
-async function contentForWeek(weekOf) {
-  const result = await queryDatabase(WEEKLY_FOCUS_DB_ID, { property: 'Week Of', date: { equals: weekOf } });
-  const page = (result.results || [])[0];
-  return page ? contentFromPage(page) : null;
+// Every row for a week (one per sponsor, or shared by a few).
+async function contentsForWeek(weekOf) {
+  const pages = await queryDatabaseAll(WEEKLY_FOCUS_DB_ID, { property: 'Week Of', date: { equals: weekOf } });
+  return pages.map(contentFromPage);
+}
+
+async function contentById(id) {
+  if (!id) return null;
+  try {
+    return contentFromPage(await getPage(id));
+  } catch (e) {
+    return null; // deleted since it was sent
+  }
+}
+
+// The row a given sponsor should get this week: Ready rows addressed to
+// them. More than one is a mistake on the Notion side; the first is used
+// and the caller reports the duplicate.
+function rowsForSponsor(contents, sponsorId) {
+  const id = normId(sponsorId);
+  return contents.filter(function (c) { return c.ready && c.sponsorIds.indexOf(id) !== -1; });
 }
 
 async function contentSince(weekOf) {
@@ -178,6 +204,7 @@ function responseFromPage(page) {
     comment: getPlainText(p['Comment']),
     checklist: parseChecklist(getPlainText(p['Checklist'])),
     docsBehind: getPlainText(p['Docs Behind']) || 0,
+    contentId: getPlainText(p['Content ID']),
     respondedAt: getPlainText(p['Responded At']),
     late: !!getPlainText(p['Late']),
     reminderSent: !!getPlainText(p['Reminder Sent']),
@@ -241,7 +268,7 @@ function buildChecklist(content, previousResponse) {
   return items;
 }
 
-async function createResponse(sponsor, weekOf, checklist, docsBehind) {
+async function createResponse(sponsor, weekOf, contentId, checklist, docsBehind) {
   const page = await createPage(RESPONSES_DB_ID, {
     'Record Title': { title: [{ text: { content: weekOf + ' - ' + sponsor.name } }] },
     'Week Of': { date: { start: weekOf } },
@@ -250,7 +277,8 @@ async function createResponse(sponsor, weekOf, checklist, docsBehind) {
     'Location': { select: sponsor.location ? { name: sponsor.location } : null },
     'Status': { select: { name: 'Pending' } },
     'Checklist': richText(JSON.stringify(checklist)),
-    'Docs Behind': { number: docsBehind }
+    'Docs Behind': { number: docsBehind },
+    'Content ID': richText(contentId)
   });
   return responseFromPage(page);
 }
@@ -303,7 +331,10 @@ module.exports = {
   weekOfFor,
   dueDateFor,
   formatWeekLabel,
-  contentForWeek,
+  normId,
+  contentsForWeek,
+  contentById,
+  rowsForSponsor,
   contentSince,
   markContentSent,
   activeSponsors,

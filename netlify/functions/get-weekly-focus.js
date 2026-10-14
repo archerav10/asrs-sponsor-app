@@ -23,14 +23,15 @@ exports.handler = async function (event) {
     }
 
     const response = (params.weekOf && history.filter(function (r) { return r.weekOf === params.weekOf; })[0]) || history[0];
+    // Each week's content is the row this sponsor was actually sent.
     const results = await Promise.all([
-      wf.contentForWeek(response.weekOf),
+      wf.contentById(response.contentId),
       wf.contentSince(history[history.length - 1].weekOf),
       wf.documentationStatus(session.location, session.residentInitials)
     ]);
     const content = results[0];
     const titles = {};
-    results[1].forEach(function (c) { titles[c.weekOf] = c.focusTitle; });
+    results[1].forEach(function (c) { titles[wf.normId(c.id)] = c.focusTitle; });
 
     return {
       statusCode: 200,
@@ -58,7 +59,7 @@ exports.handler = async function (event) {
         } : null,
         documentation: results[2],
         pastWeeks: history.map(function (r) {
-          return { weekOf: r.weekOf, focusTitle: titles[r.weekOf] || '', status: r.status, late: r.late };
+          return { weekOf: r.weekOf, focusTitle: titles[wf.normId(r.contentId)] || '', status: r.status, late: r.late };
         })
       })
     };

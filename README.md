@@ -1674,15 +1674,21 @@ and checks type/date *before* the upload), `save-medical-appointment.js`,
 
 ### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
 
-A weekly communication to every sponsor with app access (`Provider App
-Enabled`), plus a required check-in. Each sponsor's is private to them.
+A weekly communication to each sponsor with app access (`Provider App
+Enabled`), plus a required check-in. Sponsors are independent
+contractors with their own priorities, so **every message is
+individual**: there's no shared "everyone" version, and a sponsor only
+ever sees what was written for them.
 
 **The week, end to end**
 
 1. **You write it** in the **Weekly Focus** Notion database
-   (`WEEKLY_FOCUS_DB_ID`): one row per week, `Week Of` = that week's
-   Tuesday, with Quote, Quote Author, Focus Title, Focus Message and up
-   to three Checklist items. Check **Ready to Send** when it's final.
+   (`WEEKLY_FOCUS_DB_ID`): one row per sponsor per week. Pick the
+   **Sponsor** (a relation to Sponsors; pick several to send the same
+   message to each of them, privately), set `Week Of` to that week's
+   Tuesday, and fill in Quote, Quote Author, Focus Title, Focus Message
+   and up to three Checklist items. Check **Ready to Send** when it's
+   final. A sponsor with no Ready row that week gets nothing.
 2. **Tuesday 8:00 AM Eastern** (`weekly-focus-send`): every sponsor
    gets a branded email (`lib/weekly-focus-email.js` — the same layout
    and EmailJS template as Sponsor Intake, `EMAILJS_INTAKE_TEMPLATE_ID`)
@@ -1690,9 +1696,10 @@ Enabled`), plus a required check-in. Each sponsor's is private to them.
    The email has no resident details: the documentation check is a count
    ("1 resident's notes need attention") and the Green/Yellow/Red
    buttons open the sponsor app's check-in, after login, with that
-   answer preselected. If that week's row is missing or not Ready,
-   nothing is sent and every admin gets a text instead; fix the row and
-   use **Send now** on the dashboard.
+   answer preselected. Afterwards every admin gets one text: who it went
+   to, and who had no Ready row (and was skipped). Mark a late row Ready
+   and use **Send the Ready ones now** on the dashboard to send just
+   those.
 3. **The check-in** (Sponsor App, "Weekly Focus check-in" button on
    Home, or the email's links): quote, focus, checklist to tick, each of
    the sponsor's residents' Daily Progress Notes status (days behind,
@@ -1710,8 +1717,9 @@ Enabled`), plus a required check-in. Each sponsor's is private to them.
 6. **Friday's admin digest** now opens with a Weekly Focus section:
    counts, open Yellow/Red follow-ups from any week, who hasn't answered
    (with "N weeks in a row"), and carried-over checklist items.
-7. **Admin Dashboard -> Weekly Focus tab:** this week's status and
-   counts, **Send now**, open follow-ups with **Mark followed up** and a
+7. **Admin Dashboard -> Weekly Focus tab:** each sponsor's status for
+   this week (Sent / Ready / Draft / No message written), counts,
+   **Send the Ready ones now**, open follow-ups with **Mark followed up** and a
    note (they stay open across weeks until marked), and an 8-week
    history grid; tap a square for that week's answer, comment, checklist
    and follow-up.
@@ -1724,7 +1732,9 @@ isn't repeated.
 **Data:** the **Weekly Focus Responses** database
 (`WEEKLY_FOCUS_RESPONSES_DB_ID`) has one row per sponsor per week,
 created at send time as Pending, so "no response" and history need no
-extra bookkeeping. The checklist is stored as JSON in `Checklist`.
+extra bookkeeping. `Content ID` records exactly which Weekly Focus row
+that sponsor was sent, so their check-in and history always show their
+own message. The checklist is stored as JSON in `Checklist`.
 
 **Timing and limits:** the schedules fire at two UTC hours and only act
 at 8:00 / 9:00 Eastern, so the time is right in both daylight and

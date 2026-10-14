@@ -151,9 +151,14 @@ function redAlertText(response) {
     baseUrl() + '/admin-dashboard/';
 }
 
-function noContentText(weekOf) {
-  return 'ASRS Weekly Focus: nothing was sent this morning. The week of ' + formatWeekLabel(weekOf) +
-    ' has no row in the Weekly Focus database marked Ready to Send. Fill it in and check Ready, then use "Send now" on the dashboard.';
+// One text to admins after each send: who got it, who didn't.
+function sendSummaryText(weekOf, summary) {
+  const parts = ['ASRS Weekly Focus, week of ' + formatWeekLabel(weekOf) + ':'];
+  parts.push(summary.sentTo.length ? 'Sent to ' + summary.sentTo.join(', ') + '.' : 'Nothing was sent.');
+  if (summary.skipped.length) parts.push('No Ready row for: ' + summary.skipped.join(', ') + '. Add one and use Send now on the dashboard if they should get one.');
+  if (summary.failed.length) parts.push('Failed for: ' + summary.failed.join(', ') + ' (see the dashboard).');
+  if (summary.duplicates.length) parts.push('More than one Ready row for: ' + summary.duplicates.join(', ') + ' (the first was used).');
+  return parts.join(' ');
 }
 
-module.exports = { weeklyEmail, weeklyText, reminderText, reminderEmail, redAlertText, noContentText, checkInUrl, baseUrl };
+module.exports = { weeklyEmail, weeklyText, reminderText, reminderEmail, redAlertText, sendSummaryText, checkInUrl, baseUrl };
