@@ -329,6 +329,7 @@
   .cp-light .status-dot { display: block; margin: 0 auto 3px; width: 14px; height: 14px; }
   .status-dot.status-unknown { background: #C9C3B3; }
   .cp-area { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+  .cp-group { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--forest-light); font-weight: 700; padding: 10px 14px 4px; border-top: 1px solid var(--border); }
   .cp-area-head { display: flex; gap: 8px; align-items: center; font-weight: 600; }
   .cp-area-sum { font-size: 13px; color: #666; margin: 2px 0 0 19px; }
   .cp-detail { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin: 3px 0 0 19px; }
@@ -2721,22 +2722,34 @@
     card.appendChild(sum);
     if (!data) return;
 
-    // Details, worst first.
-    const rank = { red: 0, yellow: 1, unknown: 2, green: 3 };
-    data.areas.slice().sort(function (a, b) { return rank[a.status] - rank[b.status]; }).forEach(function (a) {
-      const block = wfEl('div', 'cp-area');
-      const h = wfEl('div', 'cp-area-head');
-      h.appendChild(wfEl('span', 'status-dot status-' + a.status));
-      h.appendChild(document.createTextNode(a.label));
-      block.appendChild(h);
-      block.appendChild(wfEl('div', 'cp-area-sum', a.summary));
-      a.details.filter(function (d) { return d.status !== 'green' && d.label !== a.label; }).forEach(function (d) {
-        const row = wfEl('div', 'cp-detail');
-        row.appendChild(wfEl('span', null, d.label));
-        row.appendChild(wfEl('span', d.status === 'red' ? 'flag' : 'soon', d.text));
-        block.appendChild(row);
+    // Details: exactly what the sponsor sees under My Home's Compliance —
+    // every item, same groups, same order.
+    const groups = [
+      { label: 'Residents', keys: ['medical', 'annual', 'quarterly'] },
+      { label: 'Training', keys: ['training'] },
+      { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
+    ];
+    const byKeyAll = {};
+    data.areas.forEach(function (a) { byKeyAll[a.key] = a; });
+    groups.forEach(function (group) {
+      card.appendChild(wfEl('div', 'cp-group', group.label));
+      group.keys.forEach(function (key) {
+        const a = byKeyAll[key];
+        if (!a) return;
+        const block = wfEl('div', 'cp-area');
+        const h = wfEl('div', 'cp-area-head');
+        h.appendChild(wfEl('span', 'status-dot status-' + a.status));
+        h.appendChild(document.createTextNode(a.label));
+        block.appendChild(h);
+        block.appendChild(wfEl('div', 'cp-area-sum', a.summary));
+        a.details.filter(function (d) { return d.label !== a.label; }).forEach(function (d) {
+          const row = wfEl('div', 'cp-detail');
+          row.appendChild(wfEl('span', null, d.label));
+          row.appendChild(wfEl('span', d.status === 'red' ? 'flag' : d.status === 'yellow' ? 'soon' : 'ok', d.text));
+          block.appendChild(row);
+        });
+        card.appendChild(block);
       });
-      card.appendChild(block);
     });
   }
 
