@@ -126,14 +126,6 @@ function weeklyEmail(sponsor, content, checklist, docsBehind) {
   return { subject: 'Your Weekly Focus · Week of ' + weekLabel, html: html };
 }
 
-function weeklyText(sponsor, weekOf) {
-  return 'Good morning ' + firstName(sponsor.name) + '! Your ASRS Weekly Focus check-in is ready. Please respond by Thursday: ' + checkInUrl(weekOf);
-}
-
-function reminderText(sponsor, weekOf) {
-  return 'Friendly reminder from ASRS: your Weekly Focus check-in is due today. ' + checkInUrl(weekOf);
-}
-
 function reminderEmail(sponsor, weekOf) {
   const html = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1C1C1A">' +
     '<p>Hi ' + esc(firstName(sponsor.name)) + ',</p>' +
@@ -147,7 +139,7 @@ function reminderEmail(sponsor, weekOf) {
 // anything that might mention a resident. The admin reads it in the
 // dashboard.
 function redAlertText(response) {
-  return 'ASRS Weekly Focus: ' + response.sponsorName + ' (' + response.location + ') answered "Please contact me ASAP". Please call them. Details: ' +
+  return 'ASRS Weekly Focus: ' + response.sponsorName + ' (' + response.location + ') answered "Please contact me ASAP"' + (response.channel === 'Text' ? ' by text' : '') + '. Please call them. Details: ' +
     baseUrl() + '/admin-dashboard/';
 }
 
@@ -161,4 +153,4 @@ function sendSummaryText(weekOf, summary) {
   return parts.join(' ');
 }
 
-module.exports = { weeklyEmail, weeklyText, reminderText, reminderEmail, redAlertText, sendSummaryText, checkInUrl, baseUrl };
+module.exports = { weeklyEmail, reminderEmail, redAlertText, sendSummaryText, checkInUrl, baseUrl };

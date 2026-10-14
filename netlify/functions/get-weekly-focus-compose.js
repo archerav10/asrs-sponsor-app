@@ -2,6 +2,7 @@ const { requireSession } = require('./lib/session');
 const wf = require('./lib/weekly-focus');
 const { THEMES, QUOTES } = require('./lib/weekly-focus-quotes');
 const { weekOptions, sponsorsFor, requireAdmin } = require('./lib/weekly-focus-compose');
+const { channelFor } = require('./lib/weekly-focus-jobs');
 
 const RECENT_QUOTE_WEEKS = 26;
 
@@ -26,7 +27,7 @@ exports.handler = async function (event) {
     const result = {
       weeks: weeks,
       weekOf: weekOf,
-      sponsors: sponsors.map(function (s) { return { id: s.id, name: s.name, location: s.location }; }),
+      sponsors: sponsors.map(function (s) { return { id: s.id, name: s.name, location: s.location, channel: channelFor(s) }; }),
       themes: THEMES,
       quotes: QUOTES
     };

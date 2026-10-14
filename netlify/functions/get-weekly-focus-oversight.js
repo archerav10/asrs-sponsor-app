@@ -64,6 +64,7 @@ exports.handler = async function (event) {
         late: r.late,
         focusTitle: titles[wf.normId(r.contentId)] || '',
         comment: r.comment,
+        channel: r.channel,
         checklist: r.checklist,
         respondedAt: r.respondedAt,
         followedUp: r.followedUp,
@@ -85,7 +86,7 @@ exports.handler = async function (event) {
         plan: plan,
         counts: thisWeeksRows.length ? counts : null,
         followUps: results[3].filter(mine).map(function (r) {
-          return { responseId: r.id, weekOf: r.weekOf, sponsorName: r.sponsorName, location: r.location, status: r.status, comment: r.comment, respondedAt: r.respondedAt };
+          return { responseId: r.id, weekOf: r.weekOf, sponsorName: r.sponsorName, location: r.location, status: r.status, comment: r.comment, channel: r.channel, respondedAt: r.respondedAt };
         }),
         weeks: weeks.map(function (w) { return { weekOf: w }; }),
         sponsors: Object.keys(sponsors).map(function (k) { return sponsors[k]; })

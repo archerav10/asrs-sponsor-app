@@ -618,6 +618,7 @@
     <select id="wfc-week"></select>
     <label for="wfc-sponsor">Sponsor</label>
     <select id="wfc-sponsor"></select>
+    <p class="help-text" id="wfc-channel-note" style="display:none;"></p>
     <details id="wfc-also-wrap" style="margin-top:10px;">
       <summary style="cursor:pointer; color: var(--forest); font-size: 14px;">Also send this same message to&hellip;</summary>
       <p class="help-text">Each sponsor you tick gets their own private copy. Sponsors who already have a message this week aren't listed.</p>
@@ -651,10 +652,10 @@
       <input type="text" id="wfc-check-1" placeholder="Item 1">
       <input type="text" id="wfc-check-2" placeholder="Item 2" style="margin-top:8px;">
       <input type="text" id="wfc-check-3" placeholder="Item 3" style="margin-top:8px;">
-      <p class="help-text">Anything this sponsor left unticked last week is added automatically.</p>
+      <p class="help-text" id="wfc-check-help">Anything this sponsor left unticked last week is added automatically.</p>
 
       <div class="wfc-actions">
-        <button type="button" class="secondary" id="wfc-preview">Preview email</button>
+        <button type="button" class="secondary" id="wfc-preview">Preview</button>
         <button type="button" class="secondary" id="wfc-save-draft">Save draft</button>
         <button type="button" id="wfc-save-ready">Save &amp; mark Ready</button>
       </div>
@@ -2222,7 +2223,7 @@
     const card = wfEl('div', 'wf-followup ' + f.status.toLowerCase());
     const top = wfEl('div');
     top.appendChild(wfEl('span', 'who', (f.status === 'Red' ? '🔴 ' : '🟡 ') + f.sponsorName + ' · ' + f.location));
-    top.appendChild(wfEl('div', 'when', 'Week of ' + wfShortDate(f.weekOf) + (f.respondedAt ? ' · answered ' + wfDateTime(f.respondedAt) : '')));
+    top.appendChild(wfEl('div', 'when', 'Week of ' + wfShortDate(f.weekOf) + (f.respondedAt ? ' · answered ' + (f.channel === 'Text' ? 'by text ' : '') + wfDateTime(f.respondedAt) : '')));
     card.appendChild(top);
     if (f.comment) card.appendChild(wfEl('p', 'comment', '“' + f.comment + '”'));
     const note = document.createElement('textarea');
@@ -2252,7 +2253,7 @@
   function renderWeeklyDetail(detailEl, sponsor, week, entry) {
     detailEl.innerHTML = '';
     detailEl.appendChild(wfEl('div', null, sponsor.name + ' · ' + sponsor.location + ' · week of ' + wfShortDate(week.weekOf) + (entry.focusTitle ? ' · ' + entry.focusTitle : ''))).style.fontWeight = '700';
-    detailEl.appendChild(wfEl('div', null, WF_LABELS[entry.status] + (entry.late ? ' (answered late)' : '') + (entry.respondedAt ? ' · ' + wfDateTime(entry.respondedAt) : '')));
+    detailEl.appendChild(wfEl('div', null, WF_LABELS[entry.status] + (entry.late ? ' (answered late)' : '') + (entry.respondedAt ? ' · ' + wfDateTime(entry.respondedAt) : '') + (entry.channel === 'Text' ? ' · sent by text' : '')));
     if (entry.comment) detailEl.appendChild(wfEl('p', null, '“' + entry.comment + '”')).style.margin = '6px 0 0';
     if (entry.checklist && entry.checklist.length) {
       const list = wfEl('ul');
@@ -2497,10 +2498,20 @@
     data.sponsors.forEach(function (s) {
       const o = document.createElement('option');
       o.value = s.id;
-      o.textContent = s.name + ' · ' + s.location;
+      o.textContent = s.name + ' · ' + s.location + (s.channel === 'Text' ? ' · by text' : '');
       sponsorSel.appendChild(o);
     });
     sponsorSel.value = data.sponsorId || '';
+    const chosen = data.sponsors.filter(function (s) { return s.id === sponsorSel.value; })[0];
+    const byText = !!chosen && chosen.channel === 'Text';
+    const channelNote = document.getElementById('wfc-channel-note');
+    channelNote.style.display = chosen ? '' : 'none';
+    channelNote.textContent = byText
+      ? 'Goes out as a text message (this sponsor has opted in to texts). They answer by replying 1, 2 or 3. Keep the message short; Preview shows how many text segments it uses.'
+      : 'Goes out by email.';
+    document.getElementById('wfc-check-help').textContent = byText
+      ? 'Text check-ins have no boxes to tick, so nothing carries over from last week.'
+      : 'Anything this sponsor left unticked last week is added automatically.';
 
     const theme = document.getElementById('wfc-theme');
     if (!theme.options.length) {
@@ -2628,14 +2639,24 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(Object.assign({ weekOf: wfcData.weekOf, sponsorId: wfcData.sponsorId }, wfcReadForm()))
       });
-      document.getElementById('wfc-preview-title').textContent = 'Preview: “' + res.subject + '” to ' + res.to;
       // Rendered in a shadow root rather than an iframe: the email's own
       // inline styles stay isolated from the dashboard either way, and a
       // shadow root can't be blocked the way some browsers block frames.
       // The HTML is built server-side with every field escaped.
       const host = document.getElementById('wfc-preview-host');
       const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
-      shadow.innerHTML = res.html;
+      if (res.channel === 'Text') {
+        document.getElementById('wfc-preview-title').textContent = 'Preview: text message to ' + res.to;
+        shadow.innerHTML = '<div style="background:#f2f2f7;padding:18px 14px;font:15px/1.38 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">' +
+          '<div class="bubble" style="max-width:340px;background:#e5e5ea;color:#1c1c1e;border-radius:18px;border-bottom-left-radius:5px;padding:10px 14px;white-space:pre-wrap"></div>' +
+          '<p class="seg" style="font-size:12px;color:#6b6b70;margin:10px 2px 0"></p></div>';
+        shadow.querySelector('.bubble').textContent = res.text;
+        shadow.querySelector('.seg').textContent = 'Arrives as one message. Billed as ' + res.segments + ' text segment' + (res.segments === 1 ? '' : 's') + '.' +
+          (res.segments > 4 ? ' Shortening the message would lower that.' : '');
+      } else {
+        document.getElementById('wfc-preview-title').textContent = 'Preview: “' + res.subject + '” to ' + res.to;
+        shadow.innerHTML = res.html;
+      }
       shadow.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); }); });
       document.getElementById('wfc-preview-wrap').style.display = '';
       document.getElementById('wfc-preview-wrap').scrollIntoView({ behavior: 'smooth' });

@@ -1,17 +1,13 @@
 const { requireSession } = require('./lib/session');
-const { recipientsForLocation, allEnabledAdmins } = require('./lib/notification-recipients');
-const { sendSms } = require('./lib/twilio');
 const wf = require('./lib/weekly-focus');
-const { redAlertText } = require('./lib/weekly-focus-email');
+const { alertAdminsRed } = require('./lib/weekly-focus-alert');
 
 const MAX_COMMENT = 4000;
 
 // Saves a sponsor's check-in. Can be changed as often as they like while
 // the week is still open (until the next week goes out); answering after
 // Thursday is accepted and marked Late. Choosing Red texts the admins for
-// the sponsor's location right away — every admin with app access there,
-// regardless of the routine-notification opt-out, the same as a Serious
-// Incident alert, because Red means "contact me ASAP".
+// the sponsor's location right away (see weekly-focus-alert.js).
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -49,19 +45,7 @@ exports.handler = async function (event) {
     const saved = await wf.saveResponse(response, status, comment, doneIndexes);
 
     let adminsAlerted = 0;
-    if (status === 'Red' && !wasRed) {
-      let admins = (await recipientsForLocation(saved.location)).filter(function (r) { return r.role === 'admin'; });
-      // Nobody granted this location: a Red must still reach someone.
-      if (!admins.length) admins = await allEnabledAdmins();
-      for (const admin of admins) {
-        try {
-          await sendSms(admin.phone, redAlertText(saved));
-          adminsAlerted++;
-        } catch (e) {
-          console.error('Weekly Focus Red alert failed for ' + admin.name, e);
-        }
-      }
-    }
+    if (status === 'Red' && !wasRed) adminsAlerted = await alertAdminsRed(saved);
 
     return {
       statusCode: 200,

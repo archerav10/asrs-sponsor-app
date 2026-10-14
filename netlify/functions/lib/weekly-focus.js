@@ -178,6 +178,21 @@ async function activeSponsors() {
   return pages.map(sponsorFromPage).filter(function (s) { return s.email; });
 }
 
+// Every sponsor row (enabled or not) with this phone number, for text
+// replies and STOP/START. Compared on the last 10 digits.
+async function sponsorsByPhone(phone) {
+  const want = String(phone || '').replace(/\D/g, '').slice(-10);
+  if (want.length < 10) return [];
+  const pages = await queryDatabaseAll(SPONSORS_DB_ID, { property: 'Phone Number', phone_number: { is_not_empty: true } });
+  return pages.map(function (page) {
+    return Object.assign(sponsorFromPage(page), { enabled: !!getPlainText(page.properties['Provider App Enabled']) });
+  }).filter(function (s) { return String(s.phone || '').replace(/\D/g, '').slice(-10) === want; });
+}
+
+async function setSmsConsent(sponsorId, status) {
+  await updatePage(sponsorId, { 'SMS Consent Status': { select: { name: status } } });
+}
+
 // ---- Daily documentation ----
 
 function parseResidents(residentInitials) {
@@ -236,6 +251,7 @@ function responseFromPage(page) {
     checklist: parseChecklist(getPlainText(p['Checklist'])),
     docsBehind: getPlainText(p['Docs Behind']) || 0,
     contentId: getPlainText(p['Content ID']),
+    channel: getPlainText(p['Channel']) || 'Email',
     respondedAt: getPlainText(p['Responded At']),
     late: !!getPlainText(p['Late']),
     reminderSent: !!getPlainText(p['Reminder Sent']),
@@ -286,7 +302,12 @@ async function getResponse(id) {
 // recent earlier week — carried over with the week it first appeared, so
 // "still open since Oct 6" survives more than one carry. An item already
 // on this week's list isn't repeated.
-function buildChecklist(content, previousResponse) {
+//
+// Text check-ins have no boxes to tick, so nothing carries over from (or
+// into) a week that went out by text — otherwise every item would pile
+// up week after week.
+function buildChecklist(content, previousResponse, channel) {
+  if (channel === 'Text' || (previousResponse && previousResponse.channel === 'Text')) previousResponse = null;
   const items = content.checklist.map(function (text) {
     return { text: text, fromWeek: content.weekOf, done: false };
   });
@@ -299,7 +320,7 @@ function buildChecklist(content, previousResponse) {
   return items;
 }
 
-async function createResponse(sponsor, weekOf, contentId, checklist, docsBehind) {
+async function createResponse(sponsor, weekOf, contentId, checklist, docsBehind, channel) {
   const page = await createPage(RESPONSES_DB_ID, {
     'Record Title': { title: [{ text: { content: weekOf + ' - ' + sponsor.name } }] },
     'Week Of': { date: { start: weekOf } },
@@ -309,7 +330,8 @@ async function createResponse(sponsor, weekOf, contentId, checklist, docsBehind)
     'Status': { select: { name: 'Pending' } },
     'Checklist': richText(JSON.stringify(checklist)),
     'Docs Behind': { number: docsBehind },
-    'Content ID': richText(contentId)
+    'Content ID': richText(contentId),
+    'Channel': { select: { name: channel === 'Text' ? 'Text' : 'Email' } }
   });
   return responseFromPage(page);
 }
@@ -341,6 +363,15 @@ async function saveResponse(response, status, comment, doneIndexes, now) {
   return Object.assign({}, response, { status: status, comment: comment, checklist: checklist, late: late });
 }
 
+// A text reply that isn't 1/2/3 after a Yellow or Red: added to the
+// sponsor's comment rather than replacing it.
+async function appendComment(response, note, now) {
+  const stamp = new Date(now || Date.now()).toLocaleString('en-US', { timeZone: TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const comment = (response.comment ? response.comment + '\n' : '') + '[Text, ' + stamp + '] ' + note;
+  await updatePage(response.id, { 'Comment': richText(comment.slice(0, 4000)) });
+  return Object.assign({}, response, { comment: comment });
+}
+
 async function markReminderSent(responseId) {
   await updatePage(responseId, { 'Reminder Sent': { checkbox: true } });
 }
@@ -355,6 +386,9 @@ async function markFollowedUp(responseId, note, by, now) {
 }
 
 module.exports = {
+  appendComment,
+  sponsorsByPhone,
+  setSmsConsent,
   STATUSES,
   etDateISO,
   etHour,

@@ -3,6 +3,14 @@ const { sendSms } = require('./twilio');
 const { allEnabledAdmins } = require('./notification-recipients');
 const wf = require('./weekly-focus');
 const mail = require('./weekly-focus-email');
+const sms = require('./weekly-focus-sms');
+
+// Sponsors who've opted in to texts (and have a number on file) get the
+// Weekly Focus as a text they answer by replying 1, 2 or 3, instead of
+// the email. Everyone else gets the email.
+function channelFor(sponsor) {
+  return sponsor.smsOptedIn && sponsor.phone ? 'Text' : 'Email';
+}
 
 // Tuesday send and Thursday reminder. Both are safe to re-run: the send
 // skips any sponsor who already has a row for that week, and the reminder
@@ -58,31 +66,38 @@ async function runWeeklySend(options) {
     try {
       const history = await wf.responsesForSponsor(sponsor.email);
       const previous = history.filter(function (r) { return r.weekOf < weekOf; })[0] || null;
-      const checklist = wf.buildChecklist(content, previous);
-      const docStatus = await wf.documentationStatus(sponsor.location, sponsor.residentInitials, now);
-      const docsBehind = wf.countDocsBehind(docStatus);
-      const email = mail.weeklyEmail(sponsor, content, checklist, docsBehind);
+      const channel = channelFor(sponsor);
+      const checklist = wf.buildChecklist(content, previous, channel);
+      entry.channel = channel;
       entry.carriedOver = checklist.filter(function (i) { return i.fromWeek !== weekOf; }).length;
-      entry.docsBehind = docsBehind;
 
-      if (options.dryRun) {
-        entry.subject = email.subject;
-        entry.wouldText = sponsor.smsOptedIn && !!sponsor.phone;
+      if (channel === 'Text') {
+        const text = sms.weeklySms(sponsor, content, checklist);
+        if (options.dryRun) {
+          entry.text = text;
+          entry.segments = sms.segmentCount(text);
+        } else {
+          // Docs Behind isn't in the text, so it isn't worth the lookup.
+          await wf.createResponse(sponsor, weekOf, content.id, checklist, 0, 'Text');
+          usedRows.add(content.id);
+          await sendSms(sponsor.phone, text);
+          entry.texted = true;
+        }
       } else {
-        // The row first: if the email then fails, the sponsor can still
-        // check in from the app, and a re-run won't double-send.
-        await wf.createResponse(sponsor, weekOf, content.id, checklist, docsBehind);
-        usedRows.add(content.id);
-        await sendHtmlEmail(sponsor.email, sponsor.name, email);
-        entry.emailed = true;
-        await sleep(1100); // EmailJS: 1 request/second
-        if (sponsor.smsOptedIn && sponsor.phone) {
-          try {
-            await sendSms(sponsor.phone, mail.weeklyText(sponsor, weekOf));
-            entry.texted = true;
-          } catch (e) {
-            entry.textError = e.message;
-          }
+        const docStatus = await wf.documentationStatus(sponsor.location, sponsor.residentInitials, now);
+        const docsBehind = wf.countDocsBehind(docStatus);
+        const email = mail.weeklyEmail(sponsor, content, checklist, docsBehind);
+        entry.docsBehind = docsBehind;
+        if (options.dryRun) {
+          entry.subject = email.subject;
+        } else {
+          // The row first: if the email then fails, the sponsor can still
+          // check in from the app, and a re-run won't double-send.
+          await wf.createResponse(sponsor, weekOf, content.id, checklist, docsBehind, 'Email');
+          usedRows.add(content.id);
+          await sendHtmlEmail(sponsor.email, sponsor.name, email);
+          entry.emailed = true;
+          await sleep(1100); // EmailJS: 1 request/second
         }
       }
       sentTo.push(sponsor.name);
@@ -111,8 +126,9 @@ async function runWeeklySend(options) {
   return Object.assign({ weekOf: weekOf, dryRun: !!options.dryRun, results: results }, summary);
 }
 
-// Thursday morning: one reminder (email, plus a text if they've opted
-// in) to every sponsor still Pending for this week.
+// Thursday morning: one reminder to every sponsor still Pending for this
+// week, the same way the week went out (a text for a text week, an email
+// for an email week).
 async function runReminders(options) {
   options = options || {};
   const now = options.now || new Date();
@@ -131,19 +147,21 @@ async function runReminders(options) {
       results.push({ sponsor: response.sponsorName, skipped: 'no-longer-active' });
       continue;
     }
-    const entry = { sponsor: sponsor.name };
+    const byText = response.channel === 'Text' && !!sponsor.phone;
+    const entry = { sponsor: sponsor.name, channel: byText ? 'Text' : 'Email' };
     if (options.dryRun) {
-      entry.wouldEmail = true;
-      entry.wouldText = sponsor.smsOptedIn && !!sponsor.phone;
+      if (byText) entry.text = sms.reminderSms(sponsor, weekOf);
       results.push(entry);
       continue;
     }
     try {
-      await sendHtmlEmail(sponsor.email, sponsor.name, mail.reminderEmail(sponsor, weekOf));
-      entry.emailed = true;
-      await sleep(1100);
-      if (sponsor.smsOptedIn && sponsor.phone) {
-        try { await sendSms(sponsor.phone, mail.reminderText(sponsor, weekOf)); entry.texted = true; } catch (e) { entry.textError = e.message; }
+      if (byText) {
+        await sendSms(sponsor.phone, sms.reminderSms(sponsor, weekOf));
+        entry.texted = true;
+      } else {
+        await sendHtmlEmail(sponsor.email, sponsor.name, mail.reminderEmail(sponsor, weekOf));
+        entry.emailed = true;
+        await sleep(1100);
       }
       await wf.markReminderSent(response.id);
     } catch (e) {
@@ -155,4 +173,4 @@ async function runReminders(options) {
   return { weekOf: weekOf, dryRun: !!options.dryRun, results: results };
 }
 
-module.exports = { runWeeklySend, runReminders };
+module.exports = { runWeeklySend, runReminders, channelFor };

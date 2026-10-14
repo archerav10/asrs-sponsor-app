@@ -1696,11 +1696,12 @@ ever sees what was written for them.
    Tuesday, and fill in Quote, Quote Author, Focus Title, Focus Message
    and up to three Checklist items. Check **Ready to Send** when it's
    final. A sponsor with no Ready row that week gets nothing.
-2. **Tuesday 8:00 AM Eastern** (`weekly-focus-send`): every sponsor
-   gets a branded email (`lib/weekly-focus-email.js` — the same layout
-   and EmailJS template as Sponsor Intake, `EMAILJS_INTAKE_TEMPLATE_ID`)
-   and, only if their `SMS Consent Status` is **Opted In**, a short text.
-   The email has no resident details: the documentation check is a count
+2. **Tuesday 8:00 AM Eastern** (`weekly-focus-send`): sponsors whose
+   `SMS Consent Status` is **Opted In** (with a phone number) get it as
+   a **text message** they answer by replying 1, 2 or 3 (see "By text"
+   below). Everyone else gets a branded email (`lib/weekly-focus-email.js`
+   — the same layout and EmailJS template as Sponsor Intake,
+   `EMAILJS_INTAKE_TEMPLATE_ID`). The email has no resident details: the documentation check is a count
    ("1 resident's notes need attention") and the Green/Yellow/Red
    buttons open the sponsor app's check-in, after login, with that
    answer preselected. Afterwards every admin gets one text: who it went
@@ -1720,7 +1721,8 @@ ever sees what was written for them.
    every enabled admin if nobody is granted it). The text never includes
    the sponsor's comment.
 5. **Thursday 9:00 AM Eastern** (`weekly-focus-reminders`): one
-   reminder email (and text if opted in) to anyone still Pending.
+   reminder to anyone still Pending, the same way their week went out
+   (a text for a text week, an email for an email week).
 6. **Friday's admin digest** now opens with a Weekly Focus section:
    counts, open Yellow/Red follow-ups from any week, who hasn't answered
    (with "N weeks in a row"), and carried-over checklist items.
@@ -1739,7 +1741,7 @@ blank one. "Start from their message for the week of …" copies in their
 previous focus and checklist (never the quote). "Also send this same
 message to…" adds other sponsors to the same row (each gets a private
 copy; sponsors who already have a message that week aren't offered).
-**Preview email** shows exactly what that sponsor will receive, with
+**Preview** shows exactly what that sponsor will receive, with
 their own carry-over and documentation count. Save draft, or Save & mark
 Ready. A message that has already been sent is read-only. A sponsor can
 only have one message per week (`save-weekly-focus-content` refuses a
@@ -1754,6 +1756,42 @@ Director's name, AI is known to invent quotes or misattribute them, and
 widely shared quotes with doubtful attributions are left out. Add more
 quotes to that file.
 
+**By text** (`lib/weekly-focus-sms.js`, `sms-inbound.js`): the text is
+plain on purpose (no emoji, curly quotes turned straight) so it stays in
+the basic SMS alphabet: a typical week is 3-4 segments, and Compose's
+Preview shows the count. It has the quote, the focus, the checklist and:
+
+    How is your week? Reply with a number:
+    1 = All good
+    2 = I need to discuss something
+    3 = Please call me ASAP
+
+Replies come in through Twilio to `sms-inbound` (the sender's number is
+matched to their Sponsors row; any other number is ignored):
+
+- **1 / 2 / 3** records Green / Yellow / Red on their open week, exactly
+  like the app, and texts back a confirmation. 3 alerts the admins right
+  away (step 4). They can change their answer until the next week goes
+  out.
+- **Anything else**, after they've answered, is added to that week's
+  comment (the 2 confirmation invites a short note, no resident names).
+  Before they've answered, they're asked to reply 1, 2 or 3.
+- **STOP / START** are handled by Twilio itself; the app also sets their
+  `SMS Consent Status` to Opted Out / Opted In, so the next week goes by
+  email (or text again).
+
+Text weeks have no boxes to tick, so nothing carries over into or out of
+a text week. Text sponsors can still open the check-in in the app.
+Every request is checked against Twilio's signature (`TWILIO_AUTH_TOKEN`);
+if Twilio is set to call a URL other than the one the function sees, set
+`SMS_INBOUND_URL` to exactly what's configured in Twilio.
+
+**Twilio setup (once):** Twilio Console -> Messaging -> Services -> your
+service (the one in `TWILIO_MESSAGING_SERVICE_SID`) -> Integration ->
+Incoming Messages -> "Send a webhook", Request URL
+`https://asrs-sponsor-app.netlify.app/.netlify/functions/sms-inbound`,
+method POST. Leave Advanced Opt-Out on.
+
 **Carry-over:** checklist items a sponsor didn't tick roll into their
 next week as "Still open from the week of …", keeping the week they
 first appeared, until ticked. An item that's also on the new week's list
@@ -1764,7 +1802,8 @@ isn't repeated.
 created at send time as Pending, so "no response" and history need no
 extra bookkeeping. `Content ID` records exactly which Weekly Focus row
 that sponsor was sent, so their check-in and history always show their
-own message. The checklist is stored as JSON in `Checklist`.
+own message. The checklist is stored as JSON in `Checklist`. `Channel`
+(Email / Text) records how that week went out.
 
 **Timing and limits:** the schedules fire at two UTC hours and only act
 at 8:00 / 9:00 Eastern, so the time is right in both daylight and
