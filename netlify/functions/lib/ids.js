@@ -8,7 +8,15 @@ const IDS = {
   WEEKLY_FOCUS_DB_ID: 'e0ab3391-ddb7-45d8-9ca6-9f1aed7f1a23',
   WEEKLY_FOCUS_RESPONSES_DB_ID: '42a2aa61-dc05-4fe7-95fa-ca147346b783',
   FACILITY_REPORTING_ROOT_FOLDER_ID: '19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv',
-  SPONSOR_GUIDANCE_FOLDER_ID: '1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj'
+  SPONSOR_GUIDANCE_FOLDER_ID: '1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj',
+  SPONSOR_INTAKES_DB_ID: '6ce53041-85dd-4d46-adc8-2b9f1efa42e3',
+  SPONSOR_INTAKE_ITEMS_DB_ID: 'ad48c1d8-9cd8-4980-b580-40a12dc7aa41',
+  SPONSOR_INTAKE_STAGES_DB_ID: '813f9810-4bfb-45e5-9782-bbb21d90a9bc',
+  SPONSOR_INTAKE_STEPS_DB_ID: '446736ee-ef52-4068-8c06-411513ff3492',
+  SPONSOR_INTAKE_ROOT_FOLDER_ID: '1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8',
+  // A Google OAuth client ID is public by design (it's sent to browsers in
+  // sign-in links); the client secret and refresh token stay in Netlify.
+  GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'
 };
 
 function id(name) {

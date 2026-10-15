@@ -1451,13 +1451,16 @@ intake and step, created as needed:
 
 #### Environment variables
 
+The four database IDs and the Drive root folder are in `lib/ids.js` (see
+the 4KB note), not Netlify: `SPONSOR_INTAKES_DB_ID`,
+`SPONSOR_INTAKE_STAGES_DB_ID` (Intake Stages), `SPONSOR_INTAKE_STEPS_DB_ID`
+(Intake Steps, Master 3.3), `SPONSOR_INTAKE_ITEMS_DB_ID` and
+`SPONSOR_INTAKE_ROOT_FOLDER_ID` (the Drive folder that holds every
+sponsor's intake folder). A Netlify variable of the same name still
+overrides them.
+
 | Variable | Value |
 |---|---|
-| `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
-| `SPONSOR_INTAKE_STAGES_DB_ID` | `813f9810-4bfb-45e5-9782-bbb21d90a9bc` (Intake Stages) |
-| `SPONSOR_INTAKE_STEPS_DB_ID` | `446736ee-ef52-4068-8c06-411513ff3492` (Intake Steps, Master 3.3) |
-| `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
-| `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
 | `EMAILJS_INTAKE_TEMPLATE_ID` | The intake EmailJS template (below) |
 | `SPONSOR_INTAKE_REPLY_TO` | Address sponsor and reference replies should go to |
@@ -1834,8 +1837,10 @@ Sponsors browse two Drive folders inside the Sponsor App without a
 Google account, and **the folders stay private** (nothing is
 link-shared). Same approach as the inspector portal (asrscompliance.com):
 the functions call Drive with a stored OAuth grant
-(`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
-`GOOGLE_OAUTH_REFRESH_TOKEN`, copied from that site's Netlify project),
+(`GOOGLE_OAUTH_CLIENT_SECRET` and `GOOGLE_OAUTH_REFRESH_TOKEN` in
+Netlify, copied from that site's project; the public
+`GOOGLE_OAUTH_CLIENT_ID` is in `lib/ids.js` to save room under the 4KB
+limit),
 and the browser only ever talks to this app with its normal session.
 
 - **Sponsor Guidance** (button at the bottom of Home): the Sponsor

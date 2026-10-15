@@ -5,6 +5,8 @@
 // ever talks to this app. Sponsors never need a Google account, and the
 // Drive folders stay private — nothing is link-shared.
 
+const { id: configId } = require('./ids');
+
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 // Google Docs/Sheets/Slides have no bytes of their own; they're exported.
@@ -22,7 +24,7 @@ let cached = null; // { token, expiresAt } — reused while the function stays w
 
 async function accessToken() {
   if (cached && cached.expiresAt > Date.now() + 60000) return cached.token;
-  const id = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const id = configId('GOOGLE_OAUTH_CLIENT_ID');
   const secret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const refresh = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
   if (!id || !secret || !refresh) throw new Error('Google Drive access isn\'t set up (GOOGLE_OAUTH_* in Netlify).');
