@@ -1779,7 +1779,9 @@
     }
   }
 
-  document.querySelectorAll('.action-button').forEach(function (btn) {
+  // Only the buttons routed by data-action; the rest (Compliance, Weekly
+  // Focus, Sponsor Guidance, the per-resident buttons) wire up their own.
+  document.querySelectorAll('.action-button[data-action]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const action = btn.getAttribute('data-action');
       if (action === 'first-aid') {

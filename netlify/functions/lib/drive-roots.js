@@ -34,9 +34,11 @@ async function progressNotesFolder(location, resident) {
   return folder;
 }
 
-// { id, title } for the root this session may browse.
+// { id, title } for the root this session may browse. Sponsor App
+// sessions only: a sponsor (their own residents) or an admin signed in to
+// the Sponsor App (every resident at the location they chose at login).
 async function resolveRoot(session, root, resident) {
-  if (session.accountType !== 'sponsor') throw httpError(403, 'This is for sponsors.');
+  if (session.accountType !== 'sponsor' && session.accountType !== 'admin') throw httpError(403, 'Please sign in to the Sponsor App.');
   if (root === 'guidance') {
     return { id: configId('SPONSOR_GUIDANCE_FOLDER_ID'), title: 'Sponsor Guidance' };
   }
