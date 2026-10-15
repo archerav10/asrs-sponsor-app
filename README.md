@@ -1786,11 +1786,14 @@ Every request is checked against Twilio's signature (`TWILIO_AUTH_TOKEN`);
 if Twilio is set to call a URL other than the one the function sees, set
 `SMS_INBOUND_URL` to exactly what's configured in Twilio.
 
-**Twilio setup (once):** Twilio Console -> Messaging -> Services -> your
-service (the one in `TWILIO_MESSAGING_SERVICE_SID`) -> Integration ->
-Incoming Messages -> "Send a webhook", Request URL
+**Twilio setup (once):** Twilio Console -> Messaging -> Services -> the
+service whose SID is in this site's `TWILIO_MESSAGING_SERVICE_SID`
+(`MGa94d…`; not "ASRS Vacancy Alerts", `MG451c…`, which belongs to the
+vacancy texts) -> Settings -> "Select how your Messaging Service handles
+messages" -> "Send a webhook", Request URL
 `https://asrs-sponsor-app.netlify.app/.netlify/functions/sms-inbound`,
-method POST. Leave Advanced Opt-Out on.
+method POST. Leave Advanced Opt-Out on. Replies go to whichever service
+owns the number the sponsor texted back, so it must be this one.
 
 **Carry-over:** checklist items a sponsor didn't tick roll into their
 next week as "Still open from the week of …", keeping the week they
