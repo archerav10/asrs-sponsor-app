@@ -1,5 +1,6 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendEmail, sleep } = require('./email');
+const wf = require('./weekly-focus');
 const { staffListForLocation, itemsForStaff, fullStepList } = require('./staff-training');
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarterlyReportingForRecord, activeQuarter } = require('./quarterly-reporting');
@@ -284,6 +285,14 @@ async function buildAdminDigests(today, now) {
   });
 
   const issuesForLocation = makeLocationIssuesCache(today, now);
+  // Loaded once for every admin; a Weekly Focus failure never blocks the
+  // rest of the digest.
+  let weeklyFocusData = null;
+  try {
+    weeklyFocusData = await loadWeeklyFocusData(now);
+  } catch (e) {
+    console.error('Weekly Focus digest section failed', e);
+  }
 
   // Admins themselves also build concurrently — each one just fans out
   // to issuesForLocation, which dedupes the actual Notion work above.
@@ -299,14 +308,66 @@ async function buildAdminDigests(today, now) {
       return { location: location, issues: issuesByLocation[i] };
     });
 
-    return { name: name, email: email, sections: sections };
+    return { name: name, email: email, sections: sections, weeklyFocus: weeklyFocusSection(weeklyFocusData, grantedLocations) };
   }));
 
   return digests.filter(Boolean);
 }
 
+// The Weekly Focus section at the top of the Friday digest: this week's
+// counts, every open Yellow/Red follow-up (any week), who hasn't answered
+// (and for how many weeks running), and carried-over checklist items —
+// for the admin's granted locations only. Sponsor comments are left out
+// of the email; they're on the dashboard's Weekly Focus tab.
+async function loadWeeklyFocusData(now) {
+  const thisWeek = wf.weekOfFor(now);
+  const since = wf.addDaysISO(thisWeek, -7 * 7);
+  const results = await Promise.all([wf.responsesSince(since), wf.openFollowUps()]);
+  return { thisWeek: thisWeek, responses: results[0], followUps: results[1] };
+}
+
+function weeklyFocusSection(data, grantedLocations) {
+  if (!data) return '';
+  const granted = new Set(grantedLocations);
+  const mine = data.responses.filter(function (r) { return granted.has(r.location); });
+  const thisWeek = mine.filter(function (r) { return r.weekOf === data.thisWeek; });
+  const lines = ['WEEKLY FOCUS — week of ' + wf.formatWeekLabel(data.thisWeek) + ':'];
+  if (!thisWeek.length) {
+    lines.push('Not sent this week.');
+  } else {
+    const count = function (s) { return thisWeek.filter(function (r) { return r.status === s; }).length; };
+    lines.push(count('Green') + ' all good, ' + count('Yellow') + ' discuss, ' + count('Red') + ' contact ASAP, ' + count('Pending') + ' no response (of ' + thisWeek.length + ').');
+  }
+
+  const followUps = data.followUps.filter(function (r) { return granted.has(r.location); });
+  lines.push('Needs your follow-up:' + (followUps.length ? '' : ' none'));
+  followUps.forEach(function (r) {
+    lines.push('- ' + (r.status === 'Red' ? 'RED' : 'Yellow') + ': ' + r.sponsorName + ' (' + r.location + '), week of ' + wf.formatWeekLabel(r.weekOf));
+  });
+
+  const pending = thisWeek.filter(function (r) { return r.status === 'Pending'; });
+  if (pending.length) {
+    lines.push('No response yet:');
+    pending.forEach(function (r) {
+      const theirs = mine.filter(function (x) { return x.sponsorEmail === r.sponsorEmail; }); // newest first
+      let streak = 0;
+      while (streak < theirs.length && theirs[streak].status === 'Pending') streak++;
+      lines.push('- ' + r.sponsorName + ' (' + r.location + ')' + (streak > 1 ? ', ' + streak + ' weeks in a row' : ''));
+    });
+  }
+
+  const carried = thisWeek.map(function (r) {
+    const open = r.checklist.filter(function (i) { return !i.done && i.fromWeek && i.fromWeek < data.thisWeek; });
+    return open.length ? '- ' + r.sponsorName + ': ' + open.map(function (i) { return i.text + ' (since ' + wf.formatWeekLabel(i.fromWeek) + ')'; }).join('; ') : null;
+  }).filter(Boolean);
+  if (carried.length) lines.push('Checklist items carried over:', ...carried);
+
+  lines.push('Details and follow-ups: Admin Dashboard -> Weekly Focus tab.');
+  return lines.join('\n') + '\n\n';
+}
+
 function digestToText(digest, dateLabel) {
-  const header = 'ASRS Weekly Compliance Check — ' + dateLabel + '\n\n';
+  const header = 'ASRS Weekly Compliance Check — ' + dateLabel + '\n\n' + (digest.weeklyFocus || '');
   return header + digest.sections.map(function (s) {
     return s.location.toUpperCase() + ':\n' +
       (s.issues.length ? s.issues.map(function (i) { return '- ' + i; }).join('\n') : 'No issues found.');
@@ -339,4 +400,4 @@ async function runAdminDigestCheck(options) {
   return { dryRun: !!options.dryRun, simulatedAsOf: options.asOf || null, results: results };
 }
 
-module.exports = { runAdminDigestCheck };
+module.exports = { runAdminDigestCheck, weeklyFocusSection };

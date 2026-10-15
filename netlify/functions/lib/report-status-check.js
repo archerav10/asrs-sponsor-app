@@ -199,4 +199,4 @@ async function runReportStatusCheck(options) {
   return { triggered: true, monthCheckpoint: monthCheckpoint, dryRun: !!options.dryRun, simulatedAsOf: options.asOf || null, results: results };
 }
 
-module.exports = { runReportStatusCheck, isTriggerDay };
+module.exports = { runReportStatusCheck, isTriggerDay, supplyInfoForLocation, mostRecentDrill, mostRecentUpdate };

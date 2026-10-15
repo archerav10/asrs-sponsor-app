@@ -42,3 +42,13 @@
   # the 1st gives Give Medications' 14-day catch-up window a couple of
   # days' room to close out the month first.
   schedule = "30 13 3 * *"
+
+[functions."weekly-focus-send"]
+  # 8:00am US/Eastern every Tuesday, all year: fires at both 12:00 and
+  # 13:00 UTC and the function only proceeds in whichever one is 8am
+  # Eastern (EDT or EST), unlike the EDT-pinned jobs above.
+  schedule = "0 12,13 * * 2"
+
+[functions."weekly-focus-reminders"]
+  # 9:00am US/Eastern every Thursday, all year (same DST handling).
+  schedule = "0 13,14 * * 4"

@@ -278,6 +278,75 @@
     font-family: inherit;
   }
   .item-section-title { font-size: 14px; font-weight: 700; margin: 26px 0 10px; }
+  .med-type-row { display: flex; align-items: center; gap: 10px; }
+  .med-type-row .med-type-name { flex: 1; font-weight: 600; font-size: 15px; }
+  .med-type-row .med-type-date { font-size: 14px; color: #444; text-align: right; }
+  .med-type-due { font-size: 13px; color: #666; margin: 4px 0 0 21px; }
+  .med-type-due.flagged { color: #D9480F; font-weight: 700; }
+  .med-earlier { margin: 8px 0 0 21px; font-size: 13px; color: #555; }
+  .med-earlier summary { cursor: pointer; color: var(--forest); }
+  .med-earlier ul { margin: 6px 0 0; padding-left: 18px; }
+  .wf-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .wf-tile { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #fff; }
+  .wf-tile .n { font-size: 24px; font-weight: 700; line-height: 1.1; }
+  .wf-tile .l { font-size: 12px; color: #666; }
+  .wf-followup { border: 1px solid var(--border); border-left-width: 5px; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .wf-followup.red { border-left-color: var(--error); }
+  .wf-followup.yellow { border-left-color: #C9A227; }
+  .wf-followup .who { font-weight: 600; }
+  .wf-followup .when { font-size: 12px; color: #777; }
+  .wf-followup .comment { font-size: 14px; margin: 6px 0 0; white-space: pre-wrap; }
+  .wf-followup textarea { min-height: 44px; font-size: 14px; padding: 8px 10px; margin-top: 8px; }
+  .wf-followup button { width: auto; margin-top: 8px; padding: 8px 14px; font-size: 14px; }
+  .wf-grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .wf-grid { border-collapse: collapse; width: 100%; font-size: 13px; min-width: 520px; }
+  .wf-grid th, .wf-grid td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
+  .wf-grid th { font-size: 11px; color: #777; font-weight: 600; background: var(--cream); }
+  .wf-grid td:first-child, .wf-grid th:first-child { text-align: left; padding-left: 12px; position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: 1px 0 0 var(--border); }
+  .wf-grid th:first-child { background: var(--cream); }
+  .wf-grid tr:last-child td { border-bottom: 0; }
+  .wf-cell { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; border: 0; padding: 0; margin: 0; }
+  .wf-cell.Green { background: #1B7A3D; color: #fff; }
+  .wf-cell.Yellow { background: #C9A227; color: #1C1C1A; }
+  .wf-cell.Red { background: var(--error); color: #fff; }
+  .wf-cell.Pending { background: #ECE8DE; color: #777; border: 2px dashed #C9C3B3; }
+  .wf-cell.selected { outline: 3px solid var(--forest-light); outline-offset: 1px; }
+  .wf-detail { margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 12px 14px; font-size: 14px; }
+  .wf-detail ul { margin: 6px 0 0; padding-left: 18px; }
+  .wf-plan-row { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  .wf-plan-row:first-of-type { margin-top: 10px; }
+  .wf-plan-row.clickable { cursor: pointer; }
+  .wf-plan-row.clickable:hover { background: var(--cream); }
+  .wf-plan-edit { font-size: 12px; color: var(--forest); text-decoration: underline; margin-left: 8px; }
+  .cp-card { border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-bottom: 10px; }
+  .cp-card > summary { list-style: none; cursor: pointer; padding: 12px 14px; }
+  .cp-card > summary::-webkit-details-marker { display: none; }
+  .cp-head { display: flex; align-items: center; gap: 10px; }
+  .cp-head .cp-name { flex: 1; font-weight: 600; font-size: 15px; }
+  .cp-head .cp-sub { font-size: 13px; color: #666; font-weight: 400; }
+  .cp-lights { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 10px; }
+  .cp-light { text-align: center; font-size: 10px; color: #777; line-height: 1.2; }
+  .cp-light .status-dot { display: block; margin: 0 auto 3px; width: 14px; height: 14px; }
+  .status-dot.status-unknown { background: #C9C3B3; }
+  .cp-area { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+  .cp-group { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--forest-light); font-weight: 700; padding: 10px 14px 4px; border-top: 1px solid var(--border); }
+  .cp-area-head { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .cp-area-sum { font-size: 13px; color: #666; margin: 2px 0 0 19px; }
+  .cp-detail { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin: 3px 0 0 19px; }
+  .cp-detail .flag { color: var(--error); font-weight: 600; }
+  .cp-detail .soon { color: #6B5200; font-weight: 600; }
+  .cp-detail .ok { color: #666; }
+  .wfc-quote-tools { display: flex; gap: 8px; align-items: center; }
+  .wfc-quote-tools select { flex: 1; padding: 10px 12px; font-size: 15px; }
+  .wfc-quote-tools button { width: auto; margin: 0; padding: 10px 14px; white-space: nowrap; }
+  .wfc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .wfc-actions button { width: auto; flex: 1; min-width: 140px; margin: 0; }
+  #wfc-also label { display: flex; gap: 8px; align-items: center; font-weight: 400; margin: 6px 0; }
+  #wfc-also input { width: auto; margin: 0; }
+  .wfc-preview-host { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: #fff; }
+  .wf-plan-state { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
+  @media (max-width: 520px) { .wf-tiles { grid-template-columns: repeat(2, 1fr); } }
+  .med-tag { font-size: 11px; font-weight: 700; color: var(--forest-light); text-transform: uppercase; letter-spacing: .04em; margin-left: 6px; }
   .dpn-t-version-card {
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -357,6 +426,9 @@
       <button class="tab-button" id="tab-intake" type="button">Sponsor Intake</button>
       <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
       <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
+      <button class="tab-button" id="tab-medical" type="button">Medical</button>
+      <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
+      <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
     </div>
 
     <div id="mar-tab-content">
@@ -413,6 +485,24 @@
       <p class="error-text" id="dpn-dashboard-error"></p>
       <div id="dpn-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
       <button type="button" id="dpn-manage-templates-button" class="secondary" style="margin-top: 18px;">Manage Question Templates</button>
+    </div>
+
+    <div id="medical-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Every appointment is logged with its document. Physical, Dental, Labwork and TB Test are due 12 months after the last one &mdash; yellow 30 days before, red once overdue or if none is on file.</p>
+      <p class="error-text" id="medical-dashboard-error"></p>
+      <div id="medical-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="weekly-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor gets their own message, Tuesday 8:00 AM, with a reminder Thursday 9:00 AM. Write one row per sponsor in the <a href="https://app.notion.com/p/22c16ee844474b5fa688b53bac27c507" target="_blank" rel="noopener">Weekly Focus</a> database (pick the Sponsor) and check Ready to Send.</p>
+      <p class="error-text" id="weekly-dashboard-error"></p>
+      <div id="weekly-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="compliance-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor's home, exactly as they see it in the app under My Home's Compliance. Tap a sponsor for details.</p>
+      <p class="error-text" id="compliance-dashboard-error"></p>
+      <div id="compliance-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -488,6 +578,93 @@
     <div class="ap-banner" id="checklist-detail-banner">Loading&hellip;</div>
     <p class="error-text" id="checklist-detail-error"></p>
     <div id="checklist-detail-body"></div>
+  </section>
+
+  <!-- Screen 9: Medical Appointments — per resident -->
+  <section id="screen-medical-detail" class="screen">
+    <button class="back-button" id="medical-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="medical-detail-title"></p>
+      <p class="meta" id="medical-detail-meta"></p>
+    </div>
+    <div class="ap-banner" id="medical-detail-banner">Loading&hellip;</div>
+    <p class="error-text" id="medical-detail-error"></p>
+
+    <div class="ap-step" id="medical-log-section">
+      <p class="ap-step-title">Log an Appointment</p>
+      <p class="ap-step-status">Pick the date and type first, then upload the document (visit summary, results, etc.).</p>
+      <label for="medical-log-date" style="margin-top: 0;">Appointment Date</label>
+      <input type="date" id="medical-log-date">
+      <label for="medical-log-type">Appointment Type</label>
+      <select id="medical-log-type"></select>
+      <label for="medical-log-file">Document</label>
+      <input type="file" id="medical-log-file" accept="image/*,application/pdf" disabled>
+      <p class="help-text" id="medical-log-hint">Choose a date and type to enable the upload.</p>
+    </div>
+
+    <p class="item-section-title">Last Appointment by Type</p>
+    <div id="medical-detail-body"></div>
+  </section>
+
+  <!-- Screen 10: Weekly Focus — compose one sponsor's message -->
+  <section id="screen-weekly-compose" class="screen">
+    <button class="back-button" id="wfc-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name">Compose Weekly Focus</p>
+      <p class="meta">Each sponsor gets their own message. It goes out Tuesday 8:00 AM once it's marked Ready.</p>
+    </div>
+
+    <label for="wfc-week" style="margin-top:0;">Week</label>
+    <select id="wfc-week"></select>
+    <label for="wfc-sponsor">Sponsor</label>
+    <select id="wfc-sponsor"></select>
+    <p class="help-text" id="wfc-channel-note" style="display:none;"></p>
+    <details id="wfc-also-wrap" style="margin-top:10px;">
+      <summary style="cursor:pointer; color: var(--forest); font-size: 14px;">Also send this same message to&hellip;</summary>
+      <p class="help-text">Each sponsor you tick gets their own private copy. Sponsors who already have a message this week aren't listed.</p>
+      <div id="wfc-also"></div>
+    </details>
+
+    <div class="ap-banner" id="wfc-status" style="margin-top:16px; display:none;"></div>
+    <p class="error-text" id="wfc-error"></p>
+
+    <div id="wfc-form">
+      <button type="button" class="secondary" id="wfc-start-previous" style="display:none; width:auto; padding:8px 14px;"></button>
+
+      <p class="item-section-title">Inspiration</p>
+      <div class="wfc-quote-tools">
+        <select id="wfc-theme" aria-label="Quote theme"></select>
+        <button type="button" class="secondary" id="wfc-suggest">Suggest a quote</button>
+      </div>
+      <label for="wfc-quote">Quote</label>
+      <textarea id="wfc-quote" rows="3"></textarea>
+      <label for="wfc-author">Said by</label>
+      <input type="text" id="wfc-author">
+      <p class="help-text" id="wfc-quote-note"></p>
+
+      <p class="item-section-title">Focus of the week</p>
+      <label for="wfc-focus-title" style="margin-top:0;">Title</label>
+      <input type="text" id="wfc-focus-title" placeholder="e.g. Annual Planning is due">
+      <label for="wfc-focus-message">Message</label>
+      <textarea id="wfc-focus-message" rows="5"></textarea>
+
+      <p class="item-section-title">Checklist (up to 3)</p>
+      <input type="text" id="wfc-check-1" placeholder="Item 1">
+      <input type="text" id="wfc-check-2" placeholder="Item 2" style="margin-top:8px;">
+      <input type="text" id="wfc-check-3" placeholder="Item 3" style="margin-top:8px;">
+      <p class="help-text" id="wfc-check-help">Anything this sponsor left unticked last week is added automatically.</p>
+
+      <div class="wfc-actions">
+        <button type="button" class="secondary" id="wfc-preview">Preview</button>
+        <button type="button" class="secondary" id="wfc-save-draft">Save draft</button>
+        <button type="button" id="wfc-save-ready">Save &amp; mark Ready</button>
+      </div>
+    </div>
+
+    <div id="wfc-preview-wrap" style="display:none;">
+      <p class="item-section-title" id="wfc-preview-title">Preview</p>
+      <div id="wfc-preview-host" class="wfc-preview-host"></div>
+    </div>
   </section>
 
   <!-- Screen 8: Daily Progress Notes — self-service question-version management -->
@@ -567,7 +744,9 @@
     quarterlyDetail: document.getElementById('screen-quarterly-detail'),
     intakeDetail: document.getElementById('screen-intake-detail'),
     checklistDetail: document.getElementById('screen-checklist-detail'),
-    dpnTemplates: document.getElementById('screen-dpn-templates')
+    dpnTemplates: document.getElementById('screen-dpn-templates'),
+    medicalDetail: document.getElementById('screen-medical-detail'),
+    weeklyCompose: document.getElementById('screen-weekly-compose')
   };
 
   let activeTabKey = 'mar'; // widens the page while the Sponsor Intake tab is showing
@@ -863,7 +1042,10 @@
     quarterly: { button: document.getElementById('tab-quarterly'), content: document.getElementById('quarterly-tab-content'), load: loadQuarterlyDashboard },
     intake: { button: document.getElementById('tab-intake'), content: document.getElementById('intake-tab-content'), load: loadIntakeDashboard },
     checklist: { button: document.getElementById('tab-checklist'), content: document.getElementById('checklist-tab-content'), load: loadChecklistDashboard },
-    dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard }
+    dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard },
+    medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
+    weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
+    compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -1687,6 +1869,958 @@
       document.getElementById('staff-detail-banner').textContent = '';
       setError('staff-detail-error', e.message);
     }
+  }
+
+  // --- Screen 3h/9: Medical Appointments ---
+  // Status labels for the four compliance types (Physical, Dental,
+  // Labwork, TB Test) — the server decides green/yellow/red
+  // (computeMedicalCompliance in lib/medical-appointments.js); this only
+  // turns that into words.
+  function medicalComplianceSummary(compliance) {
+    const missing = [], overdue = [], dueSoon = [];
+    compliance.items.forEach(function (item) {
+      if (item.state === 'missing') missing.push(item.label);
+      else if (item.state === 'overdue') overdue.push(item.label);
+      else if (item.state === 'dueSoon') dueSoon.push(item.label + ' ' + formatDate(item.dueDate));
+    });
+    const parts = [];
+    if (overdue.length) parts.push('Overdue: ' + overdue.join(', '));
+    if (missing.length) parts.push('None on file: ' + missing.join(', '));
+    if (dueSoon.length) parts.push('Due soon: ' + dueSoon.join(', '));
+    return parts.length ? parts.join(' · ') : 'All current';
+  }
+
+  function renderMedicalButton(location, row) {
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    const dot = document.createElement('span');
+    dot.className = 'status-dot status-' + row.compliance.overall;
+    const initials = document.createElement('span');
+    initials.className = 'ap-resident-initials';
+    initials.textContent = row.resident;
+    left.appendChild(dot);
+    left.appendChild(initials);
+
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    status.textContent = medicalComplianceSummary(row.compliance);
+
+    btn.appendChild(left);
+    btn.appendChild(status);
+    btn.addEventListener('click', function () { openMedicalDetail(location, row.resident); });
+    return btn;
+  }
+
+  async function loadMedicalDashboard() {
+    const listEl = document.getElementById('medical-dashboard-list');
+    setError('medical-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    try {
+      const data = await apiFetch('/get-medical-appointments-oversight');
+      const locations = data.locations || [];
+      listEl.innerHTML = '';
+
+      if (!locations.length) {
+        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
+        return;
+      }
+
+      locations.forEach(function (loc) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = loc.location;
+        listEl.appendChild(title);
+
+        if (!loc.residents.length) {
+          const empty = document.createElement('p');
+          empty.className = 'empty-text';
+          empty.textContent = 'No active residents found.';
+          listEl.appendChild(empty);
+          return;
+        }
+
+        loc.residents.forEach(function (row) { listEl.appendChild(renderMedicalButton(loc.location, row)); });
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('medical-dashboard-error', e.message);
+    }
+  }
+
+  let currentMedicalLocation = null;
+  let currentMedicalResident = null;
+  let currentMedicalByType = [];
+
+  const medicalDateInput = document.getElementById('medical-log-date');
+  const medicalTypeSelect = document.getElementById('medical-log-type');
+  const medicalFileInput = document.getElementById('medical-log-file');
+  const medicalHint = document.getElementById('medical-log-hint');
+
+  function localTodayISO() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function openMedicalDetail(location, resident) {
+    currentMedicalLocation = location;
+    currentMedicalResident = resident;
+    medicalDateInput.value = '';
+    medicalTypeSelect.value = '';
+    medicalFileInput.value = '';
+    showScreen('medicalDetail');
+    loadMedicalDetail();
+  }
+
+  document.getElementById('medical-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadMedicalDashboard();
+  });
+
+  // The upload stays disabled until both a date and a type are chosen —
+  // they're what file the document and date the appointment, so neither
+  // can be left for afterward.
+  function refreshMedicalUploadState() {
+    const date = medicalDateInput.value;
+    const ready = !!date && !!medicalTypeSelect.value && date <= localTodayISO();
+    medicalFileInput.disabled = !ready;
+    if (date && date > localTodayISO()) {
+      medicalHint.textContent = 'The appointment date can’t be in the future.';
+    } else {
+      medicalHint.textContent = ready ? 'Now choose the document to upload.' : 'Choose a date and type to enable the upload.';
+    }
+  }
+  medicalDateInput.addEventListener('input', refreshMedicalUploadState);
+  medicalTypeSelect.addEventListener('change', refreshMedicalUploadState);
+
+  medicalFileInput.addEventListener('change', async function () {
+    const file = medicalFileInput.files[0];
+    if (!file) return;
+    const appointmentDate = medicalDateInput.value;
+    const typeKey = medicalTypeSelect.value;
+    const typeLabel = medicalTypeSelect.options[medicalTypeSelect.selectedIndex].textContent;
+    if (!appointmentDate || !typeKey) {
+      medicalFileInput.value = '';
+      refreshMedicalUploadState();
+      return;
+    }
+
+    // Same type on the same date is almost always the same document
+    // picked twice; ask rather than silently logging a duplicate.
+    const sameType = currentMedicalByType.filter(function (t) { return t.key === typeKey; })[0];
+    const alreadyLogged = sameType && [sameType.latest].concat(sameType.earlier).some(function (a) { return a.date === appointmentDate; });
+    if (alreadyLogged && !confirm(typeLabel + ' on ' + formatDate(appointmentDate) + ' is already on file. Log another one anyway?')) {
+      medicalFileInput.value = '';
+      return;
+    }
+
+    const dot = file.name.lastIndexOf('.');
+    const extension = dot > 0 ? file.name.slice(dot) : '';
+
+    setError('medical-detail-error', '');
+    medicalFileInput.disabled = true;
+    medicalHint.textContent = 'Uploading…';
+    try {
+      const config = await apiFetch('/get-medical-appointment-upload-config?location=' + encodeURIComponent(currentMedicalLocation) +
+        '&resident=' + encodeURIComponent(currentMedicalResident) +
+        '&typeKey=' + encodeURIComponent(typeKey) +
+        '&appointmentDate=' + encodeURIComponent(appointmentDate) +
+        '&extension=' + encodeURIComponent(extension));
+
+      // Only the file and the ticket go to Zapier — the workflow trades
+      // the ticket for the resident's folder at
+      // medical-appointment-resolve-upload.
+      const formData = new FormData();
+      formData.append('file', file, config.filename);
+      formData.append('ticket', config.ticket);
+      formData.append('site', window.location.origin);
+
+      const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+      if (!uploadRes.ok) {
+        throw new Error('The document failed to upload. Try again.');
+      }
+
+      await apiFetch('/save-medical-appointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: currentMedicalLocation,
+          resident: currentMedicalResident,
+          typeKey: typeKey,
+          appointmentDate: appointmentDate,
+          extension: extension
+        })
+      });
+
+      medicalDateInput.value = '';
+      medicalTypeSelect.value = '';
+      medicalFileInput.value = '';
+      await loadMedicalDetail();
+      medicalHint.textContent = typeLabel + ' on ' + formatDate(appointmentDate) + ' saved. Choose a date and type to log another.';
+    } catch (e) {
+      setError('medical-detail-error', e.message);
+      medicalFileInput.value = '';
+      refreshMedicalUploadState();
+    }
+  });
+
+  function renderMedicalTypeSection(container, entry, complianceItem) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const row = document.createElement('div');
+    row.className = 'med-type-row';
+    const dot = document.createElement('span');
+    // Only the four compliance types get a colored light; everything
+    // else is history only and shows a neutral spacer to keep the
+    // names lined up.
+    if (complianceItem) {
+      dot.className = 'status-dot status-' + complianceItem.status;
+    } else {
+      dot.className = 'status-dot';
+      dot.style.background = 'transparent';
+    }
+    const name = document.createElement('span');
+    name.className = 'med-type-name';
+    name.textContent = entry.label;
+    if (entry.isCompliance) {
+      const tag = document.createElement('span');
+      tag.className = 'med-tag';
+      tag.textContent = 'Annual';
+      name.appendChild(tag);
+    }
+    const date = document.createElement('span');
+    date.className = 'med-type-date';
+    date.textContent = formatDate(entry.latest.date);
+    row.appendChild(dot);
+    row.appendChild(name);
+    row.appendChild(date);
+    wrap.appendChild(row);
+
+    if (complianceItem) {
+      const due = document.createElement('p');
+      due.className = 'med-type-due' + (complianceItem.status === 'green' ? '' : ' flagged');
+      due.textContent = complianceItem.state === 'overdue'
+        ? 'Overdue since ' + formatDate(complianceItem.dueDate)
+        : 'Next due ' + formatDate(complianceItem.dueDate);
+      wrap.appendChild(due);
+    }
+
+    const file = document.createElement('p');
+    file.className = 'med-type-due';
+    file.textContent = (entry.latest.filename || 'Document on file') + (entry.latest.loggedBy ? ' · logged by ' + entry.latest.loggedBy : '');
+    wrap.appendChild(file);
+
+    if (entry.earlier.length) {
+      const details = document.createElement('details');
+      details.className = 'med-earlier';
+      const summary = document.createElement('summary');
+      summary.textContent = entry.earlier.length + ' earlier appointment' + (entry.earlier.length === 1 ? '' : 's');
+      details.appendChild(summary);
+      const list = document.createElement('ul');
+      entry.earlier.forEach(function (a) {
+        const li = document.createElement('li');
+        li.textContent = formatDate(a.date) + (a.filename ? ' — ' + a.filename : '');
+        list.appendChild(li);
+      });
+      details.appendChild(list);
+      wrap.appendChild(details);
+    }
+
+    container.appendChild(wrap);
+  }
+
+  async function loadMedicalDetail() {
+    document.getElementById('medical-detail-title').textContent = currentMedicalResident || 'Loading…';
+    document.getElementById('medical-detail-meta').textContent = currentMedicalLocation || '';
+    const bannerEl = document.getElementById('medical-detail-banner');
+    bannerEl.textContent = 'Loading…';
+    setError('medical-detail-error', '');
+    const bodyEl = document.getElementById('medical-detail-body');
+    bodyEl.innerHTML = '';
+
+    try {
+      const data = await apiFetch('/get-medical-appointments?location=' + encodeURIComponent(currentMedicalLocation) +
+        '&resident=' + encodeURIComponent(currentMedicalResident));
+      currentMedicalByType = data.byType || [];
+
+      document.getElementById('medical-detail-title').textContent = data.residentFullName
+        ? data.residentFullName + ' (' + data.resident + ')'
+        : data.resident;
+      document.getElementById('medical-detail-meta').textContent = data.location;
+
+      // Rebuilt every load (cheap) but keeps whatever was picked, so a
+      // reload after a failed upload doesn't wipe the admin's choice.
+      const picked = medicalTypeSelect.value;
+      medicalTypeSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '— Choose a type —';
+      medicalTypeSelect.appendChild(placeholder);
+      (data.appointmentTypes || []).forEach(function (t) {
+        const opt = document.createElement('option');
+        opt.value = t.key;
+        opt.textContent = t.label;
+        medicalTypeSelect.appendChild(opt);
+      });
+      medicalTypeSelect.value = picked;
+      medicalDateInput.max = localTodayISO();
+      refreshMedicalUploadState();
+
+      bannerEl.innerHTML = '';
+      const dot = document.createElement('span');
+      dot.className = 'status-dot status-' + data.compliance.overall;
+      dot.style.marginRight = '8px';
+      bannerEl.appendChild(dot);
+      bannerEl.appendChild(document.createTextNode('Annual appointments: ' + medicalComplianceSummary(data.compliance)));
+      if (!data.residentFullName) {
+        const warn = document.createElement('p');
+        warn.className = 'resident-line flagged';
+        warn.style.margin = '8px 0 0';
+        warn.textContent = 'No full name on file for this resident, so uploads can’t find their Drive folder. Add one in Daily Progress Notes → Manage Question Templates.';
+        bannerEl.appendChild(warn);
+      }
+
+      if (!currentMedicalByType.length) {
+        bodyEl.innerHTML = '<p class="empty-text">No appointments on file yet.</p>';
+        return;
+      }
+      const complianceByKey = {};
+      data.compliance.items.forEach(function (i) { complianceByKey[i.key] = i; });
+      currentMedicalByType.forEach(function (entry) {
+        renderMedicalTypeSection(bodyEl, entry, complianceByKey[entry.key]);
+      });
+    } catch (e) {
+      bannerEl.textContent = '';
+      setError('medical-detail-error', e.message);
+    }
+  }
+
+  // --- Weekly Focus ---
+  const WF_LABELS = { Green: 'All good', Yellow: 'Discuss', Red: 'Contact ASAP', Pending: 'No response' };
+
+  function wfShortDate(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function wfDateTime(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function wfEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  function renderWeeklyFollowUp(container, f) {
+    const card = wfEl('div', 'wf-followup ' + f.status.toLowerCase());
+    const top = wfEl('div');
+    top.appendChild(wfEl('span', 'who', (f.status === 'Red' ? '🔴 ' : '🟡 ') + f.sponsorName + ' · ' + f.location));
+    top.appendChild(wfEl('div', 'when', 'Week of ' + wfShortDate(f.weekOf) + (f.respondedAt ? ' · answered ' + (f.channel === 'Text' ? 'by text ' : '') + wfDateTime(f.respondedAt) : '')));
+    card.appendChild(top);
+    if (f.comment) card.appendChild(wfEl('p', 'comment', '“' + f.comment + '”'));
+    const note = document.createElement('textarea');
+    note.placeholder = 'Follow-up note (optional), e.g. "Called Wednesday, resolved"';
+    card.appendChild(note);
+    const btn = wfEl('button', null, 'Mark followed up');
+    btn.type = 'button';
+    btn.addEventListener('click', async function () {
+      btn.disabled = true;
+      setError('weekly-dashboard-error', '');
+      try {
+        await apiFetch('/save-weekly-focus-follow-up', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responseId: f.responseId, note: note.value })
+        });
+        loadWeeklyDashboard();
+      } catch (e) {
+        setError('weekly-dashboard-error', e.message);
+        btn.disabled = false;
+      }
+    });
+    card.appendChild(btn);
+    container.appendChild(card);
+  }
+
+  function renderWeeklyDetail(detailEl, sponsor, week, entry) {
+    detailEl.innerHTML = '';
+    detailEl.appendChild(wfEl('div', null, sponsor.name + ' · ' + sponsor.location + ' · week of ' + wfShortDate(week.weekOf) + (entry.focusTitle ? ' · ' + entry.focusTitle : ''))).style.fontWeight = '700';
+    detailEl.appendChild(wfEl('div', null, WF_LABELS[entry.status] + (entry.late ? ' (answered late)' : '') + (entry.respondedAt ? ' · ' + wfDateTime(entry.respondedAt) : '') + (entry.channel === 'Text' ? ' · sent by text' : '')));
+    if (entry.comment) detailEl.appendChild(wfEl('p', null, '“' + entry.comment + '”')).style.margin = '6px 0 0';
+    if (entry.checklist && entry.checklist.length) {
+      const list = wfEl('ul');
+      entry.checklist.forEach(function (item) {
+        list.appendChild(wfEl('li', null, (item.done ? '✓ ' : '○ ') + item.text + (item.fromWeek && item.fromWeek !== week.weekOf ? ' (carried from ' + wfShortDate(item.fromWeek) + ')' : '')));
+      });
+      detailEl.appendChild(list);
+    }
+    if (entry.followedUp) {
+      detailEl.appendChild(wfEl('p', 'help-text', 'Followed up' + (entry.followedUpBy ? ' by ' + entry.followedUpBy : '') +
+        (entry.followedUpDate ? ' on ' + formatDate(entry.followedUpDate) : '') + (entry.followUpNote ? ': ' + entry.followUpNote : '')));
+    }
+  }
+
+  async function loadWeeklyDashboard() {
+    const body = document.getElementById('weekly-dashboard-body');
+    setError('weekly-dashboard-error', '');
+    body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    let data;
+    try {
+      data = await apiFetch('/get-weekly-focus-oversight');
+    } catch (e) {
+      body.innerHTML = '';
+      setError('weekly-dashboard-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+
+    // This week: each sponsor has their own message.
+    const head = wfEl('div', 'home-card');
+    head.appendChild(wfEl('p', 'name', 'Week of ' + wfShortDate(data.thisWeek)));
+    head.appendChild(wfEl('p', 'meta', 'Responses due ' + new Date(data.dueDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + '.'));
+    const PLAN_LABELS = { sent: ['Sent', '#1B7A3D'], ready: ['Ready, not sent yet', '#2F5D45'], draft: ['Draft, not marked Ready', '#9A5B0E'], none: ['No message written', 'var(--error)'] };
+    if (!data.plan.length) head.appendChild(wfEl('p', 'help-text', 'No sponsors with app access at your locations.'));
+    data.plan.forEach(function (p) {
+      const row = wfEl('div', 'wf-plan-row' + (p.state === 'sent' ? '' : ' clickable'));
+      if (p.state !== 'sent') {
+        row.title = 'Open in Compose';
+        row.addEventListener('click', function () { openWeeklyCompose(p.sponsorId, data.thisWeek); });
+      }
+      const who = wfEl('div', null, p.name + ' · ' + p.location);
+      if (p.focusTitle) who.appendChild(wfEl('div', 'help-text', p.focusTitle)).style.margin = '0';
+      row.appendChild(who);
+      const state = wfEl('span', 'wf-plan-state', PLAN_LABELS[p.state][0]);
+      state.style.color = PLAN_LABELS[p.state][1];
+      if (p.state !== 'sent') state.appendChild(wfEl('span', 'wf-plan-edit', p.state === 'none' ? 'Write' : 'Edit'));
+      row.appendChild(state);
+      head.appendChild(row);
+    });
+    const compose = wfEl('button', null, '+ Compose a message');
+    compose.type = 'button';
+    compose.style.width = 'auto';
+    compose.style.padding = '8px 14px';
+    compose.style.marginRight = '8px';
+    compose.addEventListener('click', function () { openWeeklyCompose('', ''); });
+    head.appendChild(compose);
+    if (data.plan.some(function (p) { return p.state === 'ready'; })) {
+      const send = wfEl('button', 'secondary', 'Send the Ready ones now');
+      send.type = 'button';
+      send.style.width = 'auto';
+      send.style.padding = '8px 14px';
+      send.addEventListener('click', async function () {
+        if (!confirm('Send now to every sponsor whose message is Ready and not sent yet?')) return;
+        send.disabled = true;
+        try {
+          await apiFetch('/admin-weekly-focus-send-now', { method: 'POST' });
+          send.textContent = 'Sending… refresh in a minute';
+        } catch (e) {
+          setError('weekly-dashboard-error', e.message);
+          send.disabled = false;
+        }
+      });
+      head.appendChild(send);
+    }
+    body.appendChild(head);
+
+    if (data.counts) {
+      const tiles = wfEl('div', 'wf-tiles');
+      [['Green', '#1B7A3D', '#E3F1E7'], ['Yellow', '#6B5200', '#FBF3D6'], ['Red', '#B3261E', '#FDEDEC'], ['Pending', '#6B6659', '#ECE8DE']].forEach(function (t) {
+        const tile = wfEl('div', 'wf-tile');
+        tile.style.background = t[2];
+        const n = wfEl('div', 'n', String(data.counts[t[0]] || 0));
+        n.style.color = t[1];
+        tile.appendChild(n);
+        tile.appendChild(wfEl('div', 'l', WF_LABELS[t[0]]));
+        tiles.appendChild(tile);
+      });
+      body.appendChild(tiles);
+    }
+
+    body.appendChild(wfEl('p', 'item-section-title', 'Open follow-ups'));
+    if (!data.followUps.length) body.appendChild(wfEl('p', 'empty-text', 'Nothing waiting on you.'));
+    data.followUps.forEach(function (f) { renderWeeklyFollowUp(body, f); });
+
+    body.appendChild(wfEl('p', 'item-section-title', 'History · tap a square for details'));
+    if (!data.sponsors.length) {
+      body.appendChild(wfEl('p', 'empty-text', 'No Weekly Focus has gone out yet.'));
+      return;
+    }
+    const wrap = wfEl('div', 'wf-grid-wrap');
+    const table = wfEl('table', 'wf-grid');
+    const headRow = wfEl('tr');
+    headRow.appendChild(wfEl('th', null, 'Sponsor'));
+    data.weeks.forEach(function (w) { headRow.appendChild(wfEl('th', null, wfShortDate(w.weekOf))); });
+    headRow.appendChild(wfEl('th', null, 'Answered'));
+    table.appendChild(headRow);
+    const detail = wfEl('div', 'wf-detail', 'Tap a square to see that week’s answer, comment, checklist and follow-up.');
+    data.sponsors.forEach(function (sponsor) {
+      const row = wfEl('tr');
+      const nameCell = wfEl('td', null, sponsor.name);
+      nameCell.appendChild(wfEl('div', 'help-text', sponsor.location)).style.margin = '0';
+      row.appendChild(nameCell);
+      let sent = 0, answered = 0;
+      data.weeks.forEach(function (w) {
+        const td = wfEl('td');
+        const entry = sponsor.weeks[w.weekOf];
+        if (entry) {
+          sent++;
+          if (entry.status !== 'Pending') answered++;
+          const cell = wfEl('button', 'wf-cell ' + entry.status, entry.late ? 'L' : '');
+          cell.type = 'button';
+          cell.title = WF_LABELS[entry.status];
+          cell.addEventListener('click', function () {
+            table.querySelectorAll('.wf-cell.selected').forEach(function (c) { c.classList.remove('selected'); });
+            cell.classList.add('selected');
+            renderWeeklyDetail(detail, sponsor, w, entry);
+          });
+          td.appendChild(cell);
+        } else {
+          td.textContent = '·';
+          td.style.color = '#ccc';
+        }
+        row.appendChild(td);
+      });
+      const rate = wfEl('td', null, answered + '/' + sent);
+      if (sent && answered / sent < 0.7) { rate.style.color = 'var(--error)'; rate.style.fontWeight = '700'; }
+      row.appendChild(rate);
+      table.appendChild(row);
+    });
+    wrap.appendChild(table);
+    body.appendChild(wrap);
+    body.appendChild(wfEl('p', 'help-text', 'Green all good · Yellow discuss · Red contact ASAP · dashed no response · L answered late'));
+    body.appendChild(detail);
+  }
+
+  // --- Weekly Focus: Compose ---
+  // One sponsor's message for one week. Opens blank, or on the message
+  // they already have for that week (to edit until it's sent). "Start
+  // from last week" copies their previous message in as a starting point.
+  let wfcData = null;      // last get-weekly-focus-compose response
+  let wfcDirty = false;
+  let wfcLoading = false;
+  const wfcFieldIds = ['wfc-quote', 'wfc-author', 'wfc-focus-title', 'wfc-focus-message', 'wfc-check-1', 'wfc-check-2', 'wfc-check-3'];
+
+  function wfcVal(id) { return document.getElementById(id).value.trim(); }
+
+  function wfcReadForm() {
+    return {
+      quote: wfcVal('wfc-quote'),
+      quoteAuthor: wfcVal('wfc-author'),
+      focusTitle: wfcVal('wfc-focus-title'),
+      focusMessage: wfcVal('wfc-focus-message'),
+      checklist: [wfcVal('wfc-check-1'), wfcVal('wfc-check-2'), wfcVal('wfc-check-3')].filter(Boolean)
+    };
+  }
+
+  function wfcFillForm(m) {
+    m = m || {};
+    const checklist = m.checklist || [];
+    document.getElementById('wfc-quote').value = m.quote || '';
+    document.getElementById('wfc-author').value = m.quoteAuthor || '';
+    document.getElementById('wfc-focus-title').value = m.focusTitle || '';
+    document.getElementById('wfc-focus-message').value = m.focusMessage || '';
+    document.getElementById('wfc-check-1').value = checklist[0] || '';
+    document.getElementById('wfc-check-2').value = checklist[1] || '';
+    document.getElementById('wfc-check-3').value = checklist[2] || '';
+    document.getElementById('wfc-quote-note').textContent = '';
+  }
+
+  function wfcSetEditable(editable) {
+    wfcFieldIds.concat(['wfc-theme', 'wfc-suggest', 'wfc-save-draft', 'wfc-save-ready', 'wfc-start-previous']).forEach(function (id) {
+      document.getElementById(id).disabled = !editable;
+    });
+    document.querySelectorAll('#wfc-also input').forEach(function (el) { el.disabled = !editable; });
+  }
+
+  wfcFieldIds.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () { wfcDirty = true; });
+  });
+
+  function wfcConfirmDiscard() {
+    return !wfcDirty || confirm('Discard the changes you haven’t saved?');
+  }
+
+  function openWeeklyCompose(sponsorId, weekOf) {
+    wfcDirty = false;
+    document.getElementById('wfc-preview-wrap').style.display = 'none';
+    showScreen('weeklyCompose');
+    window.scrollTo(0, 0);
+    loadWeeklyCompose(weekOf || '', sponsorId || '');
+  }
+
+  document.getElementById('wfc-back').addEventListener('click', function () {
+    if (!wfcConfirmDiscard()) return;
+    wfcDirty = false;
+    showScreen('dashboard');
+    loadWeeklyDashboard();
+  });
+
+  async function loadWeeklyCompose(weekOf, sponsorId) {
+    wfcLoading = true;
+    setError('wfc-error', '');
+    const statusEl = document.getElementById('wfc-status');
+    statusEl.style.display = 'none';
+    try {
+      const qs = '?weekOf=' + encodeURIComponent(weekOf) + '&sponsorId=' + encodeURIComponent(sponsorId);
+      wfcData = await apiFetch('/get-weekly-focus-compose' + qs);
+    } catch (e) {
+      setError('wfc-error', e.message);
+      wfcLoading = false;
+      return;
+    }
+    const data = wfcData;
+
+    const weekSel = document.getElementById('wfc-week');
+    weekSel.innerHTML = '';
+    data.weeks.forEach(function (w) {
+      const o = document.createElement('option');
+      o.value = w.weekOf;
+      o.textContent = w.label;
+      weekSel.appendChild(o);
+    });
+    weekSel.value = data.weekOf;
+
+    const sponsorSel = document.getElementById('wfc-sponsor');
+    sponsorSel.innerHTML = '';
+    const pick = document.createElement('option');
+    pick.value = '';
+    pick.textContent = data.sponsors.length ? '— Choose a sponsor —' : 'No sponsors with app access at your locations';
+    sponsorSel.appendChild(pick);
+    data.sponsors.forEach(function (s) {
+      const o = document.createElement('option');
+      o.value = s.id;
+      o.textContent = s.name + ' · ' + s.location + (s.channel === 'Text' ? ' · by text' : '');
+      sponsorSel.appendChild(o);
+    });
+    sponsorSel.value = data.sponsorId || '';
+    const chosen = data.sponsors.filter(function (s) { return s.id === sponsorSel.value; })[0];
+    const byText = !!chosen && chosen.channel === 'Text';
+    const channelNote = document.getElementById('wfc-channel-note');
+    channelNote.style.display = chosen ? '' : 'none';
+    channelNote.textContent = byText
+      ? 'Goes out as a text message (this sponsor has opted in to texts). They answer by replying 1, 2 or 3. Keep the message short; Preview shows how many text segments it uses.'
+      : 'Goes out by email.';
+    document.getElementById('wfc-check-help').textContent = byText
+      ? 'Text check-ins have no boxes to tick, so nothing carries over from last week.'
+      : 'Anything this sponsor left unticked last week is added automatically.';
+
+    const theme = document.getElementById('wfc-theme');
+    if (!theme.options.length) {
+      ['Any theme'].concat(data.themes).forEach(function (t, i) {
+        const o = document.createElement('option');
+        o.value = i === 0 ? '' : t;
+        o.textContent = t;
+        theme.appendChild(o);
+      });
+    }
+
+    const form = document.getElementById('wfc-form');
+    const startPrev = document.getElementById('wfc-start-previous');
+    const alsoWrap = document.getElementById('wfc-also-wrap');
+    const also = document.getElementById('wfc-also');
+    also.innerHTML = '';
+
+    if (!data.sponsorId) {
+      form.style.display = 'none';
+      alsoWrap.style.display = 'none';
+      wfcLoading = false;
+      return;
+    }
+    form.style.display = '';
+    alsoWrap.style.display = '';
+
+    const existing = data.existing;
+    wfcFillForm(existing || {});
+    wfcDirty = false;
+
+    // "Also send to": other sponsors who don't already have a message this
+    // week (the server refuses a second one), plus anyone already on this row.
+    const onRow = new Set(existing ? existing.sponsorIds : []);
+    data.sponsors.forEach(function (s) {
+      const id = s.id.replace(/-/g, '').toLowerCase();
+      if (s.id === data.sponsorId) return;
+      if ((data.takenSponsorIds || []).indexOf(id) !== -1) return;
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = s.id;
+      box.checked = onRow.has(id);
+      box.addEventListener('change', function () { wfcDirty = true; });
+      label.appendChild(box);
+      label.appendChild(document.createTextNode(s.name + ' · ' + s.location));
+      also.appendChild(label);
+    });
+    alsoWrap.open = !!(existing && existing.sponsorIds.length > 1);
+
+    statusEl.style.display = '';
+    if (existing && existing.sent) {
+      statusEl.textContent = 'This message has already been sent, so it can’t be changed.';
+    } else if (existing) {
+      statusEl.textContent = (existing.ready ? 'Ready to send.' : 'Draft (not marked Ready yet).') +
+        (existing.sponsorNames.length > 1 ? ' Shared with: ' + existing.sponsorNames.join(', ') + '. Changes apply to all of them.' : '');
+    } else {
+      statusEl.textContent = 'No message for this sponsor this week yet.';
+    }
+    wfcSetEditable(!(existing && existing.sent));
+
+    if (data.previous && !(existing && existing.sent)) {
+      startPrev.style.display = '';
+      startPrev.textContent = 'Start from their message for the week of ' + wfShortDate(data.previous.weekOf);
+    } else {
+      startPrev.style.display = 'none';
+    }
+    wfcLoading = false;
+  }
+
+  function wfcReload() {
+    const weekSel = document.getElementById('wfc-week');
+    const sponsorSel = document.getElementById('wfc-sponsor');
+    if (!wfcConfirmDiscard()) {
+      weekSel.value = wfcData.weekOf;
+      sponsorSel.value = wfcData.sponsorId || '';
+      return;
+    }
+    wfcDirty = false;
+    document.getElementById('wfc-preview-wrap').style.display = 'none';
+    loadWeeklyCompose(weekSel.value, sponsorSel.value);
+  }
+  document.getElementById('wfc-week').addEventListener('change', wfcReload);
+  document.getElementById('wfc-sponsor').addEventListener('change', wfcReload);
+
+  document.getElementById('wfc-start-previous').addEventListener('click', function () {
+    const p = wfcData && wfcData.previous;
+    if (!p) return;
+    if (wfcReadForm().focusTitle && !confirm('Replace what’s in the form with their earlier message?')) return;
+    // The quote is left out on purpose: a fresh one each week.
+    wfcFillForm({ focusTitle: p.focusTitle, focusMessage: p.focusMessage, checklist: p.checklist });
+    wfcDirty = true;
+  });
+
+  // A random library quote in the chosen theme that this sponsor hasn't
+  // had in the last six months (and isn't the one already showing).
+  document.getElementById('wfc-suggest').addEventListener('click', function () {
+    const theme = document.getElementById('wfc-theme').value;
+    const recent = new Set((wfcData.recentQuotes || []).concat([wfcVal('wfc-quote')]));
+    let pool = wfcData.quotes.filter(function (q) { return (!theme || q.theme === theme) && !recent.has(q.text); });
+    let note = '';
+    if (!pool.length) {
+      pool = wfcData.quotes.filter(function (q) { return !theme || q.theme === theme; });
+      note = 'Every ' + (theme || '') + ' quote has been used for this sponsor recently, so this one is a repeat.';
+    }
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    document.getElementById('wfc-quote').value = q.text;
+    document.getElementById('wfc-author').value = q.author;
+    document.getElementById('wfc-quote-note').textContent = note || ('Theme: ' + q.theme + '. Press again for another.');
+    wfcDirty = true;
+  });
+
+  function wfcSelectedSponsorIds() {
+    const ids = [document.getElementById('wfc-sponsor').value];
+    document.querySelectorAll('#wfc-also input:checked').forEach(function (el) { ids.push(el.value); });
+    return ids.filter(Boolean);
+  }
+
+  document.getElementById('wfc-preview').addEventListener('click', async function () {
+    const btn = this;
+    setError('wfc-error', '');
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/preview-weekly-focus-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ weekOf: wfcData.weekOf, sponsorId: wfcData.sponsorId }, wfcReadForm()))
+      });
+      // Rendered in a shadow root rather than an iframe: the email's own
+      // inline styles stay isolated from the dashboard either way, and a
+      // shadow root can't be blocked the way some browsers block frames.
+      // The HTML is built server-side with every field escaped.
+      const host = document.getElementById('wfc-preview-host');
+      const shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
+      if (res.channel === 'Text') {
+        document.getElementById('wfc-preview-title').textContent = 'Preview: text message to ' + res.to;
+        shadow.innerHTML = '<div style="background:#f2f2f7;padding:18px 14px;font:15px/1.38 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif">' +
+          '<div class="bubble" style="max-width:340px;background:#e5e5ea;color:#1c1c1e;border-radius:18px;border-bottom-left-radius:5px;padding:10px 14px;white-space:pre-wrap"></div>' +
+          '<p class="seg" style="font-size:12px;color:#6b6b70;margin:10px 2px 0"></p></div>';
+        shadow.querySelector('.bubble').textContent = res.text;
+        shadow.querySelector('.seg').textContent = 'Arrives as one message. Billed as ' + res.segments + ' text segment' + (res.segments === 1 ? '' : 's') + '.' +
+          (res.segments > 4 ? ' Shortening the message would lower that.' : '');
+      } else {
+        document.getElementById('wfc-preview-title').textContent = 'Preview: “' + res.subject + '” to ' + res.to;
+        shadow.innerHTML = res.html;
+      }
+      shadow.querySelectorAll('a').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); }); });
+      document.getElementById('wfc-preview-wrap').style.display = '';
+      document.getElementById('wfc-preview-wrap').scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+      setError('wfc-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function wfcSave(ready) {
+    setError('wfc-error', '');
+    const fields = wfcReadForm();
+    if (!fields.focusTitle) {
+      setError('wfc-error', 'Add a Focus of the week title.');
+      return;
+    }
+    if (ready && !fields.quote && !confirm('There’s no quote. Mark it Ready anyway?')) return;
+    const buttons = ['wfc-save-draft', 'wfc-save-ready'].map(function (id) { return document.getElementById(id); });
+    buttons.forEach(function (b) { b.disabled = true; });
+    try {
+      await apiFetch('/save-weekly-focus-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({
+          id: wfcData.existing ? wfcData.existing.id : '',
+          weekOf: wfcData.weekOf,
+          sponsorIds: wfcSelectedSponsorIds(),
+          ready: ready
+        }, fields))
+      });
+      wfcDirty = false;
+      await loadWeeklyCompose(wfcData.weekOf, wfcData.sponsorId);
+      document.getElementById('wfc-status').textContent = ready
+        ? 'Saved and marked Ready. It goes out Tuesday 8:00 AM (or use Send the Ready ones now on the Weekly Focus tab).'
+        : 'Draft saved. Mark it Ready when it’s final.';
+      window.scrollTo(0, 0);
+    } catch (e) {
+      setError('wfc-error', e.message);
+    } finally {
+      buttons.forEach(function (b) { b.disabled = false; });
+      if (wfcData && wfcData.existing && wfcData.existing.sent) wfcSetEditable(false);
+    }
+  }
+  document.getElementById('wfc-save-draft').addEventListener('click', function () { wfcSave(false); });
+  document.getElementById('wfc-save-ready').addEventListener('click', function () { wfcSave(true); });
+
+  // --- Compliance (all sponsors) ---
+  // Lists every sponsor, then loads each one's home separately so a slow
+  // home never holds up (or times out) the whole tab.
+  const CP_SHORT = { medical: 'Medical', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
+  const CP_ORDER = ['medical', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
+  let cpLoadId = 0;
+
+  function cpRenderCard(card, sponsor, data) {
+    card.innerHTML = '';
+    const sum = wfEl('summary');
+    const head = wfEl('div', 'cp-head');
+    head.appendChild(wfEl('span', 'status-dot status-' + (data ? data.overall : 'unknown')));
+    const name = wfEl('span', 'cp-name', sponsor.name);
+    name.appendChild(wfEl('div', 'cp-sub', sponsor.residents.length ? 'Residents: ' + sponsor.residents.join(', ') : 'No residents assigned'));
+    head.appendChild(name);
+    if (data) {
+      const flagged = data.counts.red + data.counts.yellow;
+      head.appendChild(wfEl('span', 'cp-sub', flagged ? flagged + ' need attention' : 'All current'));
+    } else {
+      head.appendChild(wfEl('span', 'cp-sub', 'Checking…'));
+    }
+    sum.appendChild(head);
+    if (data) {
+      const byKey = {};
+      data.areas.forEach(function (a) { byKey[a.key] = a; });
+      const lights = wfEl('div', 'cp-lights');
+      CP_ORDER.forEach(function (key) {
+        const a = byKey[key];
+        const l = wfEl('div', 'cp-light');
+        l.appendChild(wfEl('span', 'status-dot status-' + (a ? a.status : 'unknown')));
+        l.appendChild(document.createTextNode(CP_SHORT[key]));
+        l.title = a ? a.label + ': ' + a.summary : '';
+        lights.appendChild(l);
+      });
+      sum.appendChild(lights);
+    }
+    card.appendChild(sum);
+    if (!data) return;
+
+    // Details: exactly what the sponsor sees under My Home's Compliance —
+    // every item, same groups, same order.
+    const groups = [
+      { label: 'Residents', keys: ['medical', 'annual', 'quarterly'] },
+      { label: 'Training', keys: ['training'] },
+      { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
+    ];
+    const byKeyAll = {};
+    data.areas.forEach(function (a) { byKeyAll[a.key] = a; });
+    groups.forEach(function (group) {
+      card.appendChild(wfEl('div', 'cp-group', group.label));
+      group.keys.forEach(function (key) {
+        const a = byKeyAll[key];
+        if (!a) return;
+        const block = wfEl('div', 'cp-area');
+        const h = wfEl('div', 'cp-area-head');
+        h.appendChild(wfEl('span', 'status-dot status-' + a.status));
+        h.appendChild(document.createTextNode(a.label));
+        block.appendChild(h);
+        block.appendChild(wfEl('div', 'cp-area-sum', a.summary));
+        a.details.filter(function (d) { return d.label !== a.label; }).forEach(function (d) {
+          const row = wfEl('div', 'cp-detail');
+          row.appendChild(wfEl('span', null, d.label));
+          row.appendChild(wfEl('span', d.status === 'red' ? 'flag' : d.status === 'yellow' ? 'soon' : 'ok', d.text));
+          block.appendChild(row);
+        });
+        card.appendChild(block);
+      });
+    });
+  }
+
+  async function loadComplianceDashboard() {
+    const loadId = ++cpLoadId;
+    const body = document.getElementById('compliance-dashboard-body');
+    setError('compliance-dashboard-error', '');
+    body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    let data;
+    try {
+      data = await apiFetch('/get-compliance-sponsors');
+    } catch (e) {
+      body.innerHTML = '';
+      setError('compliance-dashboard-error', e.message);
+      return;
+    }
+    body.innerHTML = '';
+    if (!data.sponsors.length) {
+      body.innerHTML = '<p class="empty-text">No sponsors with app access at your locations.</p>';
+      return;
+    }
+    let lastLocation = null;
+    const jobs = [];
+    data.sponsors.forEach(function (sponsor) {
+      if (sponsor.location !== lastLocation) {
+        lastLocation = sponsor.location;
+        body.appendChild(wfEl('p', 'location-title', sponsor.location));
+      }
+      const card = wfEl('details', 'cp-card');
+      cpRenderCard(card, sponsor, null);
+      body.appendChild(card);
+      jobs.push(function () {
+        return apiFetch('/get-sponsor-compliance?sponsorId=' + encodeURIComponent(sponsor.id))
+          .then(function (res) { if (loadId === cpLoadId) cpRenderCard(card, sponsor, res); })
+          .catch(function (e) {
+            if (loadId !== cpLoadId) return;
+            card.innerHTML = '';
+            const s = wfEl('summary');
+            s.appendChild(wfEl('span', 'cp-name', sponsor.name + ': couldn’t check (' + e.message + ')'));
+            card.appendChild(s);
+          });
+      });
+    });
+    // A few at a time, so a long list doesn't flood Notion with requests.
+    let next = 0;
+    function worker() {
+      if (next >= jobs.length || loadId !== cpLoadId) return Promise.resolve();
+      return jobs[next++]().then(worker);
+    }
+    await Promise.all([worker(), worker(), worker()]);
   }
 
   // --- Screen 3d/6: Quarterly Reporting ---

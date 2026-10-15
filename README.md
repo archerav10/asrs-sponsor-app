@@ -57,6 +57,18 @@ workflow as your other portals.
 | `ZAPIER_DAILY_PROGRESS_NOTE_WEBHOOK_URL` | The Catch Hook URL from your "Daily Progress Note PDFs" Zap — see setup steps below |
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
+| `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
+
+**Keep this list short.** AWS Lambda caps each function's environment
+at 4 KB in total, and this site has reached it: a deploy fails with
+"Your environment variables exceed the 4KB limit". New IDs that aren't
+secret (Notion data source IDs, Drive folder IDs) go in
+`netlify/functions/lib/ids.js` instead. That's where
+`MEDICAL_APPOINTMENTS_DB_ID`, `WEEKLY_FOCUS_DB_ID`,
+`WEEKLY_FOCUS_RESPONSES_DB_ID` and `FACILITY_REPORTING_ROOT_FOLDER_ID`
+live; an env var of the same name still overrides them. Turning off
+"Lambda compatibility mode" for functions in Netlify removes the limit
+altogether (https://ntl.fyi/functions-migrate).
 
 After adding/changing env vars, trigger a fresh deploy — Netlify Functions
 don't pick up env var changes until the next deploy.
@@ -1565,6 +1577,284 @@ exactly `{{{message}}}`. The triple braces pass the branded HTML
 through unescaped. `lib/sponsor-intake-email.js` builds the whole
 layout: header, one button per item, any return reasons, and the
 status-page link in the footer. Put its ID in `EMAILJS_INTAKE_TEMPLATE_ID`.
+
+### Medical Appointments (eighth process — per resident, append-only log)
+
+A **Medical** tab on the admin dashboard. One button per resident (same
+resident list as Annual Planning — anyone with a medication on file),
+each with a red/yellow/green dot for their four **annual** appointment
+types. Tapping a resident opens their screen:
+
+- **Log an Appointment:** pick the appointment date and type first —
+  the file picker stays disabled until both are chosen, and a future
+  date is refused (in the browser and again server-side) — then upload
+  the document. The document goes straight from the browser to Drive
+  via Zapier, and only after that succeeds is the appointment saved to
+  Notion, so every appointment on file has a document behind it.
+  Logging the same type on the same date twice asks for confirmation
+  first.
+- **Last Appointment by Type:** the most recent appointment of every
+  type that has any history (types never used for this resident aren't
+  shown), with older ones of that type tucked under "N earlier
+  appointments." The four annual types always come first and carry
+  their own dot and next-due date.
+- **18 appointment types** (`APPOINTMENT_TYPES` in
+  `lib/medical-appointments.js`): Physical, Dental, Labwork, TB Test,
+  Psychiatric, Endocrinologist, Nephrologist, Physical Medicine,
+  Urologist, Gastrointestinal, Emergency, Flu Shot, Covid Shot,
+  Cardiologist, Oncologist, Orthopedic, Pain Management, Check-up. Add
+  one there (and as a select option in Notion) to extend the list.
+
+**Compliance rule** (`computeMedicalCompliance`): Physical, Dental,
+Labwork and TB Test (`COMPLIANCE_TYPE_KEYS`) are each due 12 months
+after the most recent one on file. Yellow 30 days before that
+(`DUE_SOON_DAYS`), red once it passes — and also red when that type has
+**no appointment on file at all**, since there's nothing showing it was
+ever done. A resident's overall dot is the worst of the four. Every
+other type is history only and never affects the dot.
+
+**Append-only, not row-per-type.** Unlike Staff Training (one row per
+item, overwritten on renewal), every appointment is its own row, so a
+resident's medical history is kept. Nothing on this screen edits or
+deletes a row; to correct a mistake, uncheck `Active` on that row in
+Notion and it disappears from the app.
+
+**No per-resident folder link to set up.** Unlike Annual Planning and
+Staff Training, the Zap finds the resident's Drive folder by name, the
+same chain the Medication Administration Report uses. That needs the
+resident's **full name**, which (as for the Medication Report and Daily
+Progress Note PDFs) comes from their Daily Progress Notes template. A
+resident with no template on file gets a warning on their screen and
+uploads are refused until a full name is added there — better than
+sending a document the Zap can't place.
+
+**Notion setup** — the **Resident Medical Appointments** database
+(Data Source ID `389478b3-1169-4b1d-8dcb-abb37e621173`, in
+`lib/ids.js`). Like every database here, it needs your
+integration connected to it ("..." -> Connections). Properties
+(this app never creates schema, only rows):
+
+| Property | Type |
+|---|---|
+| `Record Title` | Title |
+| `Location` | Select (same options as your other databases) |
+| `Resident Initials` | Text |
+| `Appointment Type` | Select — the 18 labels above, spelled exactly as listed |
+| `Appointment Date` | Date |
+| `Filename` | Text |
+| `Logged By` | Text |
+| `Logged Date` | Date |
+| `Active` | Checkbox |
+
+**Upload workflow** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — a
+Zapier code workflow, "ASRS Medical Appointment Uploads"
+(`zapier/medical-appointment-uploads.workflow.ts`; editor:
+https://zapier.com/workflow/01a137f5-10f2-7158-bdd8-cdf87cb41462), built
+the same way as the Sponsor Intake uploads one rather than a click-built
+Zap. Its Catch Hook URL is what goes in
+`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`:
+
+- The browser sends only `file`, `ticket` and `site` to its Catch Hook.
+  `get-medical-appointment-upload-config.js` issues the ticket: an
+  encrypted, 2-hour pass naming the location, the resident's full name
+  and the final filename. The workflow trades it at
+  `medical-appointment-resolve-upload.js` for where the file goes, so a
+  leaked webhook URL alone can't write into a resident's folder, and the
+  resident's name never travels through the webhook payload. Posts from
+  any site other than `asrs-sponsor-app.netlify.app` (or one of its
+  deploy previews) are skipped.
+- Folder path: `Facility Reporting` (`FACILITY_REPORTING_ROOT_FOLDER_ID` in `lib/ids.js`)
+  -> `{Location}` -> `Residents` -> `{Full Name}` -> `Medical
+  Appointments`. The first three must already exist (find-only, so a
+  missing or misspelled folder fails loudly in Zapier instead of
+  scattering files into a new one); `Medical Appointments` is created on
+  first use.
+- Filename: `YYYY-MM-DD_Medical_{TypeKey}_{Location}_{ResidentInitials}.ext`,
+  date first so the folder sorts chronologically.
+
+**New files:** `lib/medical-appointments.js`,
+`get-medical-appointments-oversight.js`, `get-medical-appointments.js`,
+`get-medical-appointment-upload-config.js` (also builds the filename
+and checks type/date *before* the upload), `save-medical-appointment.js`,
+`medical-appointment-resolve-upload.js`, and the workflow source in
+`zapier/medical-appointment-uploads.workflow.ts`.
+
+### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
+
+A weekly communication to each sponsor with app access (`Provider App
+Enabled`), plus a required check-in. Sponsors are independent
+contractors with their own priorities, so **every message is
+individual**: there's no shared "everyone" version, and a sponsor only
+ever sees what was written for them.
+
+**The week, end to end**
+
+1. **You write it** in the **Weekly Focus** Notion database
+   (`WEEKLY_FOCUS_DB_ID`): one row per sponsor per week. Pick the
+   **Sponsor** (a relation to Sponsors; pick several to send the same
+   message to each of them, privately), set `Week Of` to that week's
+   Tuesday, and fill in Quote, Quote Author, Focus Title, Focus Message
+   and up to three Checklist items. Check **Ready to Send** when it's
+   final. A sponsor with no Ready row that week gets nothing.
+2. **Tuesday 8:00 AM Eastern** (`weekly-focus-send`): sponsors whose
+   `SMS Consent Status` is **Opted In** (with a phone number) get it as
+   a **text message** they answer by replying 1, 2 or 3 (see "By text"
+   below). Everyone else gets a branded email (`lib/weekly-focus-email.js`
+   — the same layout and EmailJS template as Sponsor Intake,
+   `EMAILJS_INTAKE_TEMPLATE_ID`). The email has no resident details: the documentation check is a count
+   ("1 resident's notes need attention") and the Green/Yellow/Red
+   buttons open the sponsor app's check-in, after login, with that
+   answer preselected. Afterwards every admin gets one text: who it went
+   to, and who had no Ready row (and was skipped). Mark a late row Ready
+   and use **Send the Ready ones now** on the dashboard to send just
+   those.
+3. **The check-in** (Sponsor App, "Weekly Focus check-in" button on
+   Home, or the email's links): quote, focus, checklist to tick, each of
+   the sponsor's residents' Daily Progress Notes status (days behind,
+   from the same day-walk the notes screen enforces), a "Check in with
+   me" note, and the required Green / Yellow / Red answer. It can be
+   changed until the next week goes out. Answers after Thursday are
+   accepted and marked **Late**. Older weeks are read-only and listed
+   under "Your weeks".
+4. **Red** texts every admin granted that sponsor's location right away
+   (ignoring the routine-notification opt-out, like a Serious Incident;
+   every enabled admin if nobody is granted it). The text never includes
+   the sponsor's comment.
+5. **Thursday 9:00 AM Eastern** (`weekly-focus-reminders`): one
+   reminder to anyone still Pending, the same way their week went out
+   (a text for a text week, an email for an email week).
+6. **Friday's admin digest** now opens with a Weekly Focus section:
+   counts, open Yellow/Red follow-ups from any week, who hasn't answered
+   (with "N weeks in a row"), and carried-over checklist items.
+7. **Admin Dashboard -> Weekly Focus tab:** each sponsor's status for
+   this week (Sent / Ready / Draft / No message written), counts,
+   **Send the Ready ones now**, open follow-ups with **Mark followed up** and a
+   note (they stay open across weeks until marked), and an 8-week
+   history grid; tap a square for that week's answer, comment, checklist
+   and follow-up.
+
+**Compose** (Weekly Focus tab -> "+ Compose a message", or tap a sponsor
+in this week's list): the easy way to write the rows above without
+opening Notion. Pick the week (this week or the next three) and the
+sponsor; it opens their existing message for that week to edit, or a
+blank one. "Start from their message for the week of …" copies in their
+previous focus and checklist (never the quote). "Also send this same
+message to…" adds other sponsors to the same row (each gets a private
+copy; sponsors who already have a message that week aren't offered).
+**Preview** shows exactly what that sponsor will receive, with
+their own carry-over and documentation count. Save draft, or Save & mark
+Ready. A message that has already been sent is read-only. A sponsor can
+only have one message per week (`save-weekly-focus-content` refuses a
+second).
+
+**Suggest a quote** picks from a hand-picked library
+(`lib/weekly-focus-quotes.js`, ~50 quotes in 7 themes: Kindness,
+Service, Teamwork, Perseverance, Hope, Self-care, Safety), optionally by
+theme, never one that sponsor has had in the last 26 weeks. It's a
+curated list rather than AI on purpose: these go out under the Executive
+Director's name, AI is known to invent quotes or misattribute them, and
+widely shared quotes with doubtful attributions are left out. Add more
+quotes to that file.
+
+**By text** (`lib/weekly-focus-sms.js`, `sms-inbound.js`): the text is
+plain on purpose (no emoji, curly quotes turned straight) so it stays in
+the basic SMS alphabet: a typical week is 3-4 segments, and Compose's
+Preview shows the count. It has the quote, the focus, the checklist and:
+
+    How is your week? Reply with a number:
+    1 = All good
+    2 = I need to discuss something
+    3 = Please call me ASAP
+
+Replies come in through Twilio to `sms-inbound` (the sender's number is
+matched to their Sponsors row; any other number is ignored):
+
+- **1 / 2 / 3** records Green / Yellow / Red on their open week, exactly
+  like the app, and texts back a confirmation. 3 alerts the admins right
+  away (step 4). They can change their answer until the next week goes
+  out.
+- **Anything else**, after they've answered, is added to that week's
+  comment (the 2 confirmation invites a short note, no resident names).
+  Before they've answered, they're asked to reply 1, 2 or 3.
+- **STOP / START** are handled by Twilio itself; the app also sets their
+  `SMS Consent Status` to Opted Out / Opted In, so the next week goes by
+  email (or text again).
+
+Text weeks have no boxes to tick, so nothing carries over into or out of
+a text week. Text sponsors can still open the check-in in the app.
+Every request is checked against Twilio's signature (`TWILIO_AUTH_TOKEN`);
+if Twilio is set to call a URL other than the one the function sees, set
+`SMS_INBOUND_URL` to exactly what's configured in Twilio.
+
+**Twilio setup (once):** Twilio Console -> Messaging -> Services -> your
+service (the one in `TWILIO_MESSAGING_SERVICE_SID`) -> Integration ->
+Incoming Messages -> "Send a webhook", Request URL
+`https://asrs-sponsor-app.netlify.app/.netlify/functions/sms-inbound`,
+method POST. Leave Advanced Opt-Out on.
+
+**Carry-over:** checklist items a sponsor didn't tick roll into their
+next week as "Still open from the week of …", keeping the week they
+first appeared, until ticked. An item that's also on the new week's list
+isn't repeated.
+
+**Data:** the **Weekly Focus Responses** database
+(`WEEKLY_FOCUS_RESPONSES_DB_ID`) has one row per sponsor per week,
+created at send time as Pending, so "no response" and history need no
+extra bookkeeping. `Content ID` records exactly which Weekly Focus row
+that sponsor was sent, so their check-in and history always show their
+own message. The checklist is stored as JSON in `Checklist`. `Channel`
+(Email / Text) records how that week went out.
+
+**Timing and limits:** the schedules fire at two UTC hours and only act
+at 8:00 / 9:00 Eastern, so the time is right in both daylight and
+standard time. Scheduled functions only get 30 seconds and EmailJS
+allows one email per second, so they (and Send now) hand off to
+`weekly-focus-run-background` (15 minutes) with a short-lived encrypted
+job ticket. Re-running is safe: a sponsor who already has that week's
+row is skipped, and each reminder is sent once.
+
+**Previewing:** `test-weekly-focus?secret=…` (the same
+`NOTIFICATION_TEST_SECRET` as the other test endpoints) is a dry run of
+the send (`&job=remind` for the reminder, `&weekOf=YYYY-MM-DD` for
+another week); `&preview=<sponsor email>` returns that sponsor's actual
+email as a page. It never sends or writes anything.
+
+**Setup:** both databases are created; connect your Notion integration
+to each ("..." -> Connections). Their IDs are in `lib/ids.js`. Optional
+env var: `WEEKLY_FOCUS_REPLY_TO`
+(falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
+whatever your EmailJS service sends from.
+
+### My Home's Compliance (tenth process — one view of every area)
+
+**Sponsor App:** a **My Home's Compliance** button on Home, with the
+home's overall light and "N areas need attention". It opens a screen
+with one light per area, grouped Residents / Training / Home, each with
+a one-line reason and, tapped, the detail (per resident, per staff
+member). **Admin Dashboard -> Compliance tab:** every sponsor with app
+access at your locations, grouped by home, with all eight lights in a
+row; tap a sponsor for the same detail they see, worst first. The tab
+lists sponsors first (`get-compliance-sponsors`) and then loads each
+home separately (`get-sponsor-compliance`, three at a time) so one slow
+home never holds up or times out the page.
+
+All the rules live in `lib/compliance.js` (`homeCompliance`), built on
+each area's own helpers so its lights agree with the area's own screens:
+
+| Area | Rule |
+|---|---|
+| Residents' Medical | Physical, Dental, Labwork, TB Test each due 12 months after the last one; yellow 30 days before; red when overdue or none on file |
+| Annual Planning | yellow once the 6-week window opens (the screen unlocks); red once past due, or when a resident has no Annual Planning on file |
+| Quarterly Reporting | each quarter due 15 days after it ends; yellow in the last 7 of those days; red after |
+| Training & Certification | per staff member at the home: yellow 30 days before an item expires; red when expired or any item never completed |
+| First Aid, Emergency Supplies, Physical Environment, Fire Drill | unchanged from the Home screen's own lights (`lib/report-due-date.js`) |
+
+Resident areas use the sponsor's own residents (`Resident Initials` on
+their Sponsors row). An area whose lookup fails shows grey "Couldn't
+check right now" and doesn't count toward the overall light. The Home
+screen's existing Annual Planning and Quarterly Reporting dots now use
+the same rules as this card (they used to turn yellow only 7 days before
+due, and had no 15-day quarterly deadline).
 
 ## Weekly admin email digest
 

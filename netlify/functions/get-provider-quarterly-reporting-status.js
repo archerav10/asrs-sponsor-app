@@ -2,19 +2,13 @@ const { requireSession } = require('./lib/session');
 const { findRecordsForResident } = require('./lib/annual-planning');
 const { computeQuarterlyReportingForRecord } = require('./lib/quarterly-reporting');
 const { worstOf } = require('./lib/report-due-date');
+const { quarterlyStatusForState } = require('./lib/compliance');
 
 // Read-only, sponsor-facing traffic light — mirrors the current AND prior
 // cycle logic in get-quarterly-reporting-oversight.js, but collapses it
 // down to one dot per resident since sponsors can't act on this here.
-// No lead time on any quarter (see lib/quarterly-reporting.js), so "open
-// and incomplete" already means due right now: one such quarter is
-// yellow, more than one (they've fallen behind across a quarter
-// boundary) is red.
-function statusForQuarters(quarters) {
-  const openIncomplete = quarters.filter(function (q) { return q.isOpen && q.missingCount > 0; });
-  if (!openIncomplete.length) return 'green';
-  return openIncomplete.length > 1 ? 'red' : 'yellow';
-}
+// A quarter's reports are due 15 days after it ends: yellow in the last
+// 7 of those days, red after (the same rule as My Home's Compliance).
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -30,9 +24,9 @@ exports.handler = async function (event) {
 
       const statuses = await Promise.all(records.map(async function (record) {
         const state = await computeQuarterlyReportingForRecord(session.location, resident, record.service, record);
-        if (!state.hasCycle) return 'green';
-        const allQuarters = state.quarters.concat(state.priorCycle ? state.priorCycle.quarters : []);
-        return statusForQuarters(allQuarters);
+        // Same rule as My Home's Compliance (lib/compliance.js): each
+        // quarter is due 15 days after it ends, yellow in the last 7.
+        return worstOf(quarterlyStatusForState(state).map(function (q) { return q.status; }));
       }));
 
       return { resident: resident, status: statuses.length ? worstOf(statuses) : 'green' };
