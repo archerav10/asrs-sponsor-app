@@ -1825,6 +1825,17 @@ env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
 
+### Sponsor Guidance (Sponsor App home)
+
+A "Sponsor Guidance" button at the bottom of the Sponsor App home screen
+opens the Sponsor Guidance Binder (Google Drive folder
+`1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj`, set in `GUIDANCE_FOLDER_ID` in
+`public/provider-app/index.html`) inside the app using Google's embedded
+folder view, so sponsors don't need a Google account. That only works
+while the folder is shared **Anyone with the link: Viewer**; the files
+inside inherit it. Never use this for anything with resident
+information: link-shared means anyone who has the link can open it.
+
 ### My Home's Compliance (tenth process — one view of every area)
 
 **Sponsor App:** a **My Home's Compliance** button on Home, with the

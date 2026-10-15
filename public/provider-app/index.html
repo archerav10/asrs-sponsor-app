@@ -649,6 +649,8 @@
   .mc-detail .mc-d-text.flag { color: var(--error); font-weight: 600; }
   .mc-detail .mc-d-text.soon { color: #6B5200; font-weight: 600; }
   .wf-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px; font-family: inherit; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
+  .drive-frame-wrap { background: #fff; border: 1px solid var(--border, #D8D2C2); border-radius: 10px; overflow: hidden; margin: 8px 0 10px; }
+  .drive-frame { display: block; width: 100%; height: 70vh; min-height: 420px; border: 0; }
 </style>
 </head>
 <body>
@@ -762,6 +764,13 @@
       </button>
     </div>
 
+    <div class="action-list">
+      <button class="action-button" id="home-guidance">
+        &#128216; Sponsor Guidance
+        <span class="sub">Policies, procedures and forms</span>
+      </button>
+    </div>
+
     <button class="logout-link" id="logout">Log Out</button>
   </section>
 
@@ -789,6 +798,19 @@
   </section>
 
   <!-- My Home's Compliance -->
+  <!-- Sponsor Guidance: the shared Drive binder, shown inside the app.
+       Google's embedded folder view needs no Google sign-in as long as
+       the folder is shared "Anyone with the link can view". -->
+  <section id="screen-guidance" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Sponsor Guidance</p>
+    <p class="help-text" style="margin-top:-6px;">Tap a document to open it. Folders open inside the list.</p>
+    <div class="drive-frame-wrap"><iframe id="guidance-frame" class="drive-frame" title="Sponsor Guidance documents" loading="lazy" referrerpolicy="no-referrer"></iframe></div>
+    <p class="help-text"><a id="guidance-open" target="_blank" rel="noopener" style="color: var(--forest); font-weight: 600;">Open in Google Drive instead</a></p>
+  </section>
+
   <section id="screen-compliance" class="screen">
     <div class="screen-header">
       <button class="back-button" data-back="home">&larr; Back</button>
@@ -1119,7 +1141,8 @@
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
     giveMeds: document.getElementById('screen-give-meds'),
     weeklyFocus: document.getElementById('screen-weekly-focus'),
-    compliance: document.getElementById('screen-compliance')
+    compliance: document.getElementById('screen-compliance'),
+    guidance: document.getElementById('screen-guidance')
   };
 
   function getStoredSession() {
@@ -3748,6 +3771,16 @@
       statusEl.textContent = 'Tap to check';
     }
   }
+
+  // Sponsor Guidance binder (Google Drive folder, shared view-only).
+  const GUIDANCE_FOLDER_ID = '1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj';
+  document.getElementById('home-guidance').addEventListener('click', function () {
+    const frame = document.getElementById('guidance-frame');
+    if (!frame.src) frame.src = 'https://drive.google.com/embeddedfolderview?id=' + GUIDANCE_FOLDER_ID + '#list';
+    document.getElementById('guidance-open').href = 'https://drive.google.com/drive/folders/' + GUIDANCE_FOLDER_ID;
+    showScreen('guidance');
+    window.scrollTo(0, 0);
+  });
 
   document.getElementById('home-compliance').addEventListener('click', function () {
     showScreen('compliance');
