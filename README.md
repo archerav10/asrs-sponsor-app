@@ -1913,12 +1913,12 @@ revoked or its password changed), re-authorize it for both sites.
 home's overall light and "N areas need attention". It opens a screen
 with one light per area, grouped Residents / Training / Home, each with
 a one-line reason and, tapped, the detail (per resident, per staff
-member). **Admin Dashboard -> Compliance tab:** every sponsor with app
-access at your locations, grouped by home, with all eight lights in a
-row; tap a sponsor for the same detail they see, worst first. The tab
-lists sponsors first (`get-compliance-sponsors`) and then loads each
-home separately (`get-sponsor-compliance`, three at a time) so one slow
-home never holds up or times out the page.
+member). **Admin Dashboard -> Compliance tab:** one card per granted
+location, with its residents, its sponsor and all eight lights in a row;
+tap a location for exactly the detail its sponsor sees. The tab lists
+the locations first (`get-location-compliance` with no location) and
+then loads each one separately (`?location=…`, three at a time) so one
+slow home never holds up or times out the page.
 
 All the rules live in `lib/compliance.js` (`homeCompliance`), built on
 each area's own helpers so its lights agree with the area's own screens:
@@ -1931,8 +1931,12 @@ each area's own helpers so its lights agree with the area's own screens:
 | Training & Certification | per staff member at the home: yellow 30 days before an item expires; red when expired or any item never completed |
 | First Aid, Emergency Supplies, Physical Environment, Fire Drill | unchanged from the Home screen's own lights (`lib/report-due-date.js`) |
 
-Resident areas use the sponsor's own residents (`Resident Initials` on
-their Sponsors row). An area whose lookup fails shows grey "Couldn't
+Compliance is **by location** (`locationCompliance`): resident areas
+cover every active resident at the location (up to two per home), the
+same list the Medical tab and MAR Review use (a resident appears once
+they have a medication on file), not the `Resident Initials` on any one
+Sponsors row. The Sponsor App and the admin tab both call it, so they
+always match. An area whose lookup fails shows grey "Couldn't
 check right now" and doesn't count toward the overall light. The Home
 screen's existing Annual Planning and Quarterly Reporting dots now use
 the same rules as this card (they used to turn yellow only 7 days before

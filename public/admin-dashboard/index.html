@@ -515,7 +515,7 @@
     </div>
 
     <div id="compliance-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each sponsor's home, exactly as they see it in the app under My Home's Compliance. Tap a sponsor for details.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each location, with every resident there &mdash; exactly what its sponsor sees in the app under My Home's Compliance. Tap a location for details.</p>
       <p class="error-text" id="compliance-dashboard-error"></p>
       <div id="compliance-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
@@ -3129,20 +3129,23 @@
   document.getElementById('wfc-save-draft').addEventListener('click', function () { wfcSave(false); });
   document.getElementById('wfc-save-ready').addEventListener('click', function () { wfcSave(true); });
 
-  // --- Compliance (all sponsors) ---
-  // Lists every sponsor, then loads each one's home separately so a slow
+  // --- Compliance (by location) ---
+  // Lists the granted locations, then loads each one separately so a slow
   // home never holds up (or times out) the whole tab.
   const CP_SHORT = { medical: 'Medical', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
   const CP_ORDER = ['medical', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
   let cpLoadId = 0;
 
-  function cpRenderCard(card, sponsor, data) {
+  function cpRenderCard(card, location, data) {
     card.innerHTML = '';
     const sum = wfEl('summary');
     const head = wfEl('div', 'cp-head');
     head.appendChild(wfEl('span', 'status-dot status-' + (data ? data.overall : 'unknown')));
-    const name = wfEl('span', 'cp-name', sponsor.name);
-    name.appendChild(wfEl('div', 'cp-sub', sponsor.residents.length ? 'Residents: ' + sponsor.residents.join(', ') : 'No residents assigned'));
+    const name = wfEl('span', 'cp-name', location);
+    if (data) {
+      name.appendChild(wfEl('div', 'cp-sub', data.residents.length ? 'Residents: ' + data.residents.join(', ') : 'No residents on file'));
+      if (data.sponsors.length) name.appendChild(wfEl('div', 'cp-sub', 'Sponsor: ' + data.sponsors.join(', ')));
+    }
     head.appendChild(name);
     if (data) {
       const flagged = data.counts.red + data.counts.yellow;
@@ -3206,35 +3209,30 @@
     body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
     let data;
     try {
-      data = await apiFetch('/get-compliance-sponsors');
+      data = await apiFetch('/get-location-compliance');
     } catch (e) {
       body.innerHTML = '';
       setError('compliance-dashboard-error', e.message);
       return;
     }
     body.innerHTML = '';
-    if (!data.sponsors.length) {
-      body.innerHTML = '<p class="empty-text">No sponsors with app access at your locations.</p>';
+    if (!data.locations.length) {
+      body.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
       return;
     }
-    let lastLocation = null;
     const jobs = [];
-    data.sponsors.forEach(function (sponsor) {
-      if (sponsor.location !== lastLocation) {
-        lastLocation = sponsor.location;
-        body.appendChild(wfEl('p', 'location-title', sponsor.location));
-      }
+    data.locations.forEach(function (location) {
       const card = wfEl('details', 'cp-card');
-      cpRenderCard(card, sponsor, null);
+      cpRenderCard(card, location, null);
       body.appendChild(card);
       jobs.push(function () {
-        return apiFetch('/get-sponsor-compliance?sponsorId=' + encodeURIComponent(sponsor.id))
-          .then(function (res) { if (loadId === cpLoadId) cpRenderCard(card, sponsor, res); })
+        return apiFetch('/get-location-compliance?location=' + encodeURIComponent(location))
+          .then(function (res) { if (loadId === cpLoadId) cpRenderCard(card, location, res); })
           .catch(function (e) {
             if (loadId !== cpLoadId) return;
             card.innerHTML = '';
             const s = wfEl('summary');
-            s.appendChild(wfEl('span', 'cp-name', sponsor.name + ': couldn’t check (' + e.message + ')'));
+            s.appendChild(wfEl('span', 'cp-name', location + ': couldn’t check (' + e.message + ')'));
             card.appendChild(s);
           });
       });
