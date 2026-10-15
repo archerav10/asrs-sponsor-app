@@ -1831,6 +1831,50 @@ env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
 
+### Vehicles (admin dashboard only — group home vehicles)
+
+**Admin Dashboard -> Vehicles tab:** each granted location's active
+vehicles with a status light, latest mileage and anything due. "+ Add a
+vehicle" (name, year, make, model, plate, VIN, notes). A vehicle's
+screen shows each tracked item's status, a "Log a Service" form (type,
+date, mileage, expiration date for tags/insurance, optional cost and
+note) and the full history, newest first, with "Remove (entered by
+mistake)". "Edit vehicle details" also has "Retire this vehicle"
+(sold/out of service: hidden, no reminders, history kept). No uploads.
+Sponsors never see any of this.
+
+**Tracked services** (`lib/vehicles.js`; everything else is history only:
+Tires, Brakes, Battery, Wiper Blades, Air Filter, Alignment, Fluid Flush,
+Recall / Repair, Other Maintenance):
+
+| Service | Due | Yellow + first text | Red + second text |
+|---|---|---|---|
+| State Inspection | 12 months after the last one | 30 days before | on/after the due date |
+| Plate Tags / Registration | the expiration date logged with it | 30 days before | on/after |
+| Insurance Renewal | the expiration date logged with it | 30 days before | on/after |
+| Oil & Filter | 3 months or 5,000 miles, whichever first | 30 days / 500 miles before | either reached |
+| Tire Rotation | every 6,000 miles | within 500 miles | reached |
+| Tune-up | every 30,000 miles | within 500 miles | reached |
+
+Mileage is the highest reading logged for the vehicle (any service, or a
+"Mileage Update" entry), so mileage reminders are only as current as the
+latest reading. A reading lower than one on file asks for confirmation.
+A tracked service that has never been logged shows gray ("log the last
+one to start tracking") and sends nothing.
+
+**Texts** (`check-vehicle-reminders`, daily 9:30 AM Eastern): one text
+per vehicle listing what just turned yellow or red, to the location's
+admins who get routine notifications (every enabled admin if nobody is
+granted the location). Each stage of each due point is sent once,
+remembered in the vehicle's "Reminders Sent", so re-runs are quiet and
+logging the service starts the next cycle. Dry run:
+`test-vehicle-reminders?secret=<NOTIFICATION_TEST_SECRET>`.
+
+**Data:** Notion **Vehicles** (`VEHICLES_DB_ID`) and **Vehicle Services**
+(`VEHICLE_SERVICES_DB_ID`, one row per entry, keyed by `Vehicle ID`;
+removed entries have Active unchecked). IDs are in `lib/ids.js`. Connect
+your Notion integration to both ("..." -> Connections).
+
 ### Documents from Google Drive (Sponsor Guidance, past progress notes)
 
 Sponsors browse two Drive folders inside the Sponsor App without a

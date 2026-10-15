@@ -429,6 +429,7 @@
       <button class="tab-button" id="tab-medical" type="button">Medical</button>
       <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
       <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
+      <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
     </div>
 
     <div id="mar-tab-content">
@@ -491,6 +492,20 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Every appointment is logged with its document. Physical, Dental, Labwork and TB Test are due 12 months after the last one &mdash; yellow 30 days before, red once overdue or if none is on file.</p>
       <p class="error-text" id="medical-dashboard-error"></p>
       <div id="medical-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="vehicles-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Group home vehicles. Log each service with its date and mileage. Inspection, tags, insurance, oil, tire rotation and tune-up are tracked: the location's admins get a text 30 days (or 500 miles) before one is due and again when it's due.</p>
+      <p class="error-text" id="vehicles-dashboard-error"></p>
+      <div id="vehicles-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
+      <details class="ap-step" id="vehicle-add" style="margin-top: 18px;">
+        <summary style="cursor: pointer; font-weight: 600;">+ Add a vehicle</summary>
+        <label for="vehicle-add-location">Location</label>
+        <select id="vehicle-add-location"></select>
+        <div id="vehicle-add-fields"></div>
+        <p class="error-text" id="vehicle-add-error"></p>
+        <button type="button" id="vehicle-add-save">Add vehicle</button>
+      </details>
     </div>
 
     <div id="weekly-tab-content" style="display:none;">
@@ -604,6 +619,51 @@
 
     <p class="item-section-title">Last Appointment by Type</p>
     <div id="medical-detail-body"></div>
+  </section>
+
+  <!-- Screen 11: Vehicles — one vehicle -->
+  <section id="screen-vehicle-detail" class="screen">
+    <button class="back-button" id="vehicle-detail-back">&larr; Back</button>
+    <div class="home-card">
+      <p class="name" id="vehicle-detail-title"></p>
+      <p class="meta" id="vehicle-detail-meta"></p>
+    </div>
+    <p class="error-text" id="vehicle-detail-error"></p>
+
+    <p class="item-section-title">Status</p>
+    <div id="vehicle-status-list"><p class="loading-text">Loading&hellip;</p></div>
+
+    <div class="ap-step" id="vehicle-log-section">
+      <p class="ap-step-title">Log a Service</p>
+      <p class="ap-step-status">Use "Mileage Update" to record a reading between services, so mileage reminders stay accurate.</p>
+      <label for="vehicle-log-type" style="margin-top: 0;">Service</label>
+      <select id="vehicle-log-type"></select>
+      <label for="vehicle-log-date">Date</label>
+      <input type="date" id="vehicle-log-date">
+      <label for="vehicle-log-mileage" id="vehicle-log-mileage-label">Mileage</label>
+      <input type="text" id="vehicle-log-mileage" inputmode="numeric" placeholder="e.g. 48,250">
+      <div id="vehicle-log-expiration-wrap" style="display:none;">
+        <label for="vehicle-log-expiration">New expiration date</label>
+        <input type="date" id="vehicle-log-expiration">
+      </div>
+      <label for="vehicle-log-cost">Cost (optional)</label>
+      <input type="text" id="vehicle-log-cost" inputmode="decimal" placeholder="e.g. 59.99">
+      <label for="vehicle-log-note">Note / description (optional)</label>
+      <textarea id="vehicle-log-note" rows="2" placeholder="e.g. Jiffy Lube, synthetic 0W-20"></textarea>
+      <p class="error-text" id="vehicle-log-error"></p>
+      <button type="button" id="vehicle-log-save">Save</button>
+    </div>
+
+    <p class="item-section-title">Service History</p>
+    <div id="vehicle-history"></div>
+
+    <details class="ap-step" id="vehicle-edit" style="margin-top: 18px;">
+      <summary style="cursor: pointer; font-weight: 600;">Edit vehicle details</summary>
+      <div id="vehicle-edit-fields"></div>
+      <p class="error-text" id="vehicle-edit-error"></p>
+      <button type="button" id="vehicle-edit-save">Save details</button>
+      <button type="button" class="secondary" id="vehicle-retire" style="margin-top: 10px;">Retire this vehicle (sold / out of service)</button>
+    </details>
   </section>
 
   <!-- Screen 10: Weekly Focus — compose one sponsor's message -->
@@ -746,7 +806,8 @@
     checklistDetail: document.getElementById('screen-checklist-detail'),
     dpnTemplates: document.getElementById('screen-dpn-templates'),
     medicalDetail: document.getElementById('screen-medical-detail'),
-    weeklyCompose: document.getElementById('screen-weekly-compose')
+    weeklyCompose: document.getElementById('screen-weekly-compose'),
+    vehicleDetail: document.getElementById('screen-vehicle-detail')
   };
 
   let activeTabKey = 'mar'; // widens the page while the Sponsor Intake tab is showing
@@ -785,7 +846,9 @@
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || 'Something went wrong.');
+      const err = new Error(data.error || 'Something went wrong.');
+      err.data = data; // e.g. save-vehicle-service's lowerMileage flag
+      throw err;
     }
     return data;
   }
@@ -1045,7 +1108,8 @@
     dpn: { button: document.getElementById('tab-dpn'), content: document.getElementById('dpn-tab-content'), load: loadDpnDashboard },
     medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
     weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
-    compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard }
+    compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
+    vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -1870,6 +1934,367 @@
       setError('staff-detail-error', e.message);
     }
   }
+
+  // --- Vehicles tab / Screen 11 ---
+  // The server decides every status (lib/vehicles.js); this screen only
+  // shows it and posts entries.
+  const VEHICLE_FIELDS = [
+    { key: 'name', label: 'Name', placeholder: 'e.g. White Sienna' },
+    { key: 'year', label: 'Year', placeholder: 'e.g. 2019', inputmode: 'numeric' },
+    { key: 'make', label: 'Make', placeholder: 'e.g. Toyota' },
+    { key: 'model', label: 'Model', placeholder: 'e.g. Sienna' },
+    { key: 'plate', label: 'Plate', placeholder: 'e.g. ABC-1234' },
+    { key: 'vin', label: 'VIN (optional)' },
+    { key: 'notes', label: 'Notes (optional)' }
+  ];
+
+  function vehicleDot(status) {
+    const dot = document.createElement('span');
+    dot.className = 'status-dot status-' + (status === 'none' ? 'unknown' : status);
+    return dot;
+  }
+
+  function miles(n) { return Math.round(n).toLocaleString('en-US') + ' mi'; }
+
+  // Builds the name/year/make/... inputs into a container, prefilled.
+  function renderVehicleFields(container, prefix, values) {
+    container.innerHTML = '';
+    VEHICLE_FIELDS.forEach(function (f) {
+      const label = document.createElement('label');
+      label.htmlFor = prefix + f.key;
+      label.textContent = f.label;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = prefix + f.key;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      if (f.inputmode) input.inputMode = f.inputmode;
+      input.value = values && values[f.key] != null ? values[f.key] : '';
+      container.appendChild(label);
+      container.appendChild(input);
+    });
+  }
+
+  function readVehicleFields(prefix) {
+    const out = {};
+    VEHICLE_FIELDS.forEach(function (f) { out[f.key] = document.getElementById(prefix + f.key).value.trim(); });
+    return out;
+  }
+
+  function renderVehicleButton(v) {
+    const btn = document.createElement('button');
+    btn.className = 'ap-resident-button';
+    btn.type = 'button';
+    const left = document.createElement('span');
+    left.className = 'ap-resident-left';
+    left.appendChild(vehicleDot(v.overall));
+    const name = document.createElement('span');
+    name.className = 'ap-resident-initials';
+    name.textContent = v.name;
+    left.appendChild(name);
+    const status = document.createElement('span');
+    status.className = 'ap-resident-status';
+    const parts = [];
+    if (v.description) parts.push(v.description);
+    if (v.currentMileage) parts.push(miles(v.currentMileage.mileage));
+    const attention = v.attention.map(function (i) { return (i.status === 'red' ? 'Due: ' : 'Soon: ') + i.label; });
+    status.textContent = (attention.length ? attention.join(' · ') : (v.overall === 'none' ? 'No services logged yet' : 'All current')) + (parts.length ? '\n' + parts.join(' · ') : '');
+    status.style.whiteSpace = 'pre-line';
+    btn.appendChild(left);
+    btn.appendChild(status);
+    btn.addEventListener('click', function () { openVehicleDetail(v.id); });
+    return btn;
+  }
+
+  async function loadVehiclesDashboard() {
+    const listEl = document.getElementById('vehicles-dashboard-list');
+    setError('vehicles-dashboard-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-vehicles');
+      listEl.innerHTML = '';
+      const locSelect = document.getElementById('vehicle-add-location');
+      locSelect.innerHTML = '';
+      data.locations.forEach(function (l) {
+        const o = document.createElement('option');
+        o.value = l;
+        o.textContent = l;
+        locSelect.appendChild(o);
+      });
+      if (!document.getElementById('vehicle-add-name')) renderVehicleFields(document.getElementById('vehicle-add-fields'), 'vehicle-add-', null);
+      if (!data.vehicles.length) {
+        listEl.innerHTML = '<p class="empty-text">No vehicles yet. Use "+ Add a vehicle" below.</p>';
+        return;
+      }
+      let lastLocation = null;
+      data.vehicles.forEach(function (v) {
+        if (v.location !== lastLocation) {
+          const title = document.createElement('p');
+          title.className = 'location-title';
+          title.textContent = v.location;
+          listEl.appendChild(title);
+          lastLocation = v.location;
+        }
+        listEl.appendChild(renderVehicleButton(v));
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('vehicles-dashboard-error', e.message);
+    }
+  }
+
+  document.getElementById('vehicle-add-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('vehicle-add-error', '');
+    const fields = readVehicleFields('vehicle-add-');
+    if (!fields.name) { setError('vehicle-add-error', 'Give the vehicle a name, e.g. "White Sienna".'); return; }
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/save-vehicle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ location: document.getElementById('vehicle-add-location').value }, fields))
+      });
+      renderVehicleFields(document.getElementById('vehicle-add-fields'), 'vehicle-add-', null);
+      document.getElementById('vehicle-add').open = false;
+      openVehicleDetail(res.id);
+    } catch (e) {
+      setError('vehicle-add-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  let currentVehicle = null;
+  let vehicleServiceTypes = [];
+
+  function resetVehicleLogForm() {
+    document.getElementById('vehicle-log-type').value = '';
+    document.getElementById('vehicle-log-date').value = localTodayISO();
+    ['vehicle-log-mileage', 'vehicle-log-expiration', 'vehicle-log-cost', 'vehicle-log-note'].forEach(function (id) { document.getElementById(id).value = ''; });
+    refreshVehicleLogForm();
+  }
+
+  function refreshVehicleLogForm() {
+    const type = vehicleServiceTypes.filter(function (t) { return t.key === document.getElementById('vehicle-log-type').value; })[0];
+    document.getElementById('vehicle-log-expiration-wrap').style.display = type && type.needsExpiration ? '' : 'none';
+    document.getElementById('vehicle-log-mileage-label').textContent = type && type.needsMileage ? 'Mileage' : 'Mileage (optional)';
+  }
+  document.getElementById('vehicle-log-type').addEventListener('change', refreshVehicleLogForm);
+
+  function openVehicleDetail(id) {
+    currentVehicle = { id: id };
+    setError('vehicle-detail-error', '');
+    setError('vehicle-log-error', '');
+    setError('vehicle-edit-error', '');
+    document.getElementById('vehicle-edit').open = false;
+    document.getElementById('vehicle-detail-title').textContent = '';
+    document.getElementById('vehicle-detail-meta').textContent = '';
+    document.getElementById('vehicle-history').innerHTML = '';
+    showScreen('vehicleDetail');
+    window.scrollTo(0, 0);
+    loadVehicleDetail(true);
+  }
+
+  document.getElementById('vehicle-detail-back').addEventListener('click', function () {
+    showScreen('dashboard');
+    loadVehiclesDashboard();
+  });
+
+  async function loadVehicleDetail(resetForm) {
+    const statusEl = document.getElementById('vehicle-status-list');
+    statusEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-vehicle?id=' + encodeURIComponent(currentVehicle.id));
+      currentVehicle = data.vehicle;
+      vehicleServiceTypes = data.serviceTypes;
+      const v = data.vehicle;
+      document.getElementById('vehicle-detail-title').textContent = v.name;
+      document.getElementById('vehicle-detail-meta').textContent = [v.location, v.description, v.plate ? 'Plate ' + v.plate : '',
+        data.status.currentMileage ? miles(data.status.currentMileage.mileage) + ' as of ' + formatDate(data.status.currentMileage.date) : 'Mileage not logged yet'].filter(Boolean).join(' · ');
+
+      const typeSelect = document.getElementById('vehicle-log-type');
+      if (!typeSelect.options.length) {
+        const pick = document.createElement('option');
+        pick.value = '';
+        pick.textContent = '— Choose a service —';
+        typeSelect.appendChild(pick);
+        [['Tracked (reminders)', true], ['History only', false]].forEach(function (g) {
+          const group = document.createElement('optgroup');
+          group.label = g[0];
+          vehicleServiceTypes.filter(function (t) { return t.tracked === g[1]; }).forEach(function (t) {
+            const o = document.createElement('option');
+            o.value = t.key;
+            o.textContent = t.label;
+            group.appendChild(o);
+          });
+          typeSelect.appendChild(group);
+        });
+      }
+      if (resetForm) resetVehicleLogForm();
+
+      statusEl.innerHTML = '';
+      data.status.items.forEach(function (item) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ap-step';
+        const row = document.createElement('div');
+        row.className = 'med-type-row';
+        row.appendChild(vehicleDot(item.status));
+        const name = document.createElement('span');
+        name.className = 'med-type-name';
+        name.textContent = item.label;
+        const last = document.createElement('span');
+        last.className = 'med-type-date';
+        last.textContent = item.last ? 'Last: ' + formatDate(item.last.date) + (item.last.mileage != null ? ' · ' + miles(item.last.mileage) : '') : '';
+        row.appendChild(name);
+        row.appendChild(last);
+        wrap.appendChild(row);
+        const due = document.createElement('p');
+        due.className = 'med-type-due' + (item.status === 'red' || item.status === 'yellow' ? ' flagged' : '');
+        due.textContent = item.text;
+        wrap.appendChild(due);
+        statusEl.appendChild(wrap);
+      });
+
+      renderVehicleHistory(data.history);
+      renderVehicleFields(document.getElementById('vehicle-edit-fields'), 'vehicle-edit-', v);
+    } catch (e) {
+      statusEl.innerHTML = '';
+      setError('vehicle-detail-error', e.message);
+    }
+  }
+
+  function renderVehicleHistory(history) {
+    const el = document.getElementById('vehicle-history');
+    el.innerHTML = '';
+    if (!history.length) {
+      el.innerHTML = '<p class="empty-text">Nothing logged yet.</p>';
+      return;
+    }
+    history.forEach(function (s) {
+      const wrap = document.createElement('div');
+      wrap.className = 'ap-step';
+      const row = document.createElement('div');
+      row.className = 'med-type-row';
+      const name = document.createElement('span');
+      name.className = 'med-type-name';
+      name.textContent = s.typeLabel;
+      const date = document.createElement('span');
+      date.className = 'med-type-date';
+      date.textContent = formatDate(s.date);
+      row.appendChild(name);
+      row.appendChild(date);
+      wrap.appendChild(row);
+      const details = [];
+      if (s.mileage != null) details.push(miles(s.mileage));
+      if (s.expirationDate) details.push('Expires ' + formatDate(s.expirationDate));
+      if (s.cost != null) details.push('$' + s.cost.toFixed(2));
+      if (s.loggedBy) details.push('logged by ' + s.loggedBy);
+      const meta = document.createElement('p');
+      meta.className = 'med-type-due';
+      meta.style.marginLeft = '0';
+      meta.textContent = details.join(' · ');
+      wrap.appendChild(meta);
+      if (s.note) {
+        const note = document.createElement('p');
+        note.className = 'med-type-due';
+        note.style.marginLeft = '0';
+        note.style.color = '#333';
+        note.textContent = s.note;
+        wrap.appendChild(note);
+      }
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'link-button';
+      remove.textContent = 'Remove (entered by mistake)';
+      remove.style.cssText = 'background:none;border:0;padding:0;margin-top:6px;color:#9A3412;font-size:13px;text-decoration:underline;cursor:pointer;width:auto;';
+      remove.addEventListener('click', async function () {
+        if (!confirm('Remove this ' + s.typeLabel + ' entry from ' + formatDate(s.date) + '?')) return;
+        remove.disabled = true;
+        try {
+          await apiFetch('/save-vehicle-service', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serviceId: s.id, remove: true })
+          });
+          loadVehicleDetail(false);
+        } catch (e) {
+          setError('vehicle-detail-error', e.message);
+          remove.disabled = false;
+        }
+      });
+      wrap.appendChild(remove);
+      el.appendChild(wrap);
+    });
+  }
+
+  async function saveVehicleService(confirmLowerMileage) {
+    const btn = document.getElementById('vehicle-log-save');
+    setError('vehicle-log-error', '');
+    const typeKey = document.getElementById('vehicle-log-type').value;
+    if (!typeKey) { setError('vehicle-log-error', 'Choose a service.'); return; }
+    btn.disabled = true;
+    try {
+      await apiFetch('/save-vehicle-service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicleId: currentVehicle.id,
+          typeKey: typeKey,
+          date: document.getElementById('vehicle-log-date').value,
+          mileage: document.getElementById('vehicle-log-mileage').value.trim(),
+          expirationDate: document.getElementById('vehicle-log-expiration').value,
+          cost: document.getElementById('vehicle-log-cost').value.trim(),
+          note: document.getElementById('vehicle-log-note').value.trim(),
+          confirmLowerMileage: !!confirmLowerMileage
+        })
+      });
+      await loadVehicleDetail(true);
+      setError('vehicle-log-error', '');
+    } catch (e) {
+      if (e.data && e.data.lowerMileage && confirm(e.message + ' Save it anyway?')) {
+        btn.disabled = false;
+        return saveVehicleService(true);
+      }
+      setError('vehicle-log-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('vehicle-log-save').addEventListener('click', function () { saveVehicleService(false); });
+
+  document.getElementById('vehicle-edit-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('vehicle-edit-error', '');
+    btn.disabled = true;
+    try {
+      await apiFetch('/save-vehicle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ id: currentVehicle.id }, readVehicleFields('vehicle-edit-')))
+      });
+      document.getElementById('vehicle-edit').open = false;
+      loadVehicleDetail(false);
+    } catch (e) {
+      setError('vehicle-edit-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('vehicle-retire').addEventListener('click', async function () {
+    if (!confirm('Retire ' + currentVehicle.name + '? It disappears from this list and stops sending reminders. Its history stays in Notion.')) return;
+    try {
+      await apiFetch('/save-vehicle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentVehicle.id, retire: true })
+      });
+      showScreen('dashboard');
+      loadVehiclesDashboard();
+    } catch (e) {
+      setError('vehicle-edit-error', e.message);
+    }
+  });
 
   // --- Screen 3h/9: Medical Appointments ---
   // Status labels for the four compliance types (Physical, Dental,
