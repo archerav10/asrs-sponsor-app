@@ -17,6 +17,7 @@ const SERVICES_DB_ID = configId('VEHICLE_SERVICES_DB_ID');
 //   Oil & Filter        3 months or 5,000 miles, whichever comes first
 //   Tire Rotation       every 6,000 miles
 //   Tune-up             every 30,000 miles
+//   Brakes, Alignment   12 months or 12,000 miles, whichever comes first
 //
 // Yellow (and the first text) 30 days before a date, or within 500 miles
 // of a mileage; red (and a second text) once it's due. Mileage is only as
@@ -33,12 +34,12 @@ const SERVICE_TYPES = [
   { key: 'oil', label: 'Oil & Filter', months: 3, miles: 5000 },
   { key: 'rotation', label: 'Tire Rotation', miles: 6000 },
   { key: 'tuneup', label: 'Tune-up', miles: 30000 },
+  { key: 'brakes', label: 'Brakes', months: 12, miles: 12000 },
+  { key: 'alignment', label: 'Alignment', months: 12, miles: 12000 },
   { key: 'tires', label: 'Tires' },
-  { key: 'brakes', label: 'Brakes' },
   { key: 'battery', label: 'Battery' },
   { key: 'wipers', label: 'Wiper Blades' },
   { key: 'airFilter', label: 'Air Filter' },
-  { key: 'alignment', label: 'Alignment' },
   { key: 'fluids', label: 'Fluid Flush' },
   { key: 'repair', label: 'Recall / Repair' },
   { key: 'other', label: 'Other Maintenance' },
