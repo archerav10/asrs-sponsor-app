@@ -1451,13 +1451,16 @@ intake and step, created as needed:
 
 #### Environment variables
 
+The four database IDs and the Drive root folder are in `lib/ids.js` (see
+the 4KB note), not Netlify: `SPONSOR_INTAKES_DB_ID`,
+`SPONSOR_INTAKE_STAGES_DB_ID` (Intake Stages), `SPONSOR_INTAKE_STEPS_DB_ID`
+(Intake Steps, Master 3.3), `SPONSOR_INTAKE_ITEMS_DB_ID` and
+`SPONSOR_INTAKE_ROOT_FOLDER_ID` (the Drive folder that holds every
+sponsor's intake folder). A Netlify variable of the same name still
+overrides them.
+
 | Variable | Value |
 |---|---|
-| `SPONSOR_INTAKES_DB_ID` | `6ce53041-85dd-4d46-adc8-2b9f1efa42e3` |
-| `SPONSOR_INTAKE_STAGES_DB_ID` | `813f9810-4bfb-45e5-9782-bbb21d90a9bc` (Intake Stages) |
-| `SPONSOR_INTAKE_STEPS_DB_ID` | `446736ee-ef52-4068-8c06-411513ff3492` (Intake Steps, Master 3.3) |
-| `SPONSOR_INTAKE_ITEMS_DB_ID` | `ad48c1d8-9cd8-4980-b580-40a12dc7aa41` |
-| `SPONSOR_INTAKE_ROOT_FOLDER_ID` | `1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8` (Drive folder that holds every sponsor's intake folder) |
 | `ZAPIER_SPONSOR_INTAKE_WEBHOOK_URL` | Catch Hook URL of the "Sponsor Intake Uploads" Zap (below) |
 | `EMAILJS_INTAKE_TEMPLATE_ID` | The intake EmailJS template (below) |
 | `SPONSOR_INTAKE_REPLY_TO` | Address sponsor and reference replies should go to |
@@ -1786,11 +1789,14 @@ Every request is checked against Twilio's signature (`TWILIO_AUTH_TOKEN`);
 if Twilio is set to call a URL other than the one the function sees, set
 `SMS_INBOUND_URL` to exactly what's configured in Twilio.
 
-**Twilio setup (once):** Twilio Console -> Messaging -> Services -> your
-service (the one in `TWILIO_MESSAGING_SERVICE_SID`) -> Integration ->
-Incoming Messages -> "Send a webhook", Request URL
+**Twilio setup (once):** Twilio Console -> Messaging -> Services -> the
+service whose SID is in this site's `TWILIO_MESSAGING_SERVICE_SID`
+(`MGa94d…`; not "ASRS Vacancy Alerts", `MG451c…`, which belongs to the
+vacancy texts) -> Settings -> "Select how your Messaging Service handles
+messages" -> "Send a webhook", Request URL
 `https://asrs-sponsor-app.netlify.app/.netlify/functions/sms-inbound`,
-method POST. Leave Advanced Opt-Out on.
+method POST. Leave Advanced Opt-Out on. Replies go to whichever service
+owns the number the sponsor texted back, so it must be this one.
 
 **Carry-over:** checklist items a sponsor didn't tick roll into their
 next week as "Still open from the week of …", keeping the week they
@@ -1824,6 +1830,36 @@ to each ("..." -> Connections). Their IDs are in `lib/ids.js`. Optional
 env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
+
+### Documents from Google Drive (Sponsor Guidance, past progress notes)
+
+Sponsors browse two Drive folders inside the Sponsor App without a
+Google account, and **the folders stay private** (nothing is
+link-shared). Same approach as the inspector portal (asrscompliance.com):
+the functions call Drive with a stored OAuth grant
+(`GOOGLE_OAUTH_CLIENT_SECRET` and `GOOGLE_OAUTH_REFRESH_TOKEN` in
+Netlify, copied from that site's project; the public
+`GOOGLE_OAUTH_CLIENT_ID` is in `lib/ids.js` to save room under the 4KB
+limit),
+and the browser only ever talks to this app with its normal session.
+
+- **Sponsor Guidance** (button at the bottom of Home): the Sponsor
+  Guidance Binder, `SPONSOR_GUIDANCE_FOLDER_ID` in `lib/ids.js`.
+- **Past notes** (top of each resident's Daily Progress Notes screen):
+  `Facility Reporting/{Location}/Residents/{Full Name}/Daily Progress
+  Notes`, where the nightly PDFs land, found by name from the sponsor's
+  own location and resident (full name from the resident's DPN
+  template). Month folders show as "October 2026".
+
+`get-drive-folder` lists a folder and `get-drive-file` streams a file
+(Google Docs/Sheets/Slides as PDF; up to 4 MB, Netlify's response
+limit). Both take a `root` (`guidance`, or `progress-notes` +
+`resident`), never a raw folder ID: the root is resolved on the server
+from the session, a sponsor can only name residents on their own
+account, and every subfolder or file requested must sit inside that
+root (`isWithin` walks its parents). The code is `lib/google-drive.js`
+and `lib/drive-roots.js`. If Google access stops working (the grant was
+revoked or its password changed), re-authorize it for both sites.
 
 ### My Home's Compliance (tenth process — one view of every area)
 

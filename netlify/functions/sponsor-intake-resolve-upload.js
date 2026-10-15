@@ -3,6 +3,7 @@ const {
   loadChecklist, stepOrPlaceholder, getIntake, stageFolderName, sponsorFolderName, uploadFilename, parseFormFilename,
   json, errorResponse
 } = require('./lib/sponsor-intake');
+const { id: configId } = require('./lib/ids');
 
 // Zapier-facing: tells the intake Zaps where a file goes. Two callers:
 //
@@ -32,7 +33,7 @@ exports.handler = async function (event) {
     if (!body.ticket && !(signedForm && signedForm.signed) && (!secret || body.secret !== secret)) {
       return json(403, { error: 'Missing or incorrect secret.' });
     }
-    const rootFolderId = process.env.SPONSOR_INTAKE_ROOT_FOLDER_ID;
+    const rootFolderId = configId('SPONSOR_INTAKE_ROOT_FOLDER_ID');
     if (!rootFolderId) return json(500, { error: 'SPONSOR_INTAKE_ROOT_FOLDER_ID is not set.' });
 
     let intakeId;

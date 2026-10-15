@@ -2,6 +2,7 @@ const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary, adminFormLink,
   statusPageUrl, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
+const { id: configId } = require('./lib/ids');
 
 // Everything the admin page for one sponsor needs: the full checklist
 // with each item's state, stage progress, and the sponsor's status link.
@@ -19,7 +20,7 @@ exports.handler = async function (event) {
     const cl = await loadChecklist({ fresh: true });
     const intake = await getIntake(id);
     const items = await itemsForIntake(intake.id);
-    const rootFolderId = process.env.SPONSOR_INTAKE_ROOT_FOLDER_ID || '';
+    const rootFolderId = configId('SPONSOR_INTAKE_ROOT_FOLDER_ID') || '';
 
     return json(200, {
       intake: {

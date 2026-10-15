@@ -1,9 +1,10 @@
 const crypto = require('crypto');
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPage, getPlainText } = require('./notion');
 const { requireSession } = require('./session');
+const { id: configId } = require('./ids');
 
-const INTAKES_DB_ID = process.env.SPONSOR_INTAKES_DB_ID;
-const ITEMS_DB_ID = process.env.SPONSOR_INTAKE_ITEMS_DB_ID;
+const INTAKES_DB_ID = configId('SPONSOR_INTAKES_DB_ID');
+const ITEMS_DB_ID = configId('SPONSOR_INTAKE_ITEMS_DB_ID');
 const TIME_ZONE = process.env.SPONSOR_INTAKE_TIME_ZONE || 'America/New_York';
 
 // Sponsor intake is a one-time, stage-by-stage checklist for a
@@ -18,8 +19,8 @@ const TIME_ZONE = process.env.SPONSOR_INTAKE_TIME_ZONE || 'America/New_York';
 // "Intake Steps" (SPONSOR_INTAKE_STEPS_DB_ID). Progress rows in the Items
 // database are keyed by each step's Key, which is why a Key must never
 // change once used — rename the Label instead.
-const STAGES_DB_ID = process.env.SPONSOR_INTAKE_STAGES_DB_ID;
-const STEPS_DB_ID = process.env.SPONSOR_INTAKE_STEPS_DB_ID;
+const STAGES_DB_ID = configId('SPONSOR_INTAKE_STAGES_DB_ID');
+const STEPS_DB_ID = configId('SPONSOR_INTAKE_STEPS_DB_ID');
 const CHECKLIST_TTL_MS = 30 * 1000;
 
 // Notion "Type" option -> internal type:
