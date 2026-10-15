@@ -1825,16 +1825,33 @@ env var: `WEEKLY_FOCUS_REPLY_TO`
 (falls back to `SPONSOR_INTAKE_REPLY_TO`). The sender address is
 whatever your EmailJS service sends from.
 
-### Sponsor Guidance (Sponsor App home)
+### Documents from Google Drive (Sponsor Guidance, past progress notes)
 
-A "Sponsor Guidance" button at the bottom of the Sponsor App home screen
-opens the Sponsor Guidance Binder (Google Drive folder
-`1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj`, set in `GUIDANCE_FOLDER_ID` in
-`public/provider-app/index.html`) inside the app using Google's embedded
-folder view, so sponsors don't need a Google account. That only works
-while the folder is shared **Anyone with the link: Viewer**; the files
-inside inherit it. Never use this for anything with resident
-information: link-shared means anyone who has the link can open it.
+Sponsors browse two Drive folders inside the Sponsor App without a
+Google account, and **the folders stay private** (nothing is
+link-shared). Same approach as the inspector portal (asrscompliance.com):
+the functions call Drive with a stored OAuth grant
+(`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+`GOOGLE_OAUTH_REFRESH_TOKEN`, copied from that site's Netlify project),
+and the browser only ever talks to this app with its normal session.
+
+- **Sponsor Guidance** (button at the bottom of Home): the Sponsor
+  Guidance Binder, `SPONSOR_GUIDANCE_FOLDER_ID` in `lib/ids.js`.
+- **Past notes** (top of each resident's Daily Progress Notes screen):
+  `Facility Reporting/{Location}/Residents/{Full Name}/Daily Progress
+  Notes`, where the nightly PDFs land, found by name from the sponsor's
+  own location and resident (full name from the resident's DPN
+  template). Month folders show as "October 2026".
+
+`get-drive-folder` lists a folder and `get-drive-file` streams a file
+(Google Docs/Sheets/Slides as PDF; up to 4 MB, Netlify's response
+limit). Both take a `root` (`guidance`, or `progress-notes` +
+`resident`), never a raw folder ID: the root is resolved on the server
+from the session, a sponsor can only name residents on their own
+account, and every subfolder or file requested must sit inside that
+root (`isWithin` walks its parents). The code is `lib/google-drive.js`
+and `lib/drive-roots.js`. If Google access stops working (the grant was
+revoked or its password changed), re-authorize it for both sites.
 
 ### My Home's Compliance (tenth process — one view of every area)
 

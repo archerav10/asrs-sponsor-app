@@ -649,8 +649,14 @@
   .mc-detail .mc-d-text.flag { color: var(--error); font-weight: 600; }
   .mc-detail .mc-d-text.soon { color: #6B5200; font-weight: 600; }
   .wf-card textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 16px; font-family: inherit; border: 1px solid var(--border); border-radius: 6px; margin-top: 8px; }
-  .drive-frame-wrap { background: #fff; border: 1px solid var(--border, #D8D2C2); border-radius: 10px; overflow: hidden; margin: 8px 0 10px; }
-  .drive-frame { display: block; width: 100%; height: 70vh; min-height: 420px; border: 0; }
+  .drive-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .drive-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font: inherit; color: inherit; cursor: pointer; }
+  .drive-item:disabled { opacity: .6; cursor: default; }
+  .drive-item .drive-icon { font-size: 22px; flex: 0 0 auto; }
+  .drive-item .drive-name { display: block; font-weight: 600; word-break: break-word; }
+  .drive-item .drive-meta { display: block; font-size: 13px; color: var(--muted, #5E5B52); margin-top: 2px; }
+  .drive-opening { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 14px; }
+  .drive-opening a { color: var(--forest); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -797,20 +803,22 @@
     </div>
   </section>
 
-  <!-- My Home's Compliance -->
-  <!-- Sponsor Guidance: the shared Drive binder, shown inside the app.
-       Google's embedded folder view needs no Google sign-in as long as
-       the folder is shared "Anyone with the link can view". -->
-  <section id="screen-guidance" class="screen">
+  <!-- Documents: browses a Google Drive folder through the app's own
+       functions (get-drive-folder / get-drive-file), so sponsors never
+       sign in to Google and the folders stay private. Used for Sponsor
+       Guidance and each resident's past Daily Progress Notes. -->
+  <section id="screen-drive" class="screen">
     <div class="screen-header">
-      <button class="back-button" data-back="home">&larr; Back</button>
+      <button class="back-button" id="drive-back">&larr; Back</button>
     </div>
-    <p class="screen-title">Sponsor Guidance</p>
-    <p class="help-text" style="margin-top:-6px;">Tap a document to open it. Folders open inside the list.</p>
-    <div class="drive-frame-wrap"><iframe id="guidance-frame" class="drive-frame" title="Sponsor Guidance documents" loading="lazy" referrerpolicy="no-referrer"></iframe></div>
-    <p class="help-text"><a id="guidance-open" target="_blank" rel="noopener" style="color: var(--forest); font-weight: 600;">Open in Google Drive instead</a></p>
+    <p class="screen-title" id="drive-title">Documents</p>
+    <p class="help-text" id="drive-path" style="margin-top:-6px;"></p>
+    <p class="error-text" id="drive-error"></p>
+    <div id="drive-opening" class="drive-opening" style="display:none;"></div>
+    <div id="drive-list" class="drive-list"></div>
   </section>
 
+  <!-- My Home's Compliance -->
   <section id="screen-compliance" class="screen">
     <div class="screen-header">
       <button class="back-button" data-back="home">&larr; Back</button>
@@ -1052,6 +1060,10 @@
       <button class="back-button" data-back="home">&larr; Back</button>
     </div>
     <p class="screen-title" id="dpn-title">Daily Progress Notes</p>
+    <button type="button" class="drive-item" id="dpn-past-notes" style="margin-bottom:14px;">
+      <span class="drive-icon">&#128193;</span>
+      <span><span class="drive-name">Past notes</span><span class="drive-meta">Signed notes for this resident, by month</span></span>
+    </button>
 
     <div class="form-field" id="dpn-date-picker-wrap" style="display:none;">
       <label for="dpn-date-picker">Date You're Entering Notes For</label>
@@ -1142,7 +1154,7 @@
     giveMeds: document.getElementById('screen-give-meds'),
     weeklyFocus: document.getElementById('screen-weekly-focus'),
     compliance: document.getElementById('screen-compliance'),
-    guidance: document.getElementById('screen-guidance')
+    drive: document.getElementById('screen-drive')
   };
 
   function getStoredSession() {
@@ -3772,14 +3784,167 @@
     }
   }
 
-  // Sponsor Guidance binder (Google Drive folder, shared view-only).
-  const GUIDANCE_FOLDER_ID = '1DEzNT_19RJeKr0OMk87AqBRPcBb2LzEj';
-  document.getElementById('home-guidance').addEventListener('click', function () {
-    const frame = document.getElementById('guidance-frame');
-    if (!frame.src) frame.src = 'https://drive.google.com/embeddedfolderview?id=' + GUIDANCE_FOLDER_ID + '#list';
-    document.getElementById('guidance-open').href = 'https://drive.google.com/drive/folders/' + GUIDANCE_FOLDER_ID;
-    showScreen('guidance');
+  // ---- Documents (Google Drive through the app's own functions) ----
+  // driveState.stack holds the folders opened so far ({ id, name }), so
+  // Back steps out of a subfolder before leaving the screen.
+  let driveState = null;
+  let driveObjectUrl = null;
+
+  function driveQuery() {
+    return 'root=' + encodeURIComponent(driveState.root) +
+      (driveState.resident ? '&resident=' + encodeURIComponent(driveState.resident) : '');
+  }
+
+  function openDrive(root, resident, returnTo) {
+    driveState = { root: root, resident: resident || '', returnTo: returnTo, stack: [], title: '' };
+    document.getElementById('drive-title').textContent = root === 'guidance' ? 'Sponsor Guidance' : 'Past Progress Notes — ' + resident;
+    showScreen('drive');
     window.scrollTo(0, 0);
+    loadDriveFolder(null, null);
+  }
+
+  function driveDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // The progress-note month folders are named YYYY-MM.
+  function driveLabel(name) {
+    const m = /^(\d{4})-(\d{2})$/.exec(name || '');
+    if (!m) return name;
+    return new Date(Date.UTC(+m[1], +m[2] - 1, 15)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  function driveIcon(item) {
+    if (item.isFolder) return '📁';
+    if (/pdf/.test(item.mimeType) || /google-apps\.(document|spreadsheet|presentation)/.test(item.mimeType)) return '📄';
+    if (/^image\//.test(item.mimeType)) return '🖼️';
+    return '📎';
+  }
+
+  async function loadDriveFolder(folderId, folderName) {
+    const list = document.getElementById('drive-list');
+    setError('drive-error', '');
+    document.getElementById('drive-opening').style.display = 'none';
+    list.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-drive-folder?' + driveQuery() + (folderId ? '&folderId=' + encodeURIComponent(folderId) : ''));
+      if (!folderId) driveState.stack = [{ id: data.folderId, name: '' }];
+      else if (driveState.stack[driveState.stack.length - 1].id !== folderId) driveState.stack.push({ id: folderId, name: folderName || '' });
+      renderDriveFolder(data.items);
+    } catch (e) {
+      list.innerHTML = '';
+      setError('drive-error', e.message);
+    }
+  }
+
+  function renderDriveFolder(items) {
+    const list = document.getElementById('drive-list');
+    const names = driveState.stack.map(function (f) { return driveLabel(f.name); }).filter(Boolean);
+    document.getElementById('drive-path').textContent = names.length ? names.join(' › ') : 'Tap a folder to open it, or a document to view it.';
+    list.innerHTML = '';
+    if (!items.length) {
+      list.innerHTML = '<p class="help-text">Nothing here yet.</p>';
+      return;
+    }
+    items.forEach(function (item) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'drive-item';
+      const icon = document.createElement('span');
+      icon.className = 'drive-icon';
+      icon.textContent = driveIcon(item);
+      const text = document.createElement('span');
+      const name = document.createElement('span');
+      name.className = 'drive-name';
+      name.textContent = item.isFolder ? driveLabel(item.name) : item.name;
+      const meta = document.createElement('span');
+      meta.className = 'drive-meta';
+      meta.textContent = item.isFolder ? 'Folder' : (item.modifiedTime ? 'Updated ' + driveDate(item.modifiedTime) : '');
+      text.appendChild(name);
+      text.appendChild(meta);
+      btn.appendChild(icon);
+      btn.appendChild(text);
+      btn.addEventListener('click', function () {
+        if (item.isFolder) loadDriveFolder(item.id, item.name);
+        else openDriveFile(item, btn);
+      });
+      list.appendChild(btn);
+    });
+  }
+
+  // The file comes from our own function (it needs the session token), so
+  // it's fetched here and handed to a new tab as a blob. The tab is opened
+  // before the download starts, while the tap still counts as a user
+  // action, or phones block it as a pop-up; if that fails anyway there's a
+  // link to tap instead.
+  async function openDriveFile(item, btn) {
+    const opening = document.getElementById('drive-opening');
+    setError('drive-error', '');
+    const win = window.open('', '_blank');
+    if (win) win.document.write('<p style="font:16px sans-serif;padding:16px">Opening ' + item.name.replace(/[<>&]/g, '') + '&hellip;</p>');
+    opening.style.display = '';
+    opening.textContent = 'Opening ' + item.name + '…';
+    btn.disabled = true;
+    try {
+      const stored = getStoredSession();
+      const res = await fetch(FN_BASE + '/get-drive-file?' + driveQuery() + '&fileId=' + encodeURIComponent(item.id), {
+        headers: stored ? { 'Authorization': 'Bearer ' + stored.sessionToken } : {}
+      });
+      if (res.status === 401) {
+        if (win) win.close();
+        localStorage.removeItem(SESSION_KEY);
+        showScreen('login');
+        return;
+      }
+      if (!res.ok) {
+        let message = 'Couldn’t open that file.';
+        try { message = (await res.json()).error || message; } catch (e) {}
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      if (driveObjectUrl) URL.revokeObjectURL(driveObjectUrl);
+      driveObjectUrl = URL.createObjectURL(blob);
+      if (win && !win.closed) {
+        win.location.href = driveObjectUrl;
+        opening.style.display = 'none';
+      } else {
+        opening.innerHTML = '';
+        const link = document.createElement('a');
+        link.href = driveObjectUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = 'Tap to open ' + item.name;
+        opening.appendChild(link);
+      }
+    } catch (e) {
+      if (win && !win.closed) win.close();
+      opening.style.display = 'none';
+      setError('drive-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById('drive-back').addEventListener('click', function () {
+    if (driveState && driveState.stack.length > 1) {
+      driveState.stack.pop();
+      const parent = driveState.stack[driveState.stack.length - 1];
+      driveState.stack.pop(); // loadDriveFolder pushes it back
+      if (!driveState.stack.length) loadDriveFolder(null, null);
+      else loadDriveFolder(parent.id, parent.name);
+      return;
+    }
+    showScreen(driveState ? driveState.returnTo : 'home');
+  });
+
+  document.getElementById('home-guidance').addEventListener('click', function () {
+    openDrive('guidance', '', 'home');
+  });
+
+  // The signed PDFs the nightly job files in Drive for this resident.
+  document.getElementById('dpn-past-notes').addEventListener('click', function () {
+    openDrive('progress-notes', currentDpnResidentInitials, 'dailyProgressNotes');
   });
 
   document.getElementById('home-compliance').addEventListener('click', function () {
