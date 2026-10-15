@@ -1844,8 +1844,8 @@ mistake)". "Edit vehicle details" also has "Retire this vehicle"
 Sponsors never see any of this.
 
 **Tracked services** (`lib/vehicles.js`; everything else is history only:
-Tires, Brakes, Battery, Wiper Blades, Air Filter, Alignment, Fluid Flush,
-Recall / Repair, Other Maintenance):
+Tires, Battery, Wiper Blades, Air Filter, Fluid Flush, Recall / Repair,
+Other Maintenance):
 
 | Service | Due | Yellow + first text | Red + second text |
 |---|---|---|---|
@@ -1855,6 +1855,8 @@ Recall / Repair, Other Maintenance):
 | Oil & Filter | 3 months or 5,000 miles, whichever first | 30 days / 500 miles before | either reached |
 | Tire Rotation | every 6,000 miles | within 500 miles | reached |
 | Tune-up | every 30,000 miles | within 500 miles | reached |
+| Brakes | 12 months or 12,000 miles, whichever first | 30 days / 500 miles before | either reached |
+| Alignment | 12 months or 12,000 miles, whichever first | 30 days / 500 miles before | either reached |
 
 Mileage is the highest reading logged for the vehicle (any service, or a
 "Mileage Update" entry), so mileage reminders are only as current as the
