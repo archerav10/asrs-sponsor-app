@@ -52,3 +52,9 @@
 [functions."weekly-focus-reminders"]
   # 9:00am US/Eastern every Thursday, all year (same DST handling).
   schedule = "0 13,14 * * 4"
+
+[functions."check-vehicle-reminders"]
+  # 9:30am US/Eastern daily (EDT-pinned like check-report-status) — texts
+  # each location's admins when a group home vehicle's inspection, tags,
+  # insurance, oil change, rotation or tune-up comes up or falls due.
+  schedule = "30 13 * * *"
