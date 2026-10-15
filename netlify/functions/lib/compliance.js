@@ -1,7 +1,7 @@
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarterlyReportingForRecord } = require('./quarterly-reporting');
 const { staffListForLocation, itemsForStaff, computeStaffTrainingWindow, STEPS: STAFF_STEPS } = require('./staff-training');
-const { appointmentsForResident, computeMedicalCompliance } = require('./medical-appointments');
+const { appointmentsForResident, computeMedicalCompliance, residentsForLocation } = require('./medical-appointments');
 const { supplyInfoForLocation, mostRecentDrill, mostRecentUpdate } = require('./report-status-check');
 const { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate } = require('./report-due-date');
 
@@ -223,8 +223,21 @@ async function homeCompliance(location, residents, now) {
   return { overall: worst(known.map(function (a) { return a.status; })), counts: counts, areas: areas };
 }
 
+// Compliance is by location (each home is its own location, with up to
+// two residents): the residents are everyone active at the location, the
+// same list the Medical tab, MAR Review and Annual Planning use (a
+// resident appears once they have a medication on file), not the
+// Resident Initials on any one sponsor's row. The Sponsor App's My Home's
+// Compliance and the admin dashboard's Compliance tab both call this, so
+// they always match.
+async function locationCompliance(location, now) {
+  const residents = await residentsForLocation(location);
+  const result = await homeCompliance(location, residents, now);
+  return Object.assign({ location: location, residents: residents }, result);
+}
+
 function parseResidents(residentInitials) {
   return (residentInitials || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 }
 
-module.exports = { homeCompliance, parseResidents, annualStatus, quarterStatus, quarterlyStatusForState, worst };
+module.exports = { homeCompliance, locationCompliance, parseResidents, annualStatus, quarterStatus, quarterlyStatusForState, worst };
