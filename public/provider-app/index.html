@@ -359,6 +359,36 @@
     color: var(--forest-light);
     margin: 4px 0 0;
   }
+  .appt-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 2px 9px;
+    border-radius: 10px;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .appt-status-badge.appt-status-pending { background: #C9A227; }
+  .appt-status-badge.appt-status-completed { background: #1B7A3D; }
+  .appt-status-badge.appt-status-cancelled { background: var(--error); }
+  .event-row .appt-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .event-row .appt-controls select {
+    width: auto;
+    padding: 4px 6px;
+    font-size: 13px;
+  }
+  .event-row .appt-notes-line {
+    font-size: 12px;
+    color: var(--forest-light);
+    margin: 4px 0 0;
+  }
   .mar-label-row {
     display: flex;
     align-items: center;
@@ -760,9 +790,13 @@
     </div>
 
     <div class="action-list">
+      <button class="action-button" data-action="appointments">
+        &#128197; Appointments
+        <span class="sub">Log and track medical appointments</span>
+      </button>
       <button class="action-button" data-action="log-event">
         Log an Event
-        <span class="sub">Appointments and community outings</span>
+        <span class="sub">Community outings and other notes</span>
       </button>
       <button class="action-button incident-button" data-action="serious-incident">
         &#128680; Serious Incident Report
@@ -949,7 +983,6 @@
     <div class="form-field">
       <label for="le-type">Event Type</label>
       <select id="le-type">
-        <option value="Appointment">Appointment</option>
         <option value="Community Outing">Community Outing</option>
         <option value="Other">Other</option>
       </select>
@@ -976,6 +1009,52 @@
     </div>
 
     <button id="le-submit">Log Event</button>
+  </section>
+
+  <!-- Screen 8b: Appointments -->
+  <section id="screen-appointments" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Appointments</p>
+    <p class="error-text" id="appt-error"></p>
+
+    <p class="item-section-title" style="margin-top:0;">All Appointments</p>
+    <div id="appt-list" class="event-list-box">
+      <p class="loading-text">Loading appointments&hellip;</p>
+    </div>
+
+    <p class="item-section-title">Log a New Appointment</p>
+
+    <div class="form-field" id="appt-resident-wrap" style="display:none;">
+      <label for="appt-resident">Resident</label>
+      <select id="appt-resident"></select>
+    </div>
+
+    <div class="form-field">
+      <label for="appt-type">Appointment Type</label>
+      <input type="text" id="appt-type" placeholder="e.g. Dentist, Cardiologist follow-up">
+    </div>
+
+    <div class="form-field">
+      <label for="appt-date">Appointment Date</label>
+      <input type="date" id="appt-date">
+    </div>
+
+    <div class="form-field">
+      <label for="appt-status">Status</label>
+      <select id="appt-status">
+        <option value="Pending">Pending</option>
+        <option value="Completed">Completed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+
+    <div class="form-field" id="appt-has-notes-wrap" style="display:none;">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="appt-has-notes" style="width:auto;"> I have notes for this appointment (bring to the monthly meeting)</label>
+    </div>
+
+    <button id="appt-submit">Log Appointment</button>
   </section>
 
   <!-- Screen 9: MAR Review -->
@@ -1148,6 +1227,7 @@
     emergencySupplies: document.getElementById('screen-emergency-supplies'),
     physicalEnvironment: document.getElementById('screen-physical-environment'),
     logEvent: document.getElementById('screen-log-event'),
+    appointments: document.getElementById('screen-appointments'),
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
@@ -1800,6 +1880,10 @@
         resetLogEventForm();
         showScreen('logEvent');
         loadEventsList();
+      } else if (action === 'appointments') {
+        resetAppointmentForm();
+        showScreen('appointments');
+        loadAppointmentsList();
       } else if (action === 'serious-incident') {
         resetSeriousIncidentForm();
         showScreen('seriousIncident');
@@ -2341,7 +2425,7 @@
 
   function resetLogEventForm() {
     setError('le-error', '');
-    document.getElementById('le-type').value = 'Appointment';
+    document.getElementById('le-type').value = 'Community Outing';
     document.getElementById('le-datetime').value = '';
     document.getElementById('le-notes').value = '';
     document.getElementById('le-attachment').value = '';
@@ -2438,6 +2522,159 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Log Event';
+    }
+  });
+
+  // --- Screen 8b: Appointments ---
+  // Every appointment logged at this location (by either the sponsor or
+  // an admin) for residents on this account — a day-to-day scheduling
+  // log, not the admin dashboard's annual compliance tracker.
+  function appointmentStatusLabel(status) {
+    return 'appt-status-' + (status || 'pending').toLowerCase();
+  }
+
+  function appointmentNotesLine(a) {
+    if (a.notesUploaded) return '<p class="appt-notes-line">✅ Notes uploaded</p>';
+    if (a.hasNotes) return '<p class="appt-notes-line">📝 Notes ready — bring to the monthly meeting</p>';
+    return '';
+  }
+
+  function renderAppointmentRow(a) {
+    const wrap = document.createElement('div');
+    wrap.className = 'event-row';
+    wrap.dataset.appointmentId = a.id;
+
+    const metaParts = ['Resident: ' + a.resident];
+    if (a.loggedBy) metaParts.push('Logged by ' + a.loggedBy + (a.createdByRole ? ' (' + a.createdByRole + ')' : ''));
+
+    wrap.innerHTML =
+      '<div class="event-top">' +
+        '<span class="event-date">' + formatDate(a.appointmentDate) + '</span>' +
+        '<span class="event-type-badge">' + (a.appointmentType || '') + '</span>' +
+      '</div>' +
+      '<p class="event-meta">' + metaParts.join(' · ') + '</p>' +
+      appointmentNotesLine(a) +
+      '<div class="appt-controls">' +
+        '<span class="appt-status-badge ' + appointmentStatusLabel(a.status) + '">' + a.status + '</span>' +
+        '<select class="appt-status-select">' +
+          '<option value="Pending">Pending</option>' +
+          '<option value="Completed">Completed</option>' +
+          '<option value="Cancelled">Cancelled</option>' +
+        '</select>' +
+        '<label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400;' +
+          (a.status === 'Completed' ? '' : ' display:none;') + '">' +
+          '<input type="checkbox" class="appt-notes-checkbox" style="width:auto;"> I have notes' +
+        '</label>' +
+      '</div>';
+
+    const statusSelect = wrap.querySelector('.appt-status-select');
+    const notesLabel = wrap.querySelector('.appt-controls label');
+    const notesCheckbox = wrap.querySelector('.appt-notes-checkbox');
+    statusSelect.value = a.status;
+    notesCheckbox.checked = !!a.hasNotes;
+    notesLabel.style.display = a.status === 'Completed' ? 'flex' : 'none';
+
+    async function saveAppointmentUpdate() {
+      try {
+        await apiFetch('/update-appointment-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId: a.id, status: statusSelect.value, hasNotes: notesCheckbox.checked })
+        });
+        await loadAppointmentsList();
+      } catch (e) {
+        setError('appt-error', e.message);
+      }
+    }
+
+    statusSelect.addEventListener('change', function () {
+      notesLabel.style.display = statusSelect.value === 'Completed' ? 'flex' : 'none';
+      saveAppointmentUpdate();
+    });
+    notesCheckbox.addEventListener('change', saveAppointmentUpdate);
+
+    return wrap;
+  }
+
+  async function loadAppointmentsList() {
+    const listEl = document.getElementById('appt-list');
+    listEl.innerHTML = '<p class="loading-text">Loading appointments&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-appointment-log');
+      const appointments = data.appointments || [];
+      listEl.innerHTML = '';
+      if (!appointments.length) {
+        listEl.innerHTML = '<p class="empty-text">No appointments logged yet.</p>';
+        return;
+      }
+      appointments.forEach(function (a) { listEl.appendChild(renderAppointmentRow(a)); });
+    } catch (e) {
+      listEl.innerHTML = '<p class="empty-text">' + e.message + '</p>';
+    }
+  }
+
+  function resetAppointmentForm() {
+    setError('appt-error', '');
+    document.getElementById('appt-type').value = '';
+    document.getElementById('appt-date').value = '';
+    document.getElementById('appt-status').value = 'Pending';
+    document.getElementById('appt-has-notes').checked = false;
+    document.getElementById('appt-has-notes-wrap').style.display = 'none';
+
+    const residents = currentResidentInitials();
+    const wrap = document.getElementById('appt-resident-wrap');
+    const select = document.getElementById('appt-resident');
+    select.innerHTML = '';
+    residents.forEach(function (initials) {
+      const opt = document.createElement('option');
+      opt.value = initials;
+      opt.textContent = initials;
+      select.appendChild(opt);
+    });
+    wrap.style.display = residents.length > 1 ? 'block' : 'none';
+  }
+
+  document.getElementById('appt-status').addEventListener('change', function () {
+    document.getElementById('appt-has-notes-wrap').style.display = this.value === 'Completed' ? 'block' : 'none';
+  });
+
+  document.getElementById('appt-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('appt-error', '');
+
+    const residents = currentResidentInitials();
+    const resident = residents.length > 1 ? document.getElementById('appt-resident').value : (residents[0] || '');
+    const appointmentType = document.getElementById('appt-type').value.trim();
+    const appointmentDate = document.getElementById('appt-date').value;
+    const status = document.getElementById('appt-status').value;
+    const hasNotes = document.getElementById('appt-has-notes').checked;
+
+    if (!appointmentType) {
+      setError('appt-error', 'Enter the appointment type.');
+      return;
+    }
+    if (!appointmentDate) {
+      setError('appt-error', 'Choose the appointment date.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      await apiFetch('/save-appointment-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: resident, appointmentType: appointmentType, appointmentDate: appointmentDate, status: status, hasNotes: hasNotes })
+      });
+
+      resetAppointmentForm();
+      await loadAppointmentsList();
+    } catch (e) {
+      setError('appt-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log Appointment';
     }
   });
 
