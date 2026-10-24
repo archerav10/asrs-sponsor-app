@@ -384,6 +384,14 @@
     padding: 4px 6px;
     font-size: 13px;
   }
+  .med-upload-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .med-upload-row input[type="file"] { font-size: 12px; }
   .mar-label-row {
     display: flex;
     align-items: center;
@@ -3655,7 +3663,9 @@
           '<option value="Cancelled">Cancelled</option>' +
         '</select>' +
         '<label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400;"><input type="checkbox" class="med-edit-notes" style="width:auto;"> I have notes</label>' +
-      '</div>';
+      '</div>' +
+      (entry.latest.filename ? '' :
+        '<div class="med-upload-row"><input type="file" class="med-upload-file"><span class="error-text med-upload-error" style="display:none;"></span></div>');
 
     const dateInput = wrap.querySelector('.med-edit-date');
     const statusSelect = wrap.querySelector('.med-edit-status');
@@ -3679,6 +3689,47 @@
     dateInput.addEventListener('change', saveEdit);
     statusSelect.addEventListener('change', saveEdit);
     notesCheckbox.addEventListener('change', saveEdit);
+
+    // Optional — a sponsor who can scan the notes themselves can attach
+    // the document right here instead of waiting for the monthly
+    // meeting; anyone who'd rather not just leaves "I have notes" checked
+    // and an admin attaches it later.
+    const uploadInput = wrap.querySelector('.med-upload-file');
+    if (uploadInput) {
+      uploadInput.addEventListener('change', async function () {
+        const file = uploadInput.files[0];
+        if (!file) return;
+        const errEl = wrap.querySelector('.med-upload-error');
+        errEl.style.display = 'none';
+        uploadInput.disabled = true;
+        try {
+          const dot = file.name.lastIndexOf('.');
+          const extension = dot > 0 ? file.name.slice(dot) : '';
+          const config = await apiFetch('/get-provider-medical-appointment-upload-config?appointmentId=' + encodeURIComponent(entry.latest.id) +
+            '&extension=' + encodeURIComponent(extension));
+
+          const formData = new FormData();
+          formData.append('file', file, config.filename);
+          formData.append('ticket', config.ticket);
+          formData.append('site', window.location.origin);
+
+          const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+          if (!uploadRes.ok) throw new Error('The document failed to upload. Try again.');
+
+          await apiFetch('/save-provider-medical-appointment-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ appointmentId: entry.latest.id, extension: extension })
+          });
+
+          await loadMedicalDetail();
+        } catch (e) {
+          errEl.textContent = e.message;
+          errEl.style.display = 'block';
+          uploadInput.disabled = false;
+        }
+      });
+    }
 
     return wrap;
   }
