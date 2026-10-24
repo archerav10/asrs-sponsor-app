@@ -1616,11 +1616,15 @@ after the most recent one on file. Yellow 30 days before that
 ever done. A resident's overall dot is the worst of the four. Every
 other type is history only and never affects the dot.
 
-**Append-only, not row-per-type.** Unlike Staff Training (one row per
+**Append-only, not row-per-type** — unlike Staff Training (one row per
 item, overwritten on renewal), every appointment is its own row, so a
-resident's medical history is kept. Nothing on this screen edits or
-deletes a row; to correct a mistake, uncheck `Active` on that row in
-Notion and it disappears from the app.
+resident's medical history is kept. The admin dashboard itself never
+edits or deletes a row; to correct a mistake there, uncheck `Active` on
+that row in Notion and it disappears from the app. The provider app's
+sponsor-facing Medical screen (below) is the one exception: a sponsor
+can edit their own logged appointment's date, status and "I have notes"
+flag in place — rescheduling isn't new history, it's correcting a plan
+that hasn't happened yet.
 
 **No per-resident folder link to set up.** Unlike Annual Planning and
 Staff Training, the Zap finds the resident's Drive folder by name, the
@@ -1648,6 +1652,16 @@ integration connected to it ("..." -> Connections). Properties
 | `Logged By` | Text |
 | `Logged Date` | Date |
 | `Active` | Checkbox |
+| `Status` | Select — `Planned`, `Completed`, `Cancelled` |
+| `Has Notes` | Checkbox |
+
+`Status` and `Has Notes` were added after the database already held a
+long history of admin-logged-with-document rows — `appointmentFromPage`
+in `lib/medical-appointments.js` treats a blank `Status` as `Completed`,
+since every pre-existing row represents something that already
+happened. `computeMedicalCompliance` only counts `Completed` rows toward
+a due date, so logging a Physical `Planned` for next month doesn't reset
+this month's overdue one.
 
 **Upload workflow** (`ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL`) — a
 Zapier code workflow, "ASRS Medical Appointment Uploads"
@@ -1684,31 +1698,50 @@ and checks type/date *before* the upload), `save-medical-appointment.js`,
 
 **Sponsors can log into the same database from the provider app** (a
 "Medical" button per resident on the home screen, same red/yellow/green
-dot). Logging there only records the type and date — there's no file
-picker, since a sponsor logging an appointment from their phone usually
-doesn't have the document in hand yet. "Last Appointment by Type" shows
-"No document on file yet" for a row like that; from the admin dashboard,
-that same row now shows a small file input right under it — picking a
-file there uploads through the *same* Zapier workflow and Catch Hook
-above (no second workflow needed) and attaches it to that existing row
-instead of creating a new one.
+dot; "Log an Appointment" comes before "Last Appointment by Type" on
+that screen, since logging is the more common action). Logging there
+records type, date, **status** (`Planned`/`Completed`/`Cancelled`) and
+whether they have visit notes — there's no file picker, since a sponsor
+logging an appointment from their phone usually doesn't have the
+document in hand yet, and a `Planned` one hasn't happened at all. Unlike
+the admin dashboard's log-and-upload flow, a future date is allowed here
+(scheduling a `Planned` appointment is the point).
 
-- `get-provider-medical-appointments.js` / `save-provider-medical-appointment.js` —
-  the provider app's versions of `get-medical-appointments.js` /
-  `save-medical-appointment.js`, scoped to the signed-in sponsor's (or
-  location-password admin's) own `residentInitials` instead of an admin
-  dashboard session's `grantedLocations`, same pattern as
-  `get-medication-administration.js`. `validateAppointmentInput` still
-  refuses a future date here too — Medical is a record of what already
-  happened, not a scheduler.
+The latest appointment of each type is editable in place from that same
+screen — reschedule (change the date), change status, or flip "I have
+notes" — each auto-saving on change, same inline-edit pattern as the
+Give Medications screen's dose status. Earlier appointments stay
+read-only history. "Last Appointment by Type" shows "No document on file
+yet" once a document hasn't been attached, or "Notes ready — an admin
+will attach the document" once the sponsor has flagged notes; from the
+admin dashboard, that same row shows its **Status** and whether it
+**Has visit notes**, plus a small file input once notes are flagged —
+picking a file there uploads through the *same* Zapier workflow and
+Catch Hook above (no second workflow needed), attaches it to that
+existing row instead of creating a new one, and marks it `Completed`
+(a document in hand is strong enough evidence the visit happened).
+
+- `get-provider-medical-appointments.js` / `save-provider-medical-appointment.js` /
+  `update-provider-medical-appointment.js` — the provider app's versions
+  of `get-medical-appointments.js` / `save-medical-appointment.js`,
+  scoped to the signed-in sponsor's (or location-password admin's) own
+  `residentInitials` instead of an admin dashboard session's
+  `grantedLocations`, same pattern as `get-medication-administration.js`.
+  `save-provider-medical-appointment.js` uses `validateScheduleInput`
+  (same checks as `validateAppointmentInput` minus the future-date rule)
+  since a `Planned` appointment hasn't happened yet;
+  `update-provider-medical-appointment.js` is the reschedule/status/notes
+  endpoint, built on `updateAppointment` in `lib/medical-appointments.js`
+  (a partial `updatePage` that only ever touches `Appointment Date`,
+  `Status` and `Has Notes` — never `Filename`).
 - `get-medical-appointment-upload-config.js` and `save-medical-appointment.js`
   both now take an optional `appointmentId` instead of
   `location`/`resident`/`typeKey`/`appointmentDate`: when present, the
   type/date/resident/location are read off that existing row (so they
   can't disagree with it) and the upload **attaches** to it
-  (`attachFilename` in `lib/medical-appointments.js`, a plain
-  `updatePage` setting `Filename`) rather than creating a new row via
-  `createAppointment`.
+  (`attachFilename` in `lib/medical-appointments.js`, an `updatePage`
+  setting `Filename` and `Status: Completed`) rather than creating a new
+  row via `createAppointment`.
 
 ### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
 

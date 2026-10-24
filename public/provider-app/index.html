@@ -359,6 +359,31 @@
     color: var(--forest-light);
     margin: 4px 0 0;
   }
+  .med-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 2px 9px;
+    border-radius: 10px;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .med-status-badge.med-status-planned { background: #C9A227; }
+  .med-status-badge.med-status-completed { background: #1B7A3D; }
+  .med-status-badge.med-status-cancelled { background: var(--error); }
+  .med-edit-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .med-edit-controls select, .med-edit-controls input[type="date"] {
+    width: auto;
+    padding: 4px 6px;
+    font-size: 13px;
+  }
   .mar-label-row {
     display: flex;
     align-items: center;
@@ -1141,10 +1166,7 @@
     <p class="screen-title" id="medical-title">Medical</p>
     <p class="error-text" id="medical-error"></p>
 
-    <p class="item-section-title" style="margin-top:0;">Last Appointment by Type</p>
-    <div id="medical-by-type-list"></div>
-
-    <p class="item-section-title">Log an Appointment</p>
+    <p class="item-section-title" style="margin-top:0;">Log an Appointment</p>
     <div class="form-field">
       <label for="medical-log-type">Appointment Type</label>
       <select id="medical-log-type"><option value="">&mdash; Choose a type &mdash;</option></select>
@@ -1153,8 +1175,22 @@
       <label for="medical-log-date">Appointment Date</label>
       <input type="date" id="medical-log-date">
     </div>
-    <p class="help-text">This just records that it happened &mdash; bring the document to your next admin meeting and they'll attach it.</p>
+    <div class="form-field">
+      <label for="medical-log-status">Status</label>
+      <select id="medical-log-status">
+        <option value="Planned">Planned</option>
+        <option value="Completed">Completed</option>
+        <option value="Cancelled">Cancelled</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;"><input type="checkbox" id="medical-log-has-notes" style="width:auto;"> I have visit notes for this appointment</label>
+    </div>
+    <p class="help-text">The document itself still gets attached by an admin later, once it's collected.</p>
     <button id="medical-log-submit">Log Appointment</button>
+
+    <p class="item-section-title">Last Appointment by Type</p>
+    <div id="medical-by-type-list"></div>
   </section>
 
 </main>
@@ -3574,11 +3610,26 @@
 
   // --- Screen 12: Medical ---
   // Logs into the same Resident Medical Appointments database the admin
-  // dashboard's Medical tab uses — type + date only, no file picker. An
-  // admin attaches the actual document later once it's been collected.
+  // dashboard's Medical tab uses — type, date, status and "I have
+  // notes," no file picker. An admin attaches the actual document later
+  // once it's been collected.
   let currentMedicalResidentInitials = null;
   let currentMedicalByType = [];
+  let currentMedicalCompliance = null;
 
+  function medStatusLabel(status) {
+    return 'med-status-' + (status || 'planned').toLowerCase();
+  }
+
+  function medNotesLine(a) {
+    if (a.filename) return '✅ ' + a.filename;
+    if (a.hasNotes) return '📝 Notes ready — an admin will attach the document';
+    return 'No document on file yet';
+  }
+
+  // Only the latest appointment of each type is editable (reschedule,
+  // change status, flip "I have notes") — earlier ones are history, same
+  // as the admin dashboard never editing past rows either.
   function renderMedicalByTypeRow(entry) {
     const wrap = document.createElement('div');
     wrap.className = 'event-row';
@@ -3592,15 +3643,45 @@
     wrap.innerHTML =
       '<div class="event-top">' +
         '<span class="event-date">' + dot + entry.label + (entry.isCompliance ? ' <span class="event-type-badge">Annual</span>' : '') + '</span>' +
-        '<span class="event-type-badge">' + formatDate(entry.latest.date) + '</span>' +
+        '<span class="med-status-badge ' + medStatusLabel(entry.latest.status) + '">' + entry.latest.status + '</span>' +
       '</div>' +
-      '<p class="event-meta">' + (entry.latest.filename ? entry.latest.filename : 'No document on file yet') +
-        (entry.earlier.length ? ' · ' + entry.earlier.length + ' earlier appointment' + (entry.earlier.length === 1 ? '' : 's') : '') + '</p>';
+      '<p class="event-meta">' + medNotesLine(entry.latest) +
+        (entry.earlier.length ? ' · ' + entry.earlier.length + ' earlier appointment' + (entry.earlier.length === 1 ? '' : 's') : '') + '</p>' +
+      '<div class="med-edit-controls">' +
+        '<input type="date" class="med-edit-date">' +
+        '<select class="med-edit-status">' +
+          '<option value="Planned">Planned</option>' +
+          '<option value="Completed">Completed</option>' +
+          '<option value="Cancelled">Cancelled</option>' +
+        '</select>' +
+        '<label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400;"><input type="checkbox" class="med-edit-notes" style="width:auto;"> I have notes</label>' +
+      '</div>';
+
+    const dateInput = wrap.querySelector('.med-edit-date');
+    const statusSelect = wrap.querySelector('.med-edit-status');
+    const notesCheckbox = wrap.querySelector('.med-edit-notes');
+    dateInput.value = entry.latest.date;
+    statusSelect.value = entry.latest.status;
+    notesCheckbox.checked = !!entry.latest.hasNotes;
+
+    async function saveEdit() {
+      try {
+        await apiFetch('/update-provider-medical-appointment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId: entry.latest.id, appointmentDate: dateInput.value, status: statusSelect.value, hasNotes: notesCheckbox.checked })
+        });
+        await loadMedicalDetail();
+      } catch (e) {
+        setError('medical-error', e.message);
+      }
+    }
+    dateInput.addEventListener('change', saveEdit);
+    statusSelect.addEventListener('change', saveEdit);
+    notesCheckbox.addEventListener('change', saveEdit);
 
     return wrap;
   }
-
-  let currentMedicalCompliance = null;
 
   async function loadMedicalDetail() {
     const initials = currentMedicalResidentInitials;
@@ -3611,6 +3692,8 @@
 
     document.getElementById('medical-log-date').value = '';
     document.getElementById('medical-log-type').value = '';
+    document.getElementById('medical-log-status').value = 'Planned';
+    document.getElementById('medical-log-has-notes').checked = false;
 
     try {
       const data = await apiFetch('/get-provider-medical-appointments?resident=' + encodeURIComponent(initials));
@@ -3645,10 +3728,8 @@
 
     const typeKey = document.getElementById('medical-log-type').value;
     const appointmentDate = document.getElementById('medical-log-date').value;
-    const todayISO = (function () {
-      const d = new Date();
-      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    })();
+    const status = document.getElementById('medical-log-status').value;
+    const hasNotes = document.getElementById('medical-log-has-notes').checked;
 
     if (!typeKey) {
       setError('medical-error', 'Choose the appointment type.');
@@ -3658,10 +3739,6 @@
       setError('medical-error', 'Choose the appointment date.');
       return;
     }
-    if (appointmentDate > todayISO) {
-      setError('medical-error', 'The appointment date can’t be in the future.');
-      return;
-    }
 
     btn.disabled = true;
     btn.textContent = 'Saving…';
@@ -3669,7 +3746,7 @@
       await apiFetch('/save-provider-medical-appointment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentMedicalResidentInitials, typeKey: typeKey, appointmentDate: appointmentDate })
+        body: JSON.stringify({ resident: currentMedicalResidentInitials, typeKey: typeKey, appointmentDate: appointmentDate, status: status, hasNotes: hasNotes })
       });
       await loadMedicalDetail();
     } catch (e) {
