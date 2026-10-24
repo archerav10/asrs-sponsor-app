@@ -93,6 +93,8 @@ function appointmentFromPage(page) {
   const type = typeByLabel(getPlainText(page.properties['Appointment Type']));
   return {
     id: page.id,
+    location: getPlainText(page.properties['Location']),
+    resident: getPlainText(page.properties['Resident Initials']),
     typeKey: type ? type.key : '',
     typeLabel: type ? type.label : getPlainText(page.properties['Appointment Type']),
     date: getPlainText(page.properties['Appointment Date']),
