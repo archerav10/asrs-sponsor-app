@@ -1,4 +1,4 @@
-const { queryDatabaseAll, createPage, getPlainText, queryDatabase } = require('./notion');
+const { queryDatabaseAll, createPage, updatePage, getPage, getPlainText, queryDatabase } = require('./notion');
 const { findAllQuestionRows } = require('./daily-progress-notes');
 
 const { id: configId } = require('./ids');
@@ -88,6 +88,22 @@ function appointmentFromPage(page) {
     filename: getPlainText(page.properties['Filename']),
     loggedBy: getPlainText(page.properties['Logged By'])
   };
+}
+
+// A single appointment by its page ID — used by the admin dashboard to
+// attach a document to a row a sponsor already logged (no filename yet),
+// rather than creating a duplicate row.
+async function appointmentById(appointmentId) {
+  return appointmentFromPage(await getPage(appointmentId));
+}
+
+// Sets Filename on an existing row once its document has been uploaded.
+// Used for the "attach a missing document" flow — createAppointment
+// stays the only way a new row gets made.
+function attachFilename(appointmentId, filename) {
+  return updatePage(appointmentId, {
+    'Filename': { rich_text: [{ text: { content: filename } }] }
+  });
 }
 
 // Every active appointment for a resident, newest first.
@@ -192,7 +208,7 @@ function validateAppointmentInput(typeKey, appointmentDate) {
 async function createAppointment(location, resident, typeKey, appointmentDate, filename, loggedBy) {
   const type = typeByKey(typeKey);
   const today = new Date().toISOString().slice(0, 10);
-  await createPage(MEDICAL_APPOINTMENTS_DB_ID, {
+  return createPage(MEDICAL_APPOINTMENTS_DB_ID, {
     'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + type.label + ' - ' + appointmentDate } }] },
     'Location': { select: { name: location } },
     'Resident Initials': { rich_text: [{ text: { content: resident } }] },
@@ -212,6 +228,8 @@ module.exports = {
   typeByKey,
   residentsForLocation,
   residentFullNameFor,
+  appointmentById,
+  attachFilename,
   appointmentsForResident,
   latestByType,
   computeMedicalCompliance,

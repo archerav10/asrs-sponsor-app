@@ -714,6 +714,7 @@
     <div id="mar-buttons-container" class="mar-section"></div>
     <div id="dpn-buttons-container" class="mar-section"></div>
     <div id="gm-buttons-container" class="mar-section"></div>
+    <div id="medical-buttons-container" class="mar-section"></div>
 
     <div class="action-list">
       <button class="action-button" data-action="first-aid">
@@ -1132,6 +1133,30 @@
     </div>
   </section>
 
+  <!-- Screen 12: Medical -->
+  <section id="screen-medical" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="medical-title">Medical</p>
+    <p class="error-text" id="medical-error"></p>
+
+    <p class="item-section-title" style="margin-top:0;">Last Appointment by Type</p>
+    <div id="medical-by-type-list"></div>
+
+    <p class="item-section-title">Log an Appointment</p>
+    <div class="form-field">
+      <label for="medical-log-type">Appointment Type</label>
+      <select id="medical-log-type"><option value="">&mdash; Choose a type &mdash;</option></select>
+    </div>
+    <div class="form-field">
+      <label for="medical-log-date">Appointment Date</label>
+      <input type="date" id="medical-log-date">
+    </div>
+    <p class="help-text">This just records that it happened &mdash; bring the document to your next admin meeting and they'll attach it.</p>
+    <button id="medical-log-submit">Log Appointment</button>
+  </section>
+
 </main>
 
 <script>
@@ -1152,6 +1177,7 @@
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
     giveMeds: document.getElementById('screen-give-meds'),
+    medical: document.getElementById('screen-medical'),
     weeklyFocus: document.getElementById('screen-weekly-focus'),
     compliance: document.getElementById('screen-compliance'),
     drive: document.getElementById('screen-drive')
@@ -1333,6 +1359,7 @@
     renderMarButtons(session.residentInitials);
     renderDpnButtons(session.residentInitials);
     renderGiveMedsButtons(session.residentInitials);
+    renderMedicalButtons(session.residentInitials);
     loadInfoStatuses(session);
     loadHomeWeeklyFocus(session);
     loadHomeCompliance();
@@ -1742,6 +1769,63 @@
         dueEl.textContent = 'Today: all logged';
         dotEl.className = 'status-dot status-green';
       }
+    } catch (e) {
+      // leave blank; dot stays at its default green rather than guessing red
+    }
+  }
+
+  // Builds one Medical button per resident — same shape as
+  // renderGiveMedsButtons above, with the admin dashboard's red/yellow/
+  // green compliance dot (Physical/Dental/Labwork/TB Test due dates).
+  function renderMedicalButtons(residentInitialsStr) {
+    const container = document.getElementById('medical-buttons-container');
+    container.innerHTML = '';
+    const residents = parseResidentInitials(residentInitialsStr);
+
+    residents.forEach(function (initials) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'action-button';
+      btn.innerHTML =
+        '<span class="mar-label-row">' +
+          '<span id="home-medical-dot-' + initials + '" class="status-dot status-green"></span>' +
+          '<span>&#127973; Medical — ' + initials + '</span>' +
+        '</span>' +
+        '<span class="sub" id="home-medical-due-' + initials + '"></span>';
+      btn.addEventListener('click', function () {
+        currentMedicalResidentInitials = initials;
+        showScreen('medical');
+        loadMedicalDetail();
+      });
+      container.appendChild(btn);
+      loadHomeMedicalStatus(initials);
+    });
+  }
+
+  function medicalComplianceSummary(compliance) {
+    const missing = [], overdue = [], dueSoon = [];
+    compliance.items.forEach(function (item) {
+      if (item.state === 'missing') missing.push(item.label);
+      else if (item.state === 'overdue') overdue.push(item.label);
+      else if (item.state === 'dueSoon') dueSoon.push(item.label);
+    });
+    const parts = [];
+    if (overdue.length) parts.push('Overdue: ' + overdue.join(', '));
+    if (missing.length) parts.push('None on file: ' + missing.join(', '));
+    if (dueSoon.length) parts.push('Due soon: ' + dueSoon.join(', '));
+    return parts.length ? parts.join(' · ') : 'All current';
+  }
+
+  async function loadHomeMedicalStatus(initials) {
+    const dotEl = document.getElementById('home-medical-dot-' + initials);
+    const dueEl = document.getElementById('home-medical-due-' + initials);
+    if (!dotEl) return;
+    dueEl.textContent = '';
+
+    try {
+      const data = await apiFetch('/get-provider-medical-appointments?resident=' + encodeURIComponent(initials));
+      dotEl.className = 'status-dot status-' + data.compliance.overall;
+      dueEl.textContent = medicalComplianceSummary(data.compliance);
     } catch (e) {
       // leave blank; dot stays at its default green rather than guessing red
     }
@@ -3486,6 +3570,114 @@
     document.getElementById('login-email').value = '';
     document.getElementById('login-password').value = '';
     showScreen('login');
+  });
+
+  // --- Screen 12: Medical ---
+  // Logs into the same Resident Medical Appointments database the admin
+  // dashboard's Medical tab uses — type + date only, no file picker. An
+  // admin attaches the actual document later once it's been collected.
+  let currentMedicalResidentInitials = null;
+  let currentMedicalByType = [];
+
+  function renderMedicalByTypeRow(entry) {
+    const wrap = document.createElement('div');
+    wrap.className = 'event-row';
+
+    const dot = entry.isCompliance
+      ? '<span class="status-dot status-' + (currentMedicalCompliance && currentMedicalCompliance.items
+          ? (currentMedicalCompliance.items.filter(function (i) { return i.key === entry.key; })[0] || {}).status || 'green'
+          : 'green') + '"></span> '
+      : '';
+
+    wrap.innerHTML =
+      '<div class="event-top">' +
+        '<span class="event-date">' + dot + entry.label + (entry.isCompliance ? ' <span class="event-type-badge">Annual</span>' : '') + '</span>' +
+        '<span class="event-type-badge">' + formatDate(entry.latest.date) + '</span>' +
+      '</div>' +
+      '<p class="event-meta">' + (entry.latest.filename ? entry.latest.filename : 'No document on file yet') +
+        (entry.earlier.length ? ' · ' + entry.earlier.length + ' earlier appointment' + (entry.earlier.length === 1 ? '' : 's') : '') + '</p>';
+
+    return wrap;
+  }
+
+  let currentMedicalCompliance = null;
+
+  async function loadMedicalDetail() {
+    const initials = currentMedicalResidentInitials;
+    document.getElementById('medical-title').textContent = 'Medical — ' + (initials || '');
+    setError('medical-error', '');
+    const listEl = document.getElementById('medical-by-type-list');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+
+    document.getElementById('medical-log-date').value = '';
+    document.getElementById('medical-log-type').value = '';
+
+    try {
+      const data = await apiFetch('/get-provider-medical-appointments?resident=' + encodeURIComponent(initials));
+      currentMedicalByType = data.byType || [];
+      currentMedicalCompliance = data.compliance || null;
+
+      const typeSelect = document.getElementById('medical-log-type');
+      if (typeSelect.options.length <= 1) {
+        (data.appointmentTypes || []).forEach(function (t) {
+          const opt = document.createElement('option');
+          opt.value = t.key;
+          opt.textContent = t.label;
+          typeSelect.appendChild(opt);
+        });
+      }
+
+      listEl.innerHTML = '';
+      if (!currentMedicalByType.length) {
+        listEl.innerHTML = '<p class="empty-text">No appointments logged yet.</p>';
+        return;
+      }
+      currentMedicalByType.forEach(function (entry) { listEl.appendChild(renderMedicalByTypeRow(entry)); });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('medical-error', e.message);
+    }
+  }
+
+  document.getElementById('medical-log-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('medical-error', '');
+
+    const typeKey = document.getElementById('medical-log-type').value;
+    const appointmentDate = document.getElementById('medical-log-date').value;
+    const todayISO = (function () {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    })();
+
+    if (!typeKey) {
+      setError('medical-error', 'Choose the appointment type.');
+      return;
+    }
+    if (!appointmentDate) {
+      setError('medical-error', 'Choose the appointment date.');
+      return;
+    }
+    if (appointmentDate > todayISO) {
+      setError('medical-error', 'The appointment date can’t be in the future.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      await apiFetch('/save-provider-medical-appointment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resident: currentMedicalResidentInitials, typeKey: typeKey, appointmentDate: appointmentDate })
+      });
+      await loadMedicalDetail();
+    } catch (e) {
+      setError('medical-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Log Appointment';
+    }
   });
 
   // --- Weekly Focus check-in ---
