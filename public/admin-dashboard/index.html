@@ -525,8 +525,7 @@
     <div id="sponsor-checklists-tab-content" style="display:none;">
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Send a location's primary sponsor a checklist &mdash; a message, a due date and a link to a Google Sheet they fill out. Only you, the admin who sent it, can close it; reminders go out manually with the button below.</p>
       <p class="error-text" id="sponsor-checklists-error"></p>
-      <div id="sponsor-checklists-list"><p class="loading-text">Loading&hellip;</p></div>
-      <details class="ap-step" id="sponsor-checklist-add" style="margin-top: 18px;">
+      <details class="ap-step" id="sponsor-checklist-add">
         <summary style="cursor: pointer; font-weight: 600;">+ New checklist</summary>
         <label for="sc-add-location">Location</label>
         <select id="sc-add-location"></select>
@@ -541,6 +540,7 @@
         <p class="error-text" id="sponsor-checklist-add-error"></p>
         <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
       </details>
+      <div id="sponsor-checklists-list" style="margin-top: 18px;"><p class="loading-text">Loading&hellip;</p></div>
       <button type="button" id="sponsor-checklists-view-closed" class="secondary" style="margin-top: 18px;">View closed checklists</button>
     </div>
 
@@ -2122,10 +2122,10 @@
     row.appendChild(status);
 
     const actions = document.createElement('div');
-    actions.className = 'ap-step-actions';
+    actions.className = 'in-actions-row';
 
     const link = document.createElement('a');
-    link.className = 'form-link';
+    link.className = 'small-btn';
     link.href = c.driveLink;
     link.target = '_blank';
     link.rel = 'noopener';
@@ -2135,7 +2135,7 @@
     if (c.status === 'Open') {
       const remindBtn = document.createElement('button');
       remindBtn.type = 'button';
-      remindBtn.className = 'small secondary';
+      remindBtn.className = 'secondary';
       remindBtn.textContent = 'Send reminder';
       remindBtn.addEventListener('click', async function () {
         remindBtn.disabled = true;
@@ -2155,7 +2155,7 @@
       if (c.createdByEmail.trim().toLowerCase() === (me || '').trim().toLowerCase()) {
         const closeBtn = document.createElement('button');
         closeBtn.type = 'button';
-        closeBtn.className = 'small secondary';
+        closeBtn.className = 'secondary';
         closeBtn.textContent = 'Close';
         closeBtn.addEventListener('click', async function () {
           if (!confirm('Close "' + c.title + '"? This can\'t be reopened.')) return;
