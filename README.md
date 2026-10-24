@@ -1949,6 +1949,42 @@ logging the service starts the next cycle. Dry run:
 removed entries have Active unchecked). IDs are in `lib/ids.js`. Connect
 your Notion integration to both ("..." -> Connections).
 
+### Sponsor Checklists (admin dashboard only — ad hoc checklists by email)
+
+**Admin Dashboard -> Checklists tab:** every granted location's open
+checklists, oldest first, grouped by location; "View closed checklists"
+toggles to the closed ones instead. "+ New checklist" (location, title,
+message, due date, and a link to a Google Sheet) sends the email right
+away — there's no separate send step. Each open row has "Open
+checklist" (the Sheet link), "Send reminder" (re-sends the same email
+on demand — there's no automatic schedule) and "Close", which only
+shows for whoever created that checklist; closing is also enforced
+server-side, so there's no way around that from the API either.
+Sponsors never see any of this — only the email with the link.
+
+**Recipient:** a location's checklist always goes to one sponsor. With
+only one sponsor/DSP on file there, that's who gets it; with more than
+one, it goes to whichever one has **Primary Sponsor** checked on the
+**Sponsors** database — creating a checklist for a location with
+several sponsors and no Primary Sponsor set fails with a message to set
+one first.
+
+**The Google Sheet:** make one with the columns you want checked off
+(Action Item | Done | Date | Notes works well — a checkbox column via
+Insert -> Checkbox, a Date column sponsors can click to open a date
+picker, and a free-text Notes column), then share that one file (not
+its parent folder) "Anyone with the link -> Editor" so clicking it
+shows only that sheet, never your Drive. Copy it per checklist (File ->
+Make a copy) rather than reusing one, so each cycle's answers stay on
+file.
+
+**Data:** Notion **Sponsor Checklists** (`SPONSOR_CHECKLISTS_DB_ID`, in
+`lib/ids.js`) — one row per checklist (Location, Drive Link, Due Date,
+Message, Status, Sponsor Name/Email, Created By Email/Name, Created
+Date, Closed Date). Connect your Notion integration to it. Reuses the
+same EmailJS setup as Weekly Focus (`lib/email.js`) — no new email
+template or Zap needed.
+
 ### Documents from Google Drive (Sponsor Guidance, past progress notes)
 
 Sponsors browse two Drive folders inside the Sponsor App without a

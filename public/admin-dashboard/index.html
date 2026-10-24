@@ -443,6 +443,7 @@
       <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
       <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
+      <button class="tab-button" id="tab-sponsor-checklists" type="button">Checklists</button>
     </div>
 
     <div id="mar-tab-content">
@@ -519,6 +520,28 @@
         <p class="error-text" id="vehicle-add-error"></p>
         <button type="button" id="vehicle-add-save">Add vehicle</button>
       </details>
+    </div>
+
+    <div id="sponsor-checklists-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Send a location's primary sponsor a checklist &mdash; a message, a due date and a link to a Google Sheet they fill out. Only you, the admin who sent it, can close it; reminders go out manually with the button below.</p>
+      <p class="error-text" id="sponsor-checklists-error"></p>
+      <div id="sponsor-checklists-list"><p class="loading-text">Loading&hellip;</p></div>
+      <details class="ap-step" id="sponsor-checklist-add" style="margin-top: 18px;">
+        <summary style="cursor: pointer; font-weight: 600;">+ New checklist</summary>
+        <label for="sc-add-location">Location</label>
+        <select id="sc-add-location"></select>
+        <label for="sc-add-title">Title</label>
+        <input type="text" id="sc-add-title" placeholder="e.g. October Fire Drill Checklist">
+        <label for="sc-add-message">Message</label>
+        <textarea id="sc-add-message" rows="3" placeholder="What needs to happen and why"></textarea>
+        <label for="sc-add-due">Due date</label>
+        <input type="date" id="sc-add-due">
+        <label for="sc-add-link">Google Sheet link</label>
+        <input type="url" id="sc-add-link" placeholder="https://docs.google.com/spreadsheets/...">
+        <p class="error-text" id="sponsor-checklist-add-error"></p>
+        <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
+      </details>
+      <button type="button" id="sponsor-checklists-view-closed" class="secondary" style="margin-top: 18px;">View closed checklists</button>
     </div>
 
     <div id="weekly-tab-content" style="display:none;">
@@ -1122,7 +1145,8 @@
     medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
     weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
     compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
-    vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard }
+    vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
+    sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -2072,6 +2096,172 @@
       openVehicleDetail(res.id);
     } catch (e) {
       setError('vehicle-add-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- Sponsor Checklists ---
+  let lastSponsorChecklists = { open: [], closed: [] };
+  let sponsorChecklistsShowClosed = false;
+
+  function renderSponsorChecklistRow(c, me) {
+    const row = document.createElement('div');
+    row.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = c.title;
+    row.appendChild(title);
+
+    const status = document.createElement('p');
+    status.className = 'ap-step-status';
+    status.textContent = c.status === 'Open'
+      ? 'Due ' + formatDate(c.dueDate) + ' · ' + c.sponsorName + ' · sent by ' + c.createdByName
+      : 'Closed ' + formatDate(c.closedDate) + ' · ' + c.sponsorName;
+    row.appendChild(status);
+
+    const actions = document.createElement('div');
+    actions.className = 'ap-step-actions';
+
+    const link = document.createElement('a');
+    link.className = 'form-link';
+    link.href = c.driveLink;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Open checklist';
+    actions.appendChild(link);
+
+    if (c.status === 'Open') {
+      const remindBtn = document.createElement('button');
+      remindBtn.type = 'button';
+      remindBtn.className = 'small secondary';
+      remindBtn.textContent = 'Send reminder';
+      remindBtn.addEventListener('click', async function () {
+        remindBtn.disabled = true;
+        setError('sponsor-checklists-error', '');
+        try {
+          await apiFetch('/send-sponsor-checklist-reminder', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id })
+          });
+          remindBtn.textContent = 'Reminder sent';
+        } catch (e) {
+          setError('sponsor-checklists-error', e.message);
+          remindBtn.disabled = false;
+        }
+      });
+      actions.appendChild(remindBtn);
+
+      if (c.createdByEmail.trim().toLowerCase() === (me || '').trim().toLowerCase()) {
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'small secondary';
+        closeBtn.textContent = 'Close';
+        closeBtn.addEventListener('click', async function () {
+          if (!confirm('Close "' + c.title + '"? This can\'t be reopened.')) return;
+          closeBtn.disabled = true;
+          setError('sponsor-checklists-error', '');
+          try {
+            await apiFetch('/close-sponsor-checklist', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id })
+            });
+            loadSponsorChecklistsDashboard();
+          } catch (e) {
+            setError('sponsor-checklists-error', e.message);
+            closeBtn.disabled = false;
+          }
+        });
+        actions.appendChild(closeBtn);
+      }
+    }
+
+    row.appendChild(actions);
+    return row;
+  }
+
+  function renderSponsorChecklistsList() {
+    const listEl = document.getElementById('sponsor-checklists-list');
+    listEl.innerHTML = '';
+    const me = lastSponsorChecklists.me;
+    const rows = sponsorChecklistsShowClosed ? lastSponsorChecklists.closed : lastSponsorChecklists.open;
+
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="empty-text">' + (sponsorChecklistsShowClosed ? 'No closed checklists.' : 'No open checklists. Use "+ New checklist" below.') + '</p>';
+      return;
+    }
+
+    let lastLocation = null;
+    rows.forEach(function (c) {
+      if (c.location !== lastLocation) {
+        const title = document.createElement('p');
+        title.className = 'location-title';
+        title.textContent = c.location;
+        listEl.appendChild(title);
+        lastLocation = c.location;
+      }
+      listEl.appendChild(renderSponsorChecklistRow(c, me));
+    });
+  }
+
+  async function loadSponsorChecklistsDashboard() {
+    const listEl = document.getElementById('sponsor-checklists-list');
+    setError('sponsor-checklists-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-sponsor-checklists');
+      lastSponsorChecklists = data;
+      renderSponsorChecklistsList();
+
+      const locSelect = document.getElementById('sc-add-location');
+      locSelect.innerHTML = '';
+      (data.locations || []).forEach(function (l) {
+        const o = document.createElement('option');
+        o.value = l;
+        o.textContent = l;
+        locSelect.appendChild(o);
+      });
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('sponsor-checklists-error', e.message);
+    }
+  }
+
+  document.getElementById('sponsor-checklists-view-closed').addEventListener('click', function () {
+    sponsorChecklistsShowClosed = !sponsorChecklistsShowClosed;
+    this.textContent = sponsorChecklistsShowClosed ? 'View open checklists' : 'View closed checklists';
+    renderSponsorChecklistsList();
+  });
+
+  document.getElementById('sponsor-checklist-add-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('sponsor-checklist-add-error', '');
+    const location = document.getElementById('sc-add-location').value;
+    const title = document.getElementById('sc-add-title').value.trim();
+    const message = document.getElementById('sc-add-message').value.trim();
+    const dueDate = document.getElementById('sc-add-due').value;
+    const driveLink = document.getElementById('sc-add-link').value.trim();
+
+    if (!title) { setError('sponsor-checklist-add-error', 'Give the checklist a title.'); return; }
+    if (!dueDate) { setError('sponsor-checklist-add-error', 'Choose a due date.'); return; }
+    if (!/^https:\/\//.test(driveLink)) { setError('sponsor-checklist-add-error', 'Paste the Google Sheet\'s link.'); return; }
+
+    btn.disabled = true;
+    try {
+      await apiFetch('/save-sponsor-checklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: location, title: title, message: message, dueDate: dueDate, driveLink: driveLink })
+      });
+      document.getElementById('sc-add-title').value = '';
+      document.getElementById('sc-add-message').value = '';
+      document.getElementById('sc-add-due').value = '';
+      document.getElementById('sc-add-link').value = '';
+      document.getElementById('sponsor-checklist-add').open = false;
+      sponsorChecklistsShowClosed = false;
+      document.getElementById('sponsor-checklists-view-closed').textContent = 'View closed checklists';
+      loadSponsorChecklistsDashboard();
+    } catch (e) {
+      setError('sponsor-checklist-add-error', e.message);
     } finally {
       btn.disabled = false;
     }
