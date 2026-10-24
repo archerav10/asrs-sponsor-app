@@ -1701,25 +1701,30 @@ and checks type/date *before* the upload), `save-medical-appointment.js`,
 dot; "Log an Appointment" comes before "Last Appointment by Type" on
 that screen, since logging is the more common action). Logging there
 records type, date, **status** (`Planned`/`Completed`/`Cancelled`) and
-whether they have visit notes — there's no file picker, since a sponsor
-logging an appointment from their phone usually doesn't have the
-document in hand yet, and a `Planned` one hasn't happened at all. Unlike
-the admin dashboard's log-and-upload flow, a future date is allowed here
-(scheduling a `Planned` appointment is the point).
+whether they have visit notes — no file picker on this initial form,
+since a sponsor logging an appointment from their phone usually doesn't
+have the document in hand *yet*, and a `Planned` one hasn't happened at
+all. Unlike the admin dashboard's log-and-upload flow, a future date is
+allowed here (scheduling a `Planned` appointment is the point).
 
 The latest appointment of each type is editable in place from that same
 screen — reschedule (change the date), change status, or flip "I have
 notes" — each auto-saving on change, same inline-edit pattern as the
 Give Medications screen's dose status. Earlier appointments stay
-read-only history. "Last Appointment by Type" shows "No document on file
-yet" once a document hasn't been attached, or "Notes ready — an admin
-will attach the document" once the sponsor has flagged notes; from the
-admin dashboard, that same row shows its **Status** and whether it
-**Has visit notes**, plus a small file input once notes are flagged —
-picking a file there uploads through the *same* Zapier workflow and
-Catch Hook above (no second workflow needed), attaches it to that
-existing row instead of creating a new one, and marks it `Completed`
-(a document in hand is strong enough evidence the visit happened).
+read-only history. Once a row has no document yet, a file input appears
+under it: a sponsor who's comfortable scanning multi-page notes into one
+PDF themselves (a separate one-page training doc covers iPhone's Files
+app and Android's Google Drive app) can attach the document right there,
+straight from their phone — or just
+leave "I have notes" checked and let an admin attach it at the next
+monthly meeting instead. Either path uploads through the *same* Zapier
+workflow and Catch Hook above (no second workflow needed), attaches to
+that existing row rather than creating a new one, and marks it
+`Completed` (a document in hand is strong enough evidence the visit
+happened). The admin dashboard's Medical tab shows the same **Status**
+and **Has visit notes** flag on every row, plus its own identical
+attach-a-document control, regardless of which side ends up doing the
+attaching.
 
 - `get-provider-medical-appointments.js` / `save-provider-medical-appointment.js` /
   `update-provider-medical-appointment.js` — the provider app's versions
@@ -1734,6 +1739,12 @@ existing row instead of creating a new one, and marks it `Completed`
   endpoint, built on `updateAppointment` in `lib/medical-appointments.js`
   (a partial `updatePage` that only ever touches `Appointment Date`,
   `Status` and `Has Notes` — never `Filename`).
+- `get-provider-medical-appointment-upload-config.js` / `save-provider-medical-appointment-upload.js` —
+  the provider app's version of the `appointmentId` mode below: a
+  sponsor attaching their own document to an appointment they already
+  logged. Same ticket shape (`kind: 'medical-upload'`), same
+  `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` Catch Hook, same
+  `attachFilename` call — nothing Zapier-side to set up twice.
 - `get-medical-appointment-upload-config.js` and `save-medical-appointment.js`
   both now take an optional `appointmentId` instead of
   `location`/`resident`/`typeKey`/`appointmentDate`: when present, the
