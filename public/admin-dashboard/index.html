@@ -101,29 +101,6 @@
   .status-dot.status-yellow { background: #C9A227; animation: dotFlash 1s infinite; }
   .status-dot.status-green { background: #1B7A3D; }
   @keyframes dotFlash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-  .appt-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .appt-row:last-child { border-bottom: none; }
-  .appt-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-  .appt-date { font-weight: 600; font-size: 14px; }
-  .appt-meta { font-size: 13px; color: #666; margin: 4px 0 0; }
-  .appt-notes-line { font-size: 12px; color: var(--forest-light, #1B7A3D); margin: 4px 0 0; }
-  .appt-status-badge {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    padding: 2px 9px;
-    border-radius: 10px;
-    color: #fff;
-    white-space: nowrap;
-  }
-  .appt-status-badge.appt-status-pending { background: #C9A227; }
-  .appt-status-badge.appt-status-completed { background: #1B7A3D; }
-  .appt-status-badge.appt-status-cancelled { background: var(--error); }
-  .appt-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
-  .appt-controls select { width: auto; padding: 4px 6px; font-size: 13px; }
-  .appt-upload-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .appt-upload-row input[type="file"] { font-size: 12px; }
   .resident-line { font-size: 14px; color: #444; margin: 2px 0; }
   .resident-line.flagged { color: #D9480F; font-weight: 700; }
   .logout-link {
@@ -453,7 +430,6 @@
       <button class="tab-button" id="tab-weekly" type="button">Weekly Focus</button>
       <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
-      <button class="tab-button" id="tab-appointments" type="button">Appointments</button>
     </div>
 
     <div id="mar-tab-content">
@@ -542,34 +518,6 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each location, with every resident there &mdash; exactly what its sponsor sees in the app under My Home's Compliance. Tap a location for details.</p>
       <p class="error-text" id="compliance-dashboard-error"></p>
       <div id="compliance-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
-    </div>
-
-    <div id="appointments-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">A day-to-day log of medical appointments &mdash; date, type and status. Either side can log one. When a sponsor marks one Completed with notes on hand, upload the document here during your monthly meeting.</p>
-      <p class="error-text" id="appointments-dashboard-error"></p>
-      <div id="appointments-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
-      <details class="ap-step" id="appointment-add" style="margin-top: 18px;">
-        <summary style="cursor: pointer; font-weight: 600;">+ Log an appointment</summary>
-        <label for="appointment-add-location">Location</label>
-        <select id="appointment-add-location"></select>
-        <label for="appointment-add-resident">Resident</label>
-        <select id="appointment-add-resident"></select>
-        <label for="appointment-add-type">Appointment Type</label>
-        <input type="text" id="appointment-add-type" placeholder="e.g. Dentist, Cardiologist follow-up">
-        <label for="appointment-add-date">Appointment Date</label>
-        <input type="date" id="appointment-add-date">
-        <label for="appointment-add-status">Status</label>
-        <select id="appointment-add-status">
-          <option value="Pending">Pending</option>
-          <option value="Completed">Completed</option>
-          <option value="Cancelled">Cancelled</option>
-        </select>
-        <div id="appointment-add-notes-wrap" style="display:none;">
-          <label style="display:flex; gap:8px; align-items:center; font-weight:400;"><input type="checkbox" id="appointment-add-notes" style="width:auto;"> Has notes</label>
-        </div>
-        <p class="error-text" id="appointment-add-error"></p>
-        <button type="button" id="appointment-add-save">Log appointment</button>
-      </details>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -1161,8 +1109,7 @@
     medical: { button: document.getElementById('tab-medical'), content: document.getElementById('medical-tab-content'), load: loadMedicalDashboard },
     weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
     compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
-    vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
-    appointments: { button: document.getElementById('tab-appointments'), content: document.getElementById('appointments-tab-content'), load: loadAppointmentsDashboard }
+    vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -3298,208 +3245,6 @@
     }
     await Promise.all([worker(), worker(), worker()]);
   }
-
-  // --- Appointments (day-to-day log, not the Medical tab's annual
-  // compliance tracker) ---
-  let appointmentsByLocation = {}; // location -> residents[], for the add-form's dependent picker
-
-  function appointmentStatusLabel(status) {
-    return 'appt-status-' + (status || 'pending').toLowerCase();
-  }
-
-  function appointmentNotesLine(a) {
-    if (a.notesUploaded) return '<p class="appt-notes-line">✅ Notes uploaded (' + (a.notesFilename || 'file') + ')</p>';
-    if (a.hasNotes) return '<p class="appt-notes-line">📝 Sponsor has notes — upload below once collected</p>';
-    return '';
-  }
-
-  function renderAppointmentAdminRow(a) {
-    const wrap = document.createElement('div');
-    wrap.className = 'appt-row';
-
-    const metaParts = ['Resident: ' + a.resident];
-    if (a.loggedBy) metaParts.push('Logged by ' + a.loggedBy + (a.createdByRole ? ' (' + a.createdByRole + ')' : ''));
-
-    wrap.innerHTML =
-      '<div class="appt-top">' +
-        '<span class="appt-date">' + formatDate(a.appointmentDate) + '</span>' +
-        '<span class="event-type-badge" style="font-size:11px; font-weight:700; text-transform:uppercase; color:#666;">' + (a.appointmentType || '') + '</span>' +
-      '</div>' +
-      '<p class="appt-meta">' + metaParts.join(' · ') + '</p>' +
-      appointmentNotesLine(a) +
-      '<div class="appt-controls">' +
-        '<span class="appt-status-badge ' + appointmentStatusLabel(a.status) + '">' + a.status + '</span>' +
-        '<select class="appt-status-select">' +
-          '<option value="Pending">Pending</option>' +
-          '<option value="Completed">Completed</option>' +
-          '<option value="Cancelled">Cancelled</option>' +
-        '</select>' +
-        '<label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400;">' +
-          '<input type="checkbox" class="appt-notes-checkbox" style="width:auto;"> Has notes' +
-        '</label>' +
-      '</div>' +
-      (a.hasNotes ? '<div class="appt-upload-row"><input type="file" class="appt-notes-file"><span class="error-text appt-upload-error" style="display:none;"></span></div>' : '');
-
-    const statusSelect = wrap.querySelector('.appt-status-select');
-    const notesCheckbox = wrap.querySelector('.appt-notes-checkbox');
-    statusSelect.value = a.status;
-    notesCheckbox.checked = !!a.hasNotes;
-
-    async function saveAppointmentUpdate() {
-      try {
-        await apiFetch('/update-appointment-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ appointmentId: a.id, status: statusSelect.value, hasNotes: notesCheckbox.checked })
-        });
-        await loadAppointmentsDashboard();
-      } catch (e) {
-        setError('appointments-dashboard-error', e.message);
-      }
-    }
-    statusSelect.addEventListener('change', saveAppointmentUpdate);
-    notesCheckbox.addEventListener('change', saveAppointmentUpdate);
-
-    const fileInput = wrap.querySelector('.appt-notes-file');
-    if (fileInput) {
-      fileInput.addEventListener('change', async function () {
-        const file = fileInput.files[0];
-        if (!file) return;
-        const errEl = wrap.querySelector('.appt-upload-error');
-        errEl.style.display = 'none';
-        fileInput.disabled = true;
-        try {
-          const dot = file.name.lastIndexOf('.');
-          const extension = dot > 0 ? file.name.slice(dot) : '';
-          const config = await apiFetch('/get-appointment-notes-upload-config?appointmentId=' + encodeURIComponent(a.id) +
-            '&extension=' + encodeURIComponent(extension));
-
-          const formData = new FormData();
-          formData.append('file', file, config.filename);
-          formData.append('ticket', config.ticket);
-          formData.append('site', window.location.origin);
-
-          const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
-          if (!uploadRes.ok) throw new Error('The document failed to upload. Try again.');
-
-          await apiFetch('/save-appointment-notes-upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ appointmentId: a.id, filename: config.filename })
-          });
-
-          await loadAppointmentsDashboard();
-        } catch (e) {
-          errEl.textContent = e.message;
-          errEl.style.display = 'block';
-          fileInput.disabled = false;
-        }
-      });
-    }
-
-    return wrap;
-  }
-
-  function refreshAppointmentAddResidents() {
-    const location = document.getElementById('appointment-add-location').value;
-    const select = document.getElementById('appointment-add-resident');
-    select.innerHTML = '';
-    (appointmentsByLocation[location] || []).forEach(function (initials) {
-      const opt = document.createElement('option');
-      opt.value = initials;
-      opt.textContent = initials;
-      select.appendChild(opt);
-    });
-  }
-  document.getElementById('appointment-add-location').addEventListener('change', refreshAppointmentAddResidents);
-  document.getElementById('appointment-add-status').addEventListener('change', function () {
-    document.getElementById('appointment-add-notes-wrap').style.display = this.value === 'Completed' ? 'block' : 'none';
-  });
-
-  async function loadAppointmentsDashboard() {
-    const listEl = document.getElementById('appointments-dashboard-list');
-    setError('appointments-dashboard-error', '');
-    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
-
-    try {
-      const data = await apiFetch('/get-appointment-log-oversight');
-      const locations = data.locations || [];
-      listEl.innerHTML = '';
-
-      appointmentsByLocation = {};
-      const locSelect = document.getElementById('appointment-add-location');
-      locSelect.innerHTML = '';
-      locations.forEach(function (loc) {
-        appointmentsByLocation[loc.location] = loc.residents || [];
-        const opt = document.createElement('option');
-        opt.value = loc.location;
-        opt.textContent = loc.location;
-        locSelect.appendChild(opt);
-      });
-      refreshAppointmentAddResidents();
-
-      if (!locations.length) {
-        listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
-        return;
-      }
-
-      locations.forEach(function (loc) {
-        const title = document.createElement('p');
-        title.className = 'location-title';
-        title.textContent = loc.location;
-        listEl.appendChild(title);
-
-        if (!loc.appointments.length) {
-          const empty = document.createElement('p');
-          empty.className = 'empty-text';
-          empty.textContent = 'No appointments logged yet.';
-          listEl.appendChild(empty);
-          return;
-        }
-        loc.appointments.forEach(function (a) { listEl.appendChild(renderAppointmentAdminRow(a)); });
-      });
-    } catch (e) {
-      listEl.innerHTML = '';
-      setError('appointments-dashboard-error', e.message);
-    }
-  }
-
-  document.getElementById('appointment-add-save').addEventListener('click', async function () {
-    const btn = this;
-    setError('appointment-add-error', '');
-
-    const location = document.getElementById('appointment-add-location').value;
-    const resident = document.getElementById('appointment-add-resident').value;
-    const appointmentType = document.getElementById('appointment-add-type').value.trim();
-    const appointmentDate = document.getElementById('appointment-add-date').value;
-    const status = document.getElementById('appointment-add-status').value;
-    const hasNotes = document.getElementById('appointment-add-notes').checked;
-
-    if (!resident) { setError('appointment-add-error', 'No resident found for that location.'); return; }
-    if (!appointmentType) { setError('appointment-add-error', 'Enter the appointment type.'); return; }
-    if (!appointmentDate) { setError('appointment-add-error', 'Choose the appointment date.'); return; }
-
-    btn.disabled = true;
-    try {
-      await apiFetch('/save-appointment-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location, resident: resident, appointmentType: appointmentType, appointmentDate: appointmentDate, status: status, hasNotes: hasNotes })
-      });
-
-      document.getElementById('appointment-add-type').value = '';
-      document.getElementById('appointment-add-date').value = '';
-      document.getElementById('appointment-add-status').value = 'Pending';
-      document.getElementById('appointment-add-notes').checked = false;
-      document.getElementById('appointment-add-notes-wrap').style.display = 'none';
-      document.getElementById('appointment-add').open = false;
-      await loadAppointmentsDashboard();
-    } catch (e) {
-      setError('appointment-add-error', e.message);
-    } finally {
-      btn.disabled = false;
-    }
-  });
 
   // --- Screen 3d/6: Quarterly Reporting ---
   // Tied entirely to Annual Planning — no independent effective date, no
