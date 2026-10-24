@@ -58,7 +58,6 @@ workflow as your other portals.
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 | `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
-| `ZAPIER_APPOINTMENT_NOTES_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Appointment Notes Uploads" Zapier workflow — see Appointments below |
 
 **Keep this list short.** AWS Lambda caps each function's environment
 at 4 KB in total, and this site has reached it: a deploy fails with
@@ -1682,85 +1681,6 @@ Zap. Its Catch Hook URL is what goes in
 and checks type/date *before* the upload), `save-medical-appointment.js`,
 `medical-appointment-resolve-upload.js`, and the workflow source in
 `zapier/medical-appointment-uploads.workflow.ts`.
-
-### Appointments (day-to-day log — separate from Medical Appointments' annual compliance tracker)
-
-A sponsor-and-admin-shared **Appointments** screen: a day-to-day log of
-scheduled medical appointments, not the four-annual-type compliance
-record the Medical tab tracks. Either side can log one.
-
-- **Provider app** (an "Appointments" button on the sponsor's home
-  screen): log an appointment for one of your residents — type (free
-  text, e.g. "Dentist" or "Cardiologist follow-up"), date, and status
-  (Pending/Completed/Cancelled). The list shows every appointment logged
-  at your location, by either side — not just your own. Changing an
-  appointment's status or its "I have notes" checkbox saves immediately;
-  the "I have notes" checkbox only shows once a status is Completed,
-  since that's the point a sponsor would actually be holding paperwork.
-- **Admin dashboard** (an "Appointments" tab): the same log across every
-  location you're granted, grouped by location, with the same inline
-  status/notes controls. "+ Log an appointment" adds one from the admin
-  side with a location picker that drives a dependent resident picker.
-  Once a row shows "Sponsor has notes," a file input appears on it —
-  pick the document and it uploads straight to Drive via Zapier, same
-  "browser never touches Netlify with the file bytes" pattern as Medical
-  Appointments, then flips that row's **Notes Uploaded** flag on.
-- **Two separate notes flags**, not one: `Has Notes` is the sponsor
-  self-reporting "I'm holding the paperwork" (set when they mark an
-  appointment Completed); `Notes Uploaded` is the system fact "the
-  document is actually in Drive," set only by `save-appointment-notes-upload.js`
-  after a real upload succeeds. The gap between the two is exactly what
-  you're meant to collect at your monthly meeting.
-- **Appointment Type is free text**, not Medical Appointments' fixed
-  18-item list — this is a casual scheduling log, not a compliance
-  record, so there's nothing to keep in sync with a Notion select's
-  options.
-
-**Notion setup** — the **Appointment Log** database (Data Source ID
-`9691fcba-c42f-4dd2-9aa8-c5f206cf6900`, in `lib/ids.js`). Needs your
-integration connected to it ("..." -> Connections). Properties (this app
-never creates schema, only rows):
-
-| Property | Type |
-|---|---|
-| `Record Title` | Title |
-| `Location` | Select (same options as your other databases) |
-| `Resident Initials` | Text |
-| `Appointment Date` | Date |
-| `Appointment Type` | Text |
-| `Status` | Select — `Pending`, `Completed`, `Cancelled` |
-| `Has Notes` | Checkbox |
-| `Notes Uploaded` | Checkbox |
-| `Notes Filename` | Text |
-| `Notes Drive Link` | URL (not currently written — Medical Appointments doesn't store a link either, since the folder is just browsed directly in Drive) |
-| `Created By Role` | Select — `Sponsor`, `Admin` |
-| `Logged By` | Text |
-| `Logged Date` | Date |
-
-**Upload workflow** (`ZAPIER_APPOINTMENT_NOTES_WEBHOOK_URL`) — a Zapier
-code workflow, "ASRS Appointment Notes Uploads"
-(`zapier/appointment-notes-uploads.workflow.ts`; editor:
-https://zapier.com/workflow/01a16b14-3423-723e-a190-c28b9b3879a0), built
-the same ticket-based way as Medical Appointments and Sponsor Intake
-rather than a click-built Zap. Its Catch Hook URL is what goes in
-`ZAPIER_APPOINTMENT_NOTES_WEBHOOK_URL`:
-
-- The browser sends only `file`, `ticket` and `site` to its Catch Hook.
-  `get-appointment-notes-upload-config.js` (admin dashboard only) issues
-  the ticket: an encrypted, 2-hour pass naming the location, the
-  resident's full name and the final filename. The workflow trades it at
-  `appointment-notes-resolve-upload.js` for where the file goes.
-- Folder path: `Facility Reporting` (`FACILITY_REPORTING_ROOT_FOLDER_ID`
-  in `lib/ids.js`) -> `{Location}` -> `Residents` -> `{Full Name}` ->
-  `Appointment Notes`. The first three must already exist (find-only);
-  `Appointment Notes` is created on first use.
-- Filename: `YYYY-MM-DD_AppointmentNotes_{Location}_{ResidentInitials}.ext`.
-
-**New files:** `lib/appointment-log.js`, `get-appointment-log.js`
-(provider app), `save-appointment-log.js`, `update-appointment-log.js`,
-`get-appointment-log-oversight.js` (admin dashboard), `get-appointment-notes-upload-config.js`,
-`appointment-notes-resolve-upload.js`, `save-appointment-notes-upload.js`,
-and the workflow source in `zapier/appointment-notes-uploads.workflow.ts`.
 
 ### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
 
