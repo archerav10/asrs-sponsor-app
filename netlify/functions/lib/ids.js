@@ -5,6 +5,7 @@
 // of the same name still wins, for pointing a deploy at test copies.
 const IDS = {
   MEDICAL_APPOINTMENTS_DB_ID: '389478b3-1169-4b1d-8dcb-abb37e621173',
+  SPONSOR_CHECKLISTS_DB_ID: 'b633c24d-6692-42a4-98e9-e2194d8a2613',
   WEEKLY_FOCUS_DB_ID: 'e0ab3391-ddb7-45d8-9ca6-9f1aed7f1a23',
   WEEKLY_FOCUS_RESPONSES_DB_ID: '42a2aa61-dc05-4fe7-95fa-ca147346b783',
   FACILITY_REPORTING_ROOT_FOLDER_ID: '19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv',
