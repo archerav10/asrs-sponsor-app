@@ -41,6 +41,17 @@ const APPOINTMENT_TYPES = [
 const COMPLIANCE_TYPE_KEYS = ['Physical', 'Dental', 'Labwork', 'TBTest'];
 const DUE_SOON_DAYS = 30;
 
+// Planned appointments were added after this database already held a
+// long history of admin-logged-with-document rows that predate the
+// Status property — appointmentFromPage below treats a blank Status as
+// Completed, since every one of those older rows represents something
+// that already happened.
+const STATUSES = ['Planned', 'Completed', 'Cancelled'];
+
+function isValidStatus(status) {
+  return STATUSES.indexOf(status) !== -1;
+}
+
 function typeByKey(key) {
   return APPOINTMENT_TYPES.filter(function (t) { return t.key === key; })[0] || null;
 }
@@ -86,7 +97,9 @@ function appointmentFromPage(page) {
     typeLabel: type ? type.label : getPlainText(page.properties['Appointment Type']),
     date: getPlainText(page.properties['Appointment Date']),
     filename: getPlainText(page.properties['Filename']),
-    loggedBy: getPlainText(page.properties['Logged By'])
+    loggedBy: getPlainText(page.properties['Logged By']),
+    status: getPlainText(page.properties['Status']) || 'Completed',
+    hasNotes: !!getPlainText(page.properties['Has Notes'])
   };
 }
 
@@ -99,11 +112,27 @@ async function appointmentById(appointmentId) {
 
 // Sets Filename on an existing row once its document has been uploaded.
 // Used for the "attach a missing document" flow — createAppointment
-// stays the only way a new row gets made.
+// stays the only way a new row gets made. A real document in hand is
+// strong enough evidence the visit happened that this also marks the
+// row Completed, so a sponsor doesn't have to separately flip it after
+// an admin attaches it.
 function attachFilename(appointmentId, filename) {
   return updatePage(appointmentId, {
-    'Filename': { rich_text: [{ text: { content: filename } }] }
+    'Filename': { rich_text: [{ text: { content: filename } }] },
+    'Status': { select: { name: 'Completed' } }
   });
+}
+
+// Reschedule (date), status, and/or "I have notes" — whichever fields
+// are passed. Unlike attachFilename, this is sponsor/admin-facing and
+// never touches Filename: editing a Planned appointment doesn't imply a
+// document exists yet.
+function updateAppointment(appointmentId, fields) {
+  const properties = {};
+  if (fields.appointmentDate) properties['Appointment Date'] = { date: { start: fields.appointmentDate } };
+  if (fields.status) properties['Status'] = { select: { name: fields.status } };
+  if (typeof fields.hasNotes === 'boolean') properties['Has Notes'] = { checkbox: fields.hasNotes };
+  return updatePage(appointmentId, properties);
 }
 
 // Every active appointment for a resident, newest first.
@@ -153,12 +182,15 @@ function daysBetween(fromISO, toISO) {
 // Green/yellow/red per compliance type, plus the worst of the four as
 // the resident's overall status. A compliance type with no appointment
 // on file at all reads red ("missing") — there's nothing to show it's
-// been done.
+// been done. Only Completed appointments count toward a due date: a
+// Planned one hasn't happened yet, so logging a Physical for next month
+// shouldn't reset this month's overdue Physical.
 function computeMedicalCompliance(appointments, now) {
   const today = (now || new Date()).toISOString().slice(0, 10);
   const latest = {};
   appointments.forEach(function (a) {
     if (COMPLIANCE_TYPE_KEYS.indexOf(a.typeKey) === -1) return;
+    if (a.status !== 'Completed') return;
     if (!latest[a.typeKey] || a.date > latest[a.typeKey]) latest[a.typeKey] = a.date;
   });
 
@@ -205,7 +237,16 @@ function validateAppointmentInput(typeKey, appointmentDate) {
   return '';
 }
 
-async function createAppointment(location, resident, typeKey, appointmentDate, filename, loggedBy) {
+// Same type/date checks as validateAppointmentInput, minus the
+// future-date rule — used for scheduling (Planned) rather than
+// uploading a document for something that already happened.
+function validateScheduleInput(typeKey, appointmentDate) {
+  if (!typeByKey(typeKey)) return 'Choose an appointment type.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(appointmentDate || '')) return 'Choose the appointment date.';
+  return '';
+}
+
+async function createAppointment(location, resident, typeKey, appointmentDate, filename, loggedBy, status, hasNotes) {
   const type = typeByKey(typeKey);
   const today = new Date().toISOString().slice(0, 10);
   return createPage(MEDICAL_APPOINTMENTS_DB_ID, {
@@ -217,7 +258,9 @@ async function createAppointment(location, resident, typeKey, appointmentDate, f
     'Filename': { rich_text: filename ? [{ text: { content: filename } }] : [] },
     'Logged By': { rich_text: [{ text: { content: loggedBy } }] },
     'Logged Date': { date: { start: today } },
-    'Active': { checkbox: true }
+    'Active': { checkbox: true },
+    'Status': { select: { name: status || 'Completed' } },
+    'Has Notes': { checkbox: !!hasNotes }
   });
 }
 
@@ -225,15 +268,19 @@ module.exports = {
   APPOINTMENT_TYPES,
   COMPLIANCE_TYPE_KEYS,
   DUE_SOON_DAYS,
+  STATUSES,
+  isValidStatus,
   typeByKey,
   residentsForLocation,
   residentFullNameFor,
   appointmentById,
   attachFilename,
+  updateAppointment,
   appointmentsForResident,
   latestByType,
   computeMedicalCompliance,
   buildFilename,
   validateAppointmentInput,
+  validateScheduleInput,
   createAppointment
 };

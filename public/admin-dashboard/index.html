@@ -286,6 +286,19 @@
   .med-earlier { margin: 8px 0 0 21px; font-size: 13px; color: #555; }
   .med-earlier summary { cursor: pointer; color: var(--forest); }
   .med-earlier ul { margin: 6px 0 0; padding-left: 18px; }
+  .med-status-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 2px 9px;
+    border-radius: 10px;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .med-status-badge.med-status-planned { background: #C9A227; }
+  .med-status-badge.med-status-completed { background: #1B7A3D; }
+  .med-status-badge.med-status-cancelled { background: var(--error); }
   .wf-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
   .wf-tile { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; background: #fff; }
   .wf-tile .n { font-size: 24px; font-weight: 700; line-height: 1.1; }
@@ -2526,6 +2539,12 @@
     row.appendChild(date);
     wrap.appendChild(row);
 
+    const statusRow = document.createElement('p');
+    statusRow.className = 'med-type-due';
+    statusRow.innerHTML = '<span class="med-status-badge med-status-' + entry.latest.status.toLowerCase() + '">' + entry.latest.status + '</span>' +
+      (entry.latest.hasNotes ? ' &middot; 📝 Has visit notes' : '');
+    wrap.appendChild(statusRow);
+
     if (complianceItem) {
       const due = document.createElement('p');
       due.className = 'med-type-due' + (complianceItem.status === 'green' ? '' : ' flagged');
@@ -2551,7 +2570,8 @@
       const list = document.createElement('ul');
       entry.earlier.forEach(function (a) {
         const li = document.createElement('li');
-        li.textContent = formatDate(a.date) + (a.filename ? ' — ' + a.filename : ' — no document on file yet');
+        li.textContent = formatDate(a.date) + ' — ' + a.status + (a.hasNotes ? ' (has visit notes)' : '') +
+          (a.filename ? ' — ' + a.filename : ' — no document on file yet');
         list.appendChild(li);
         if (!a.filename) {
           const attachLi = document.createElement('li');
