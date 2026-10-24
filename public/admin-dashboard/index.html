@@ -2537,8 +2537,10 @@
 
     const file = document.createElement('p');
     file.className = 'med-type-due';
-    file.textContent = (entry.latest.filename || 'Document on file') + (entry.latest.loggedBy ? ' · logged by ' + entry.latest.loggedBy : '');
+    file.textContent = (entry.latest.filename ? entry.latest.filename : 'No document on file yet — ' + (entry.latest.loggedBy || 'a sponsor') + ' logged this appointment') +
+      (entry.latest.filename && entry.latest.loggedBy ? ' · logged by ' + entry.latest.loggedBy : '');
     wrap.appendChild(file);
+    if (!entry.latest.filename) wrap.appendChild(renderAttachDocumentControl(entry.latest.id));
 
     if (entry.earlier.length) {
       const details = document.createElement('details');
@@ -2549,14 +2551,69 @@
       const list = document.createElement('ul');
       entry.earlier.forEach(function (a) {
         const li = document.createElement('li');
-        li.textContent = formatDate(a.date) + (a.filename ? ' — ' + a.filename : '');
+        li.textContent = formatDate(a.date) + (a.filename ? ' — ' + a.filename : ' — no document on file yet');
         list.appendChild(li);
+        if (!a.filename) {
+          const attachLi = document.createElement('li');
+          attachLi.appendChild(renderAttachDocumentControl(a.id));
+          list.appendChild(attachLi);
+        }
       });
       details.appendChild(list);
       wrap.appendChild(details);
     }
 
     container.appendChild(wrap);
+  }
+
+  // A sponsor can log an appointment (type + date) from the provider app
+  // without a document — this renders the small "attach it once you've
+  // collected it" control that appears on any row with no Filename yet.
+  function renderAttachDocumentControl(appointmentId) {
+    const row = document.createElement('div');
+    row.className = 'med-attach-row';
+    const input = document.createElement('input');
+    input.type = 'file';
+    const err = document.createElement('span');
+    err.className = 'error-text';
+    err.style.display = 'none';
+    row.appendChild(input);
+    row.appendChild(err);
+
+    input.addEventListener('change', async function () {
+      const file = input.files[0];
+      if (!file) return;
+      err.style.display = 'none';
+      input.disabled = true;
+      try {
+        const dot = file.name.lastIndexOf('.');
+        const extension = dot > 0 ? file.name.slice(dot) : '';
+        const config = await apiFetch('/get-medical-appointment-upload-config?appointmentId=' + encodeURIComponent(appointmentId) +
+          '&extension=' + encodeURIComponent(extension));
+
+        const formData = new FormData();
+        formData.append('file', file, config.filename);
+        formData.append('ticket', config.ticket);
+        formData.append('site', window.location.origin);
+
+        const uploadRes = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+        if (!uploadRes.ok) throw new Error('The document failed to upload. Try again.');
+
+        await apiFetch('/save-medical-appointment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId: appointmentId, extension: extension })
+        });
+
+        await loadMedicalDetail();
+      } catch (e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+        input.disabled = false;
+      }
+    });
+
+    return row;
   }
 
   async function loadMedicalDetail() {

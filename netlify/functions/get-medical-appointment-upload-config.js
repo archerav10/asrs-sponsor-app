@@ -1,6 +1,6 @@
 const { requireSession } = require('./lib/session');
 const { encryptToken } = require('./lib/crypto');
-const { residentsForLocation, residentFullNameFor, validateAppointmentInput, buildFilename } = require('./lib/medical-appointments');
+const { residentsForLocation, residentFullNameFor, validateAppointmentInput, buildFilename, appointmentById } = require('./lib/medical-appointments');
 
 const TICKET_TTL_SECONDS = 2 * 60 * 60;
 
@@ -27,15 +27,32 @@ exports.handler = async function (event) {
     }
 
     const params = event.queryStringParameters || {};
-    const location = params.location;
-    const resident = params.resident;
+
+    // Two modes: issuing a ticket for a brand-new log-and-upload (the
+    // original flow, location/resident/typeKey/appointmentDate all come
+    // from the picker), or attaching a document to a row a sponsor
+    // already logged with no file (appointmentId alone — everything else
+    // is read off that existing row so it can't disagree with it).
+    let location, resident, typeKey, appointmentDate;
+    if (params.appointmentId) {
+      const appointment = await appointmentById(params.appointmentId);
+      location = appointment.location;
+      resident = appointment.resident;
+      typeKey = appointment.typeKey;
+      appointmentDate = appointment.date;
+    } else {
+      location = params.location;
+      resident = params.resident;
+      typeKey = params.typeKey;
+      appointmentDate = params.appointmentDate;
+    }
     if (!location || !resident) {
       return { statusCode: 400, body: JSON.stringify({ error: 'location and resident are required.' }) };
     }
     if ((session.grantedLocations || []).indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
-    const invalid = validateAppointmentInput(params.typeKey, params.appointmentDate);
+    const invalid = validateAppointmentInput(typeKey, appointmentDate);
     if (invalid) {
       return { statusCode: 400, body: JSON.stringify({ error: invalid }) };
     }
@@ -57,7 +74,7 @@ exports.handler = async function (event) {
       };
     }
 
-    const filename = buildFilename(params.appointmentDate, params.typeKey, location, resident, params.extension || '');
+    const filename = buildFilename(appointmentDate, typeKey, location, resident, params.extension || '');
     const ticket = encryptToken({
       kind: 'medical-upload',
       location: location,

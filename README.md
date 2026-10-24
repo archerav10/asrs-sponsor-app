@@ -1682,6 +1682,34 @@ and checks type/date *before* the upload), `save-medical-appointment.js`,
 `medical-appointment-resolve-upload.js`, and the workflow source in
 `zapier/medical-appointment-uploads.workflow.ts`.
 
+**Sponsors can log into the same database from the provider app** (a
+"Medical" button per resident on the home screen, same red/yellow/green
+dot). Logging there only records the type and date — there's no file
+picker, since a sponsor logging an appointment from their phone usually
+doesn't have the document in hand yet. "Last Appointment by Type" shows
+"No document on file yet" for a row like that; from the admin dashboard,
+that same row now shows a small file input right under it — picking a
+file there uploads through the *same* Zapier workflow and Catch Hook
+above (no second workflow needed) and attaches it to that existing row
+instead of creating a new one.
+
+- `get-provider-medical-appointments.js` / `save-provider-medical-appointment.js` —
+  the provider app's versions of `get-medical-appointments.js` /
+  `save-medical-appointment.js`, scoped to the signed-in sponsor's (or
+  location-password admin's) own `residentInitials` instead of an admin
+  dashboard session's `grantedLocations`, same pattern as
+  `get-medication-administration.js`. `validateAppointmentInput` still
+  refuses a future date here too — Medical is a record of what already
+  happened, not a scheduler.
+- `get-medical-appointment-upload-config.js` and `save-medical-appointment.js`
+  both now take an optional `appointmentId` instead of
+  `location`/`resident`/`typeKey`/`appointmentDate`: when present, the
+  type/date/resident/location are read off that existing row (so they
+  can't disagree with it) and the upload **attaches** to it
+  (`attachFilename` in `lib/medical-appointments.js`, a plain
+  `updatePage` setting `Filename`) rather than creating a new row via
+  `createAppointment`.
+
 ### Sponsored Residential Weekly Focus (ninth process — weekly sponsor check-in)
 
 A weekly communication to each sponsor with app access (`Provider App
