@@ -15,7 +15,7 @@ exports.handler = async function (event) {
     if (!intake) {
       return json(404, { error: 'This status link isn\'t valid. Check the link in your most recent ASRS email.' });
     }
-    const results = await Promise.all([loadChecklist(), itemsForIntake(intake.id)]);
+    const results = await Promise.all([loadChecklist({ process: intake.process }), itemsForIntake(intake.id)]);
     return json(200, sponsorStatus(results[0], intake, results[1]));
   } catch (err) {
     return errorResponse(err);

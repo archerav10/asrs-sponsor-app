@@ -8,8 +8,8 @@ const ASRS_PEOPLE_DB_ID = process.env.ASRS_PEOPLE_DB_ID;
 // can be edited without a deploy — the same idea as Sponsor Intake's
 // Intake Steps. One row per required item: Label, Key, Part, Section,
 // Applies To (roles), Renews, Order, Active, optional Form Link, and
-// optional Intake Steps (the Sponsor Intake step Keys that satisfy the
-// item, used by copyFromIntake). Progress
+// optional Sponsor Intake Steps / DSP Intake Steps (the intake step Keys
+// that satisfy the item, used by copyFromIntake). Progress
 // rows in Staff Training Items are keyed by each requirement's Key, which
 // is why a Key must never change once used — rename the Label instead.
 const REQUIREMENTS_DB_ID = configId('TRAINING_REQUIREMENTS_DB_ID');
@@ -32,8 +32,8 @@ const PARTS = ['Annual training & certification', 'Intake'];
 const RENEW_YEARS = { 'One-time': 0, '1 year': 1, '2 years': 2 };
 // Keys end up in filenames split on "_", so letters and numbers only.
 const KEY_RE = /^[A-Za-z0-9]+$/;
-// Last Updated By prefix on rows copied from Sponsor Intake.
-const INTAKE_SOURCE = 'Sponsor Intake';
+// Last Updated By prefix on rows copied from an intake (Sponsor or DSP).
+const INTAKE_SOURCE = 'Intake';
 const INTAKE_NA = INTAKE_SOURCE + ': Not Applicable';
 
 let requirementsCache = null;
@@ -84,8 +84,10 @@ async function loadRequirements(options) {
       renewYears: RENEW_YEARS[renews],
       order: typeof order === 'number' ? order : 9999,
       formUrl: /^https?:\/\//i.test(formUrl) ? formUrl : '',
-      intakeSteps: (getPlainText(p['Intake Steps']) || '').split(',')
-        .map(function (k) { return k.trim(); }).filter(Boolean)
+      intakeSteps: {
+        Sponsor: keyList(getPlainText(p['Sponsor Intake Steps'])),
+        DSP: keyList(getPlainText(p['DSP Intake Steps']))
+      }
     };
     byKey[key] = req;
     requirements.push(req);
@@ -98,6 +100,16 @@ async function loadRequirements(options) {
   const value = { requirements: requirements, byKey: byKey, problems: problems };
   requirementsCache = { at: Date.now(), value: value };
   return value;
+}
+
+function keyList(text) {
+  return (text || '').split(',').map(function (k) { return k.trim(); }).filter(Boolean);
+}
+
+// Which intake checklist a role goes through: Sponsors the Sponsor intake,
+// DSPs and Secondary DSPs the DSP intake.
+function intakeProcessForRole(role) {
+  return effectiveRole(role) === 'Sponsor' ? 'Sponsor' : 'DSP';
 }
 
 function effectiveRole(role) {
@@ -142,7 +154,7 @@ function personFromPage(page) {
     role: effectiveRole(role),
     roleSet: ROLES.indexOf(role) !== -1,
     trainingFolderUrl: getPlainText(page.properties['Training Folder URL']),
-    intakeId: getPlainText(page.properties['Sponsor Intake ID']) || ''
+    intakeId: getPlainText(page.properties['Intake ID']) || ''
   };
 }
 
@@ -231,8 +243,8 @@ function fullStepList(items, requirements, role, now) {
       filename: item ? item.filename : '',
       completedDate: item ? item.completedDate : '',
       expDate: item && req.renewYears ? item.expDate : '',
-      // Copied from Sponsor Intake: the document is in the sponsor's
-      // intake folder, not their training folder.
+      // Copied from an intake: the document is in the person's intake
+      // folder, not their training folder.
       fromIntake: !!item && item.lastUpdatedBy.indexOf(INTAKE_SOURCE) === 0,
       notApplicable: !!item && item.lastUpdatedBy.indexOf(INTAKE_NA) === 0,
       state: itemState(req, item, now)
@@ -312,8 +324,9 @@ async function markItemDone(location, staffName, req, filename, completedDate, u
   }, props));
 }
 
-// Fills in a sponsor's training record from their Sponsor Intake: every
-// requirement that applies to them and names Intake Steps is marked done
+// Fills in someone's training record from their intake (processName:
+// Sponsor or DSP): every requirement that applies to them and names steps
+// in that process's Intake Steps column is marked done
 // once all of those steps are Complete or Not Applicable in the intake,
 // using the latest of their completion dates (so a renewing item's due
 // date follows from it; marking a step Not Applicable stamps that date).
@@ -322,18 +335,18 @@ async function markItemDone(location, staffName, req, filename, completedDate, u
 // the intake progresses. intakeItemsByKey is lib/sponsor-intake.js's
 // itemsForIntake result. No filename: the documents stay in the intake's
 // Drive folder.
-async function copyFromIntake(location, person, requirements, intakeItemsByKey, updatedBy) {
+async function copyFromIntake(location, person, requirements, intakeItemsByKey, updatedBy, processName) {
   const existing = {};
   (await itemsForStaff(location, person.name)).forEach(function (i) { existing[i.stepKey] = i; });
   const result = { copied: [], notApplicable: [], alreadyOnFile: [], notYet: [], noDate: [] };
 
-  const reqs = requirementsForRole(requirements, person.role).filter(function (r) { return r.intakeSteps.length; });
+  const reqs = requirementsForRole(requirements, person.role).filter(function (r) { return r.intakeSteps[processName].length; });
   for (const req of reqs) {
     if (existing[req.key] && existing[req.key].done) {
       result.alreadyOnFile.push(req.label);
       continue;
     }
-    const steps = req.intakeSteps.map(function (k) { return intakeItemsByKey[k]; });
+    const steps = req.intakeSteps[processName].map(function (k) { return intakeItemsByKey[k]; });
     if (steps.some(function (s) { return !s || (s.status !== 'Complete' && s.status !== 'Not Applicable'); })) {
       result.notYet.push(req.label);
       continue;
@@ -345,7 +358,7 @@ async function copyFromIntake(location, person, requirements, intakeItemsByKey, 
     }
     const date = dates[dates.length - 1].slice(0, 10);
     const allNA = steps.every(function (s) { return s.status === 'Not Applicable'; });
-    await markItemDone(location, person.name, req, '', date, (allNA ? INTAKE_NA : INTAKE_SOURCE) + ' (' + updatedBy + ')');
+    await markItemDone(location, person.name, req, '', date, (allNA ? INTAKE_NA : INTAKE_SOURCE) + ' – ' + processName + ' (' + updatedBy + ')');
     (allNA ? result.notApplicable : result.copied).push({ label: req.label, date: date });
   }
   return result;
@@ -357,6 +370,7 @@ module.exports = {
   WINDOW_DAYS_BEFORE_DUE,
   loadRequirements,
   requirementsForRole,
+  intakeProcessForRole,
   buildFilename,
   parseFilename,
   staffInfoById,

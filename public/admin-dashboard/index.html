@@ -436,7 +436,7 @@
       <button class="tab-button" id="tab-annual" type="button">Annual Planning</button>
       <button class="tab-button" id="tab-staff" type="button">Staff Training</button>
       <button class="tab-button" id="tab-quarterly" type="button">Quarterly Reporting</button>
-      <button class="tab-button" id="tab-intake" type="button">Sponsor Intake</button>
+      <button class="tab-button" id="tab-intake" type="button">Intake</button>
       <button class="tab-button" id="tab-checklist" type="button">Monthly Checklist</button>
       <button class="tab-button" id="tab-dpn" type="button">Daily Progress Notes</button>
       <button class="tab-button" id="tab-medical" type="button">Medical</button>
@@ -471,10 +471,15 @@
     </div>
 
     <div id="intake-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Prospective sponsors. They never log in: they get an email only when you click Send request, and they can always check their private status page.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Prospective sponsors, DSPs and Secondary DSPs. They never log in: they get an email only when you click Send request, and they can always check their private status page. The checklists are edited in Notion (Intake Steps for sponsors, DSP Intake Steps for DSPs).</p>
       <details class="in-new" id="intake-new">
         <summary>+ Start a new intake</summary>
-        <label for="intake-new-name">Sponsor name</label>
+        <label for="intake-new-process">Intake for</label>
+        <select id="intake-new-process">
+          <option value="Sponsor">Sponsor</option>
+          <option value="DSP">DSP / Secondary DSP</option>
+        </select>
+        <label for="intake-new-name">Name</label>
         <input type="text" id="intake-new-name" autocomplete="off">
         <label for="intake-new-email">Email</label>
         <input type="email" id="intake-new-email" autocomplete="off">
@@ -1819,16 +1824,17 @@
     container.appendChild(wrap);
   }
 
-  // Sponsors only: link their training record to the Sponsor Intake they
-  // went through and bring in what it already completed. Safe to run
-  // again as the intake moves along — items already on file are skipped.
+  // Link a training record to the intake the person went through (the
+  // Sponsor intake for a Sponsor, the DSP intake for a DSP or Secondary
+  // DSP) and bring in what it already completed. Safe to run again as the
+  // intake moves along — items already on file are skipped.
   function renderStaffIntakeSection(container, staff) {
     const wrap = document.createElement('div');
     wrap.className = 'ap-step';
 
     const title = document.createElement('p');
     title.className = 'ap-step-title';
-    title.textContent = 'Sponsor Intake';
+    title.textContent = 'Intake';
     wrap.appendChild(title);
 
     const help = document.createElement('p');
@@ -1839,9 +1845,10 @@
     container.appendChild(wrap);
 
     apiFetch('/staff-training-intake?staffId=' + encodeURIComponent(staff.id)).then(function (data) {
+      title.textContent = data.title;
       const intakes = data.intakes || [];
       if (!intakes.length) {
-        help.textContent = 'No Sponsor Intakes on file.';
+        help.textContent = 'No ' + data.title + 's on file.';
         return;
       }
       const linked = intakes.filter(function (i) { return i.id === data.linkedIntakeId; })[0];
@@ -1900,7 +1907,7 @@
   function staffStepStatusText(stepDef) {
     if (!stepDef.done) return 'Not yet completed';
     if (stepDef.notApplicable) {
-      return 'Marked Not Applicable in Sponsor Intake ' + formatDate(stepDef.completedDate) +
+      return 'Marked Not Applicable in intake ' + formatDate(stepDef.completedDate) +
         (stepDef.expDate ? ' · Due ' + formatDate(stepDef.expDate) : '');
     }
     const parts = [];
@@ -1908,7 +1915,7 @@
     if (stepDef.expDate) {
       parts.push((stepDef.state === 'overdue' ? 'Overdue — was due ' : 'Due ') + formatDate(stepDef.expDate));
     }
-    return parts.join(' · ') + ' — ' + (stepDef.filename || (stepDef.fromIntake ? 'from Sponsor Intake (document is in the intake folder)' : 'document'));
+    return parts.join(' · ') + ' — ' + (stepDef.filename || (stepDef.fromIntake ? 'from intake (document is in the intake folder)' : 'document'));
   }
 
   function renderStaffStepSection(container, stepDef) {
@@ -2120,7 +2127,7 @@
       }
 
       renderStaffRoleSection(bodyEl, staff, data.roles || []);
-      if (staff.role === 'Sponsor') renderStaffIntakeSection(bodyEl, staff);
+      renderStaffIntakeSection(bodyEl, staff);
       renderStaffFolderSection(bodyEl, staff);
 
       if (!staff.folderUrl) {
@@ -4038,7 +4045,11 @@
   });
 
   function sponsorLabel() {
-    return currentIntake ? currentIntake.name + ' (' + currentIntake.email + ')' : 'the sponsor';
+    return currentIntake ? currentIntake.name + ' (' + currentIntake.email + ')' : 'the ' + personWord();
+  }
+  // "sponsor" or "candidate" (DSP intakes), for wording on this screen.
+  function personWord() {
+    return currentIntake && currentIntake.process === 'DSP' ? 'candidate' : 'sponsor';
   }
   let intakeSelected = {};
   let intakeOpenStages = {}; // stage num -> open, kept across reloads after each save
@@ -4083,20 +4094,25 @@
       listEl.innerHTML = '';
       renderChecklistProblems(listEl, data.checklistProblems);
       if (!data.intakes.length) {
-        listEl.appendChild(intakeEl('p', 'empty-text', 'No sponsors in intake yet. Start one above.'));
+        listEl.appendChild(intakeEl('p', 'empty-text', 'No one in intake yet. Start one above.'));
         return;
       }
       data.intakes.forEach(function (row) {
         const btn = intakeEl('button', 'in-row-button');
         btn.type = 'button';
         const left = intakeEl('div');
-        left.appendChild(intakeEl('div', 'who', row.name));
+        const whoEl = intakeEl('div', 'who', row.name);
+        const tag = intakeEl('span', null, row.process === 'DSP' ? 'DSP' : 'Sponsor');
+        tag.style.cssText = 'margin-left:8px; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; vertical-align:2px; ' +
+          (row.process === 'DSP' ? 'background:#E3ECF8; color:#1F4E8C;' : 'background:#EDE7F6; color:#5B3E8F;');
+        whoEl.appendChild(tag);
+        left.appendChild(whoEl);
         left.appendChild(intakeEl('div', 'meta-line', row.currentStage
           ? 'Stage ' + row.currentPosition + ' of ' + row.stageCount + ' · ' + row.currentStageName + ' · ' + row.completeCount + ' of ' + row.totalCount + ' items done'
           : 'Intake complete'));
         const flags = [];
         if (row.needsReview) flags.push(row.needsReview + ' to review');
-        if (row.waitingOnSponsor) flags.push(row.waitingOnSponsor + ' waiting on sponsor' + (row.oldestRequest ? ' (oldest ' + formatDate(row.oldestRequest) + ')' : ''));
+        if (row.waitingOnSponsor) flags.push(row.waitingOnSponsor + ' waiting on ' + (row.process === 'DSP' ? 'candidate' : 'sponsor') + (row.oldestRequest ? ' (oldest ' + formatDate(row.oldestRequest) + ')' : ''));
         if (flags.length) {
           const f = intakeEl('div', 'meta-line', flags.join(' · '));
           if (row.needsReview) f.style.color = '#1F4E8C';
@@ -4119,7 +4135,7 @@
     const name = document.getElementById('intake-new-name').value.trim();
     const email = document.getElementById('intake-new-email').value.trim();
     if (!name || !email) {
-      setError('intake-new-error', 'Enter the sponsor\'s name and email.');
+      setError('intake-new-error', 'Enter their name and email.');
       return;
     }
     btn.disabled = true;
@@ -4131,7 +4147,8 @@
           name: name,
           email: email,
           phone: document.getElementById('intake-new-phone').value.trim(),
-          sendWelcome: document.getElementById('intake-new-welcome').checked
+          sendWelcome: document.getElementById('intake-new-welcome').checked,
+          process: document.getElementById('intake-new-process').value
         })
       });
       ['intake-new-name', 'intake-new-email', 'intake-new-phone'].forEach(function (id) { document.getElementById(id).value = ''; });
@@ -4253,7 +4270,7 @@
     const keys = Object.keys(intakeSelected);
     const btn = document.getElementById('intake-send-btn');
     btn.disabled = !keys.length;
-    btn.textContent = keys.length ? 'Send request (' + keys.length + ' item' + (keys.length === 1 ? '' : 's') + ')' : 'Tick sponsor items above to send a request';
+    btn.textContent = keys.length ? 'Send request (' + keys.length + ' item' + (keys.length === 1 ? '' : 's') + ')' : 'Tick ' + personWord() + ' items above to send a request';
   }
 
   function renderIntakeItem(container, item) {
@@ -4281,7 +4298,7 @@
     title.appendChild(intakeEl('span', 'num', item.key));
     title.appendChild(document.createTextNode(item.label));
     if (item.licensing) title.appendChild(intakeEl('span', 'lic', '[L]'));
-    if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', 'Sponsor'));
+    if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', personWord() === 'candidate' ? 'Candidate' : 'Sponsor'));
     if (item.adminOnly) title.appendChild(intakeEl('span', 'admin-tag', 'Admin only'));
     head.appendChild(title);
 
@@ -4323,7 +4340,7 @@
     }
     if (item.blankFormUrl) {
       const bf = intakeEl('p', 'in-item-info');
-      bf.appendChild(document.createTextNode('Sponsor downloads a blank form: '));
+      bf.appendChild(document.createTextNode((personWord() === 'candidate' ? 'Candidate' : 'Sponsor') + ' downloads a blank form: '));
       const a = intakeEl('a', null, 'view');
       a.href = item.blankFormUrl;
       a.target = '_blank';
@@ -4332,7 +4349,7 @@
       wrap.appendChild(bf);
     }
     if (item.type === 'form' && !item.formConfigured) {
-      wrap.appendChild(intakeEl('p', 'in-item-info warn', 'No JotForm link set for this item yet, so the sponsor gets an upload link instead.'));
+      wrap.appendChild(intakeEl('p', 'in-item-info warn', 'No JotForm link set for this item yet, so the ' + personWord() + ' gets an upload link instead.'));
     }
     if (item.agenda.length) {
       const ag = intakeEl('details');
@@ -4352,7 +4369,7 @@
         controls.appendChild(intakeButton('Accept', false, function () { intakeUpdate(item.key, { action: 'accept' }); }));
         const reason = document.createElement('input');
         reason.type = 'text';
-        reason.placeholder = 'Reason for returning (the sponsor sees this)';
+        reason.placeholder = 'Reason for returning (the ' + personWord() + ' sees this)';
         controls.appendChild(reason);
         controls.appendChild(intakeButton('Return', true, function () {
           if (!reason.value.trim()) { reason.focus(); setError('intake-detail-error', 'Enter a reason before returning an item.'); return; }
@@ -4456,7 +4473,7 @@
       const naForm = intakeEl('div', 'in-na-form');
       const naReason = document.createElement('input');
       naReason.type = 'text';
-      naReason.placeholder = 'Reason (the sponsor sees this)';
+      naReason.placeholder = 'Reason (the ' + personWord() + ' sees this)';
       naForm.appendChild(naReason);
       naForm.appendChild(intakeButton('Mark N/A', true, function () {
         if (!naReason.value.trim()) { naReason.focus(); setError('intake-detail-error', 'Enter a reason before marking an item not applicable.'); return; }
@@ -4493,7 +4510,7 @@
       bodyEl.innerHTML = '';
 
       document.getElementById('intake-detail-title').textContent = intake.name;
-      document.getElementById('intake-detail-meta').textContent = [intake.email, intake.phone, 'Started ' + formatDate(intake.startedDate)]
+      document.getElementById('intake-detail-meta').textContent = [intake.processTitle, intake.email, intake.phone, 'Started ' + formatDate(intake.startedDate)]
         .filter(Boolean).join(' · ') + (intake.lastRequestSent ? ' · Last request ' + formatDate(intake.lastRequestSent) : '');
       document.getElementById('intake-open-status').href = intake.statusUrl;
       document.getElementById('intake-print-progress').href = 'print.html?id=' + encodeURIComponent(intake.id);
@@ -4535,7 +4552,7 @@
       banner.appendChild(strong);
       const bits = [];
       if (received) bits.push(received + ' to review');
-      if (waiting) bits.push(waiting + ' waiting on sponsor');
+      if (waiting) bits.push(waiting + ' waiting on ' + personWord());
       if (bits.length) banner.appendChild(document.createTextNode(' — ' + bits.join(', ')));
 
       // Drop selections that are no longer requestable (e.g. just received).

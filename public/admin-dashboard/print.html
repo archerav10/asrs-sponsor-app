@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Sponsor Intake · Print</title>
+<title>Intake · Print</title>
 <style>
   /* Printable progress sheet / blank checklist for the binder. Letter
      portrait; the browser's own Print → Save as PDF produces the file. */
   @page {
     size: letter;
     margin: 0.5in 0.5in 0.6in;
-    @bottom-left { content: "ASRS Sponsor Intake · Confidential"; font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #8a8577; }
+    @bottom-left { content: "ASRS Intake · Confidential"; font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #8a8577; }
     @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #8a8577; }
   }
   * { box-sizing: border-box; }
@@ -83,7 +83,11 @@
   const LOGO_URL = '/intake/logo.jpg';
   const params = new URLSearchParams(location.search);
   const mode = params.get('mode') === 'blank' ? 'blank' : 'progress';
+  // Who does each step: the person the intake is for (Sponsor or DSP), ASRS, etc.
   const WHO = { upload: 'Sponsor', form: 'Sponsor', event: 'Meeting', document: 'ASRS', training: 'Training' };
+  function who(item, intake) {
+    return (item.type === 'upload' || item.type === 'form') && intake.process === 'DSP' ? 'Candidate' : WHO[item.type];
+  }
 
   document.getElementById('print-btn').addEventListener('click', function () { window.print(); });
 
@@ -150,7 +154,7 @@
 
     let h = '<section class="sheet">';
     h += '<div class="top"><div class="brand"><img src="' + LOGO_URL + '" alt="" onerror="this.remove()"><div>' +
-      '<div class="org">ASRS · Sponsor Intake · ' + (mode === 'blank' ? 'Checklist' : 'Progress Sheet') + '</div>' +
+      '<div class="org">ASRS · ' + esc(intake.processTitle || 'Sponsor Intake') + ' · ' + (mode === 'blank' ? 'Checklist' : 'Progress Sheet') + '</div>' +
       '<h1>' + esc(intake.name) + '</h1></div></div>' +
       '<div class="meta"><b>Started</b><span>' + esc(fmtLongDate(intake.startedDate)) + '</span>' +
       (mode === 'blank' ? '' : '<b>Current stage</b><span>' + (current ? esc(current.position + ' · ' + current.name) : 'Complete') + '</span>') +
@@ -188,7 +192,7 @@
           (item.includes && item.includes.length ? '<div class="ins">Includes: ' + esc(item.includes.join('; ')) + '</div>' : '') +
           (mode !== 'blank' && item.status === 'Returned' && item.returnReason ? '<div class="ret">Returned: ' + esc(item.returnReason) + '</div>' : '') +
           (isNA && item.naReason ? '<div class="nar">Not applicable: ' + esc(item.naReason) + '</div>' : '') +
-          '</td><td class="who">' + WHO[item.type] + '</td><td>' + esc(st.status) + '</td><td>' + esc(st.date) + '</td><td>' + esc(st.by) + '</td></tr>';
+          '</td><td class="who">' + who(item, intake) + '</td><td>' + esc(st.status) + '</td><td>' + esc(st.date) + '</td><td>' + esc(st.by) + '</td></tr>';
       });
       h += '</tbody></table></div>';
 

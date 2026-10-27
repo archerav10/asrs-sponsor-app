@@ -23,12 +23,13 @@ exports.handler = async function (event) {
     const name = String(body.name || '').trim();
     const email = String(body.email || '').trim();
     const note = String(body.note || '').trim();
-    const step = (await loadChecklist({ fresh: true })).byKey[body.stepKey];
-    if (!body.id || !step) return json(400, { error: 'id and a valid stepKey are required.' });
+    if (!body.id) return json(400, { error: 'id and a valid stepKey are required.' });
+    const intake = await getIntake(body.id);
+    const step = (await loadChecklist({ fresh: true, process: intake.process })).byKey[body.stepKey];
+    if (!step) return json(400, { error: 'id and a valid stepKey are required.' });
     if (!name) return json(400, { error: 'Enter the reference\'s name.' });
     if (!EMAIL_RE.test(email)) return json(400, { error: 'Enter a valid email address for the reference.' });
 
-    const intake = await getIntake(body.id);
     const formUrl = adminFormLink(intake, step);
     if (!formUrl) return json(400, { error: 'This step has no Form Link in Notion, so there\'s no form to send.' });
     const item = (await itemsForIntake(intake.id))[step.key] || null;

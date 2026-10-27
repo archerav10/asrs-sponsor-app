@@ -63,9 +63,9 @@ exports.handler = async function (event) {
       ext = 'pdf';
     }
 
-    const cl = await loadChecklist();
-    const step = stepOrPlaceholder(cl, stepKey);
     const intake = await getIntake(intakeId);
+    const cl = await loadChecklist({ process: intake.process });
+    const step = stepOrPlaceholder(cl, stepKey);
 
     return json(200, {
       rootFolderId: rootFolderId,

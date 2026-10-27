@@ -23,6 +23,42 @@ const STAGES_DB_ID = configId('SPONSOR_INTAKE_STAGES_DB_ID');
 const STEPS_DB_ID = configId('SPONSOR_INTAKE_STEPS_DB_ID');
 const CHECKLIST_TTL_MS = 30 * 1000;
 
+// Two intake checklists share everything in this file: Sponsor (the
+// databases above) and DSP, for DSPs and Secondary DSPs (DSP Intake
+// Stages / DSP Intake Steps, same columns). An intake's Process says
+// which one it follows; blank means Sponsor, which is every intake from
+// before DSP intake existed. "Sponsor" in names below means whoever the
+// intake is for.
+const PROCESSES = {
+  Sponsor: {
+    stagesDb: STAGES_DB_ID,
+    stepsDb: STEPS_DB_ID,
+    title: 'Sponsor Intake',
+    noun: 'sponsor',
+    applyingFor: 'a sponsor',
+    folderSuffix: ''
+  },
+  DSP: {
+    stagesDb: configId('DSP_INTAKE_STAGES_DB_ID'),
+    stepsDb: configId('DSP_INTAKE_STEPS_DB_ID'),
+    title: 'DSP Intake',
+    noun: 'DSP',
+    applyingFor: 'a Direct Support Professional (DSP)',
+    folderSuffix: ' (DSP)'
+  }
+};
+const DEFAULT_PROCESS = 'Sponsor';
+
+function processOf(name) {
+  return PROCESSES[name] ? name : DEFAULT_PROCESS;
+}
+
+// The display settings for an intake (or a process name).
+function processInfo(intakeOrName) {
+  const name = typeof intakeOrName === 'string' ? intakeOrName : (intakeOrName && intakeOrName.process);
+  return PROCESSES[processOf(name)];
+}
+
 // Notion "Type" option -> internal type:
 //   upload   — sponsor uploads a document (single-item upload page)
 //   form     — sponsor completes a JotForm (falls back to an upload link
@@ -51,25 +87,29 @@ function checkbox(prop) {
   return !!(prop && prop.checkbox);
 }
 
-let checklistCache = null;
+const checklistCache = {}; // process -> { at, value }
 
-// Loads and validates the checklist. A bad row never breaks the app: it
+// Loads and validates one process's checklist (options.process, default
+// Sponsor). A bad row never breaks the app: it
 // is skipped and described in `problems`, which the admin dashboard shows
 // so whoever edited Notion can fix it. Cached for 30s per function
 // instance; admin pages pass { fresh: true } so an edit shows up on the
 // next reload.
 async function loadChecklist(options) {
   options = options || {};
-  if (!options.fresh && checklistCache && Date.now() - checklistCache.at < CHECKLIST_TTL_MS) {
-    return checklistCache.value;
+  const processName = processOf(options.process);
+  const config = PROCESSES[processName];
+  const cached = checklistCache[processName];
+  if (!options.fresh && cached && Date.now() - cached.at < CHECKLIST_TTL_MS) {
+    return cached.value;
   }
-  if (!STAGES_DB_ID || !STEPS_DB_ID) {
-    const err = new Error('Sponsor Intake checklist is not configured (SPONSOR_INTAKE_STAGES_DB_ID / SPONSOR_INTAKE_STEPS_DB_ID).');
+  if (!config.stagesDb || !config.stepsDb) {
+    const err = new Error(config.title + ' checklist is not configured (its Stages / Steps database IDs).');
     err.statusCode = 500;
     throw err;
   }
 
-  const results = await Promise.all([queryDatabaseAll(STAGES_DB_ID), queryDatabaseAll(STEPS_DB_ID)]);
+  const results = await Promise.all([queryDatabaseAll(config.stagesDb), queryDatabaseAll(config.stepsDb)]);
   const problems = [];
 
   const allStages = {};
@@ -156,8 +196,8 @@ async function loadChecklist(options) {
     return (a.stage - b.stage) || (a.order - b.order) || a.key.localeCompare(b.key, undefined, { numeric: true });
   });
 
-  const value = { stages: stages, steps: steps, byKey: byKey, problems: problems };
-  checklistCache = { at: Date.now(), value: value };
+  const value = { process: processName, stages: stages, steps: steps, byKey: byKey, problems: problems };
+  checklistCache[processName] = { at: Date.now(), value: value };
   return value;
 }
 
@@ -228,8 +268,9 @@ function stageFolderName(cl, stageNum) {
   return stage ? stage.num + ' ' + stage.name.replace(/[\/\\]+/g, '-') : 'Other';
 }
 
+// DSP intakes share the same Drive root, with "(DSP)" on the folder name.
 function sponsorFolderName(intake) {
-  return (intake.name || 'Unnamed sponsor').replace(/[\/\\]+/g, '-').trim();
+  return ((intake.name || 'Unnamed').replace(/[\/\\]+/g, '-').trim()) + processInfo(intake).folderSuffix;
 }
 
 function todayIso() {
@@ -319,7 +360,8 @@ function intakeFromPage(page) {
     statusToken: getPlainText(page.properties['Status Token']),
     startedDate: getPlainText(page.properties['Started Date']),
     lastRequestSent: getPlainText(page.properties['Last Request Sent']),
-    active: !!(page.properties['Active'] && page.properties['Active'].checkbox)
+    active: !!(page.properties['Active'] && page.properties['Active'].checkbox),
+    process: processOf(getPlainText(page.properties['Process']))
   };
 }
 
@@ -371,8 +413,9 @@ async function findIntakeByToken(token) {
   return intake.active ? intake : null;
 }
 
-async function createIntake(name, email, phone, createdBy) {
+async function createIntake(name, email, phone, createdBy, processName) {
   const page = await createPage(INTAKES_DB_ID, {
+    'Process': { select: { name: processOf(processName) } },
     'Sponsor Name': { title: [{ text: { content: name } }] },
     'Email': { email: email },
     'Phone': { phone_number: phone || null },
@@ -625,6 +668,7 @@ function sponsorStatus(cl, intake, itemsByKey) {
   }).sort(function (a, b) { return (a.date + a.time).localeCompare(b.date + b.time); });
 
   return {
+    title: processInfo(intake).title,
     name: intake.name,
     startedDate: intake.startedDate,
     currentStage: summary.currentStage,
@@ -671,6 +715,9 @@ function errorResponse(err) {
 }
 
 module.exports = {
+  PROCESSES,
+  processOf,
+  processInfo,
   loadChecklist,
   useRequestHost,
   stepOrPlaceholder,

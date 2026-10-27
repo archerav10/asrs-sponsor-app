@@ -1,6 +1,6 @@
 const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary, adminFormLink,
-  statusPageUrl, json, errorResponse, useRequestHost
+  statusPageUrl, processInfo, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { id: configId } = require('./lib/ids');
 
@@ -17,8 +17,8 @@ exports.handler = async function (event) {
     const id = (event.queryStringParameters || {}).id;
     if (!id) return json(400, { error: 'id is required.' });
 
-    const cl = await loadChecklist({ fresh: true });
     const intake = await getIntake(id);
+    const cl = await loadChecklist({ fresh: true, process: intake.process });
     const items = await itemsForIntake(intake.id);
     const rootFolderId = configId('SPONSOR_INTAKE_ROOT_FOLDER_ID') || '';
 
@@ -30,6 +30,8 @@ exports.handler = async function (event) {
         phone: intake.phone,
         startedDate: intake.startedDate,
         lastRequestSent: intake.lastRequestSent,
+        process: intake.process,
+        processTitle: processInfo(intake).title,
         statusUrl: statusPageUrl(intake),
         driveUrl: rootFolderId ? 'https://drive.google.com/drive/folders/' + rootFolderId : ''
       },

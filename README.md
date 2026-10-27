@@ -759,7 +759,7 @@ Intake's Intake Steps. One row per required item, seeded from the
 | Order | Sort order within the part |
 | Active | Uncheck to retire an item |
 | Form Link | Optional JotForm; lights up "Complete Form" for that item |
-| Intake Steps | Optional. The Sponsor Intake step Key(s) that satisfy this item, comma-separated (e.g. `7.5, 7.6`); see "From Sponsor Intake" below |
+| Sponsor Intake Steps / DSP Intake Steps | Optional. The intake step Key(s) in that checklist that satisfy this item, comma-separated (e.g. `7.5, 7.6`); see "From intake" below |
 
 A row with a missing Label/Key/Part/Renews/Applies To, a bad Key, or a
 duplicate Key is skipped and listed in a red box on the Staff Training
@@ -809,12 +809,13 @@ be updated at any time.
   the weekly admin digest (`lib/admin-digest-check.js`) — reads the same
   requirements and roles, so they always agree.
 
-**From Sponsor Intake.** A Sponsor's screen has a **Sponsor Intake**
-box: choose the intake they went through (finished intakes included) and
-click **Link and Bring In Completed Items**
-(`staff-training-intake.js`, `copyFromIntake`). The link is saved on
-their ASRS People row (`Sponsor Intake ID`). Every requirement that
-applies to them and names Intake Steps is marked done once **all** of
+**From intake.** Each person's screen has an **Intake** box: a Sponsor
+picks from Sponsor intakes, a DSP or Secondary DSP from DSP intakes
+(finished ones included). **Link and Bring In Completed Items**
+(`staff-training-intake.js`, `copyFromIntake`) saves the link on their
+ASRS People row (`Intake ID`). Every requirement that applies to them
+and names steps in that process's column (**Sponsor Intake Steps** or
+**DSP Intake Steps**) is marked done once **all** of
 those steps are Complete or Not Applicable in the intake, using the
 latest of their completion dates, so a renewing item's due date follows
 from it (marking a step Not Applicable stamps that date). An item whose
@@ -823,8 +824,8 @@ already on file are never overwritten, so the button can be pressed
 again as the intake moves along. Steps still open, or done without a
 completion date, are listed back rather than copied.
 Copied rows have no Filename (the document stays in the intake's Drive
-folder) and `Last Updated By` = "Sponsor Intake (admin)". Same access gate
-as the Sponsor Intake tab (`SPONSOR_INTAKE_ADMIN_EMAILS`).
+folder) and `Last Updated By` = "Intake – {process} (admin)". Same access
+gate as the Intake tab (`SPONSOR_INTAKE_ADMIN_EMAILS`).
 
 **ASRS-450-01 Training Status Report** (`admin-dashboard/training-report.html`,
 data from `get-training-status-report.js`): one location, staff as
@@ -1315,6 +1316,21 @@ report's own date range is already baked into its filename:
 7. Publish the Zap.
 
 ### Sponsor Intake (seventh process — prospective sponsors, no login)
+
+**Now also DSP intake.** The same system runs a second checklist for
+DSPs and Secondary DSPs. Each intake has a **Process** (`Sponsor` or
+`DSP`, blank = Sponsor) on its Sponsor Intakes row, chosen under "Intake
+for" when it's started on the dashboard's **Intake** tab. The DSP
+checklist lives in its own Notion databases, **DSP Intake Stages** and
+**DSP Intake Steps** (`DSP_INTAKE_STAGES_DB_ID` / `DSP_INTAKE_STEPS_DB_ID`
+in `lib/ids.js`), with exactly the same columns as Intake Stages / Intake
+Steps below; it started from "DSP Intake Checklist 1.2". `PROCESSES` in
+`lib/sponsor-intake.js` maps each process to its databases and wording:
+every handler loads the intake first and then `loadChecklist({ process })`.
+Emails, the status and upload pages and printed sheets say "DSP Intake"
+and "candidate" for a DSP intake; Drive folders are `{Name} (DSP)` under
+the same root. Everything below about sponsors applies to DSP candidates
+too ("Sponsor Upload/Form" steps are the candidate's).
 
 A one-time, stage-by-stage checklist for a **prospective** sponsor. It
 started as 9 stages and 77 items from "Sponsor Intake Process – Master
