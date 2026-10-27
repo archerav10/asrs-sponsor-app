@@ -815,11 +815,13 @@ click **Link and Bring In Completed Items**
 (`staff-training-intake.js`, `copyFromIntake`). The link is saved on
 their ASRS People row (`Sponsor Intake ID`). Every requirement that
 applies to them and names Intake Steps is marked done once **all** of
-those steps are Complete in the intake, using the latest of their
-completion dates, so a renewing item's due date follows from it. Items
+those steps are Complete or Not Applicable in the intake, using the
+latest of their completion dates, so a renewing item's due date follows
+from it (marking a step Not Applicable stamps that date). An item whose
+steps were all Not Applicable says so on screen. Items
 already on file are never overwritten, so the button can be pressed
-again as the intake moves along. Steps still open, Not Applicable, or
-Complete without a completion date are listed back rather than copied.
+again as the intake moves along. Steps still open, or done without a
+completion date, are listed back rather than copied.
 Copied rows have no Filename (the document stays in the intake's Drive
 folder) and `Last Updated By` = "Sponsor Intake (admin)". Same access gate
 as the Sponsor Intake tab (`SPONSOR_INTAKE_ADMIN_EMAILS`).

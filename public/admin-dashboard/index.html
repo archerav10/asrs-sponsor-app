@@ -1875,6 +1875,7 @@
           lines.push(r.copied.length
             ? 'Brought in ' + r.copied.length + ': ' + r.copied.map(function (c) { return c.label; }).join(', ') + '.'
             : 'Nothing new to bring in.');
+          if (r.notApplicable.length) lines.push('Marked Not Applicable in the intake, so counted as done: ' + r.notApplicable.map(function (c) { return c.label; }).join(', ') + '.');
           if (r.notYet.length) lines.push('Not complete in the intake yet: ' + r.notYet.join(', ') + '.');
           if (r.noDate.length) lines.push('Complete but missing a completion date in the intake: ' + r.noDate.join(', ') + '.');
           alert(lines.join('\n\n'));
@@ -1898,6 +1899,10 @@
 
   function staffStepStatusText(stepDef) {
     if (!stepDef.done) return 'Not yet completed';
+    if (stepDef.notApplicable) {
+      return 'Marked Not Applicable in Sponsor Intake ' + formatDate(stepDef.completedDate) +
+        (stepDef.expDate ? ' · Due ' + formatDate(stepDef.expDate) : '');
+    }
     const parts = [];
     if (stepDef.completedDate) parts.push('Completed ' + formatDate(stepDef.completedDate));
     if (stepDef.expDate) {

@@ -34,6 +34,7 @@ const RENEW_YEARS = { 'One-time': 0, '1 year': 1, '2 years': 2 };
 const KEY_RE = /^[A-Za-z0-9]+$/;
 // Last Updated By prefix on rows copied from Sponsor Intake.
 const INTAKE_SOURCE = 'Sponsor Intake';
+const INTAKE_NA = INTAKE_SOURCE + ': Not Applicable';
 
 let requirementsCache = null;
 
@@ -233,6 +234,7 @@ function fullStepList(items, requirements, role, now) {
       // Copied from Sponsor Intake: the document is in the sponsor's
       // intake folder, not their training folder.
       fromIntake: !!item && item.lastUpdatedBy.indexOf(INTAKE_SOURCE) === 0,
+      notApplicable: !!item && item.lastUpdatedBy.indexOf(INTAKE_NA) === 0,
       state: itemState(req, item, now)
     };
   });
@@ -312,8 +314,10 @@ async function markItemDone(location, staffName, req, filename, completedDate, u
 
 // Fills in a sponsor's training record from their Sponsor Intake: every
 // requirement that applies to them and names Intake Steps is marked done
-// once all of those steps are Complete in the intake, using the latest of
-// their completion dates (so a renewing item's due date follows from it).
+// once all of those steps are Complete or Not Applicable in the intake,
+// using the latest of their completion dates (so a renewing item's due
+// date follows from it; marking a step Not Applicable stamps that date).
+// When every step was Not Applicable, the row says so (INTAKE_NA).
 // Items already on file are left alone, so this is safe to run again as
 // the intake progresses. intakeItemsByKey is lib/sponsor-intake.js's
 // itemsForIntake result. No filename: the documents stay in the intake's
@@ -321,7 +325,7 @@ async function markItemDone(location, staffName, req, filename, completedDate, u
 async function copyFromIntake(location, person, requirements, intakeItemsByKey, updatedBy) {
   const existing = {};
   (await itemsForStaff(location, person.name)).forEach(function (i) { existing[i.stepKey] = i; });
-  const result = { copied: [], alreadyOnFile: [], notYet: [], noDate: [] };
+  const result = { copied: [], notApplicable: [], alreadyOnFile: [], notYet: [], noDate: [] };
 
   const reqs = requirementsForRole(requirements, person.role).filter(function (r) { return r.intakeSteps.length; });
   for (const req of reqs) {
@@ -330,7 +334,7 @@ async function copyFromIntake(location, person, requirements, intakeItemsByKey, 
       continue;
     }
     const steps = req.intakeSteps.map(function (k) { return intakeItemsByKey[k]; });
-    if (steps.some(function (s) { return !s || s.status !== 'Complete'; })) {
+    if (steps.some(function (s) { return !s || (s.status !== 'Complete' && s.status !== 'Not Applicable'); })) {
       result.notYet.push(req.label);
       continue;
     }
@@ -340,8 +344,9 @@ async function copyFromIntake(location, person, requirements, intakeItemsByKey, 
       continue;
     }
     const date = dates[dates.length - 1].slice(0, 10);
-    await markItemDone(location, person.name, req, '', date, INTAKE_SOURCE + ' (' + updatedBy + ')');
-    result.copied.push({ label: req.label, date: date });
+    const allNA = steps.every(function (s) { return s.status === 'Not Applicable'; });
+    await markItemDone(location, person.name, req, '', date, (allNA ? INTAKE_NA : INTAKE_SOURCE) + ' (' + updatedBy + ')');
+    (allNA ? result.notApplicable : result.copied).push({ label: req.label, date: date });
   }
   return result;
 }
