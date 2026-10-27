@@ -459,7 +459,7 @@
     </div>
 
     <div id="staff-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Always open — each item renews on its own schedule. Puzzle turns yellow 30 days before the next item expires.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Annual items are due again 1 year after they're completed (First Aid/CPR: 2 years); intake items are done once. Puzzle turns yellow 30 days before the next item is due. The checklist itself is edited in Notion's Training Requirements database.</p>
       <p class="error-text" id="staff-dashboard-error"></p>
       <div id="staff-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
@@ -1581,21 +1581,15 @@
   }
 
   // --- Screen 3c: Staff Training oversight ---
-  // Kept in sync with lib/staff-training.js's STEPS.length — there's no
-  // server round trip cheap enough to source this from, and it only
-  // ever appears in display text (never in a computation the server
-  // also does), so a mismatch here would just show a wrong count, not
-  // break anything.
-  const STAFF_TRAINING_STEP_COUNT = 19;
-
   function staffPuzzleState(row) {
-    if (row.missingCount > 0) {
-      const doneCount = STAFF_TRAINING_STEP_COUNT - row.missingCount;
-      return { spinning: false, label: 'Incomplete (' + doneCount + '/' + STAFF_TRAINING_STEP_COUNT + ')' };
-    }
+    const doneCount = row.totalCount - row.missingCount;
     if (row.isOverdue) {
-      return { spinning: false, label: 'Overdue ' + formatDate(row.dueDate) };
+      return { spinning: false, label: 'Overdue ' + formatDate(row.dueDate) + (row.missingCount > 0 ? ' · ' + doneCount + '/' + row.totalCount + ' done' : '') };
     }
+    if (row.missingCount > 0) {
+      return { spinning: false, label: 'Incomplete (' + doneCount + '/' + row.totalCount + ')' };
+    }
+    if (!row.dueDate) return { spinning: false, label: 'Complete' };
     return { spinning: row.isDueSoon, label: 'Due ' + formatDate(row.dueDate) };
   }
 
@@ -1612,8 +1606,12 @@
     const name = document.createElement('span');
     name.className = 'ap-resident-initials';
     name.textContent = member.name;
+    const role = document.createElement('span');
+    role.style.cssText = 'font-size:12px; font-weight:400; color:' + (member.roleSet ? '#888' : '#B3261E') + '; margin-left:6px;';
+    role.textContent = member.roleSet ? member.role : 'Role not set';
     left.appendChild(puzzle);
     left.appendChild(name);
+    left.appendChild(role);
 
     const status = document.createElement('span');
     status.className = 'ap-resident-status';
@@ -1639,6 +1637,16 @@
       const locations = data.locations || [];
       listEl.innerHTML = '';
 
+      // Training Requirements rows that were skipped, so whoever edited
+      // Notion can see what to fix.
+      if ((data.problems || []).length) {
+        const box = document.createElement('div');
+        box.className = 'ap-banner';
+        box.style.cssText = 'background:#FDECEA; color:#B3261E; text-align:left;';
+        box.textContent = 'Training Requirements rows in Notion that need fixing: ' + data.problems.join(' ');
+        listEl.appendChild(box);
+      }
+
       if (!locations.length) {
         listEl.innerHTML = '<p class="empty-text">No granted locations found for this account.</p>';
         return;
@@ -1649,6 +1657,20 @@
         title.className = 'location-title';
         title.textContent = loc.location;
         listEl.appendChild(title);
+
+        if (loc.staff.length) {
+          const printP = document.createElement('p');
+          printP.style.margin = '0 0 10px';
+          const printLink = document.createElement('a');
+          printLink.className = 'small-btn';
+          printLink.style.cssText = 'padding:7px 12px; font-size:13px; border-radius:6px;';
+          printLink.href = 'training-report.html?location=' + encodeURIComponent(loc.location);
+          printLink.target = '_blank';
+          printLink.rel = 'noopener';
+          printLink.textContent = 'Print Training Status Report';
+          printP.appendChild(printLink);
+          listEl.appendChild(printP);
+        }
 
         if (!loc.staff.length) {
           const empty = document.createElement('p');
@@ -1746,19 +1768,86 @@
     container.appendChild(wrap);
   }
 
+  function renderStaffRoleSection(container, staff, roles) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = 'Role';
+    wrap.appendChild(title);
+
+    const help = document.createElement('p');
+    help.className = 'help-text';
+    help.style.margin = '0 0 6px';
+    help.textContent = staff.roleSet
+      ? 'Decides which items below apply. House Managers are DSP.'
+      : 'Not set yet, so this person is shown as a DSP. Choose their role. House Managers are DSP.';
+    if (!staff.roleSet) help.style.color = '#B3261E';
+    wrap.appendChild(help);
+
+    const select = document.createElement('select');
+    roles.forEach(function (r) {
+      const opt = document.createElement('option');
+      opt.value = r;
+      opt.textContent = r;
+      if (r === staff.role) opt.selected = true;
+      select.appendChild(opt);
+    });
+    wrap.appendChild(select);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = staff.roleSet ? 'Change Role' : 'Save Role';
+    saveBtn.style.marginTop = '10px';
+    saveBtn.addEventListener('click', async function () {
+      setError('staff-detail-error', '');
+      saveBtn.disabled = true;
+      try {
+        await apiFetch('/save-staff-training-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffId: currentStaffId, role: select.value })
+        });
+        loadStaffDetail();
+      } catch (e) {
+        setError('staff-detail-error', e.message);
+        saveBtn.disabled = false;
+      }
+    });
+    wrap.appendChild(saveBtn);
+
+    container.appendChild(wrap);
+  }
+
+  function renewText(stepDef) {
+    if (stepDef.renewYears === 1) return 'Renews every year — the next due date is set from the date completed.';
+    if (stepDef.renewYears > 1) return 'Renews every ' + stepDef.renewYears + ' years — the next due date is set from the date completed.';
+    return 'One-time item.';
+  }
+
+  function staffStepStatusText(stepDef) {
+    if (!stepDef.done) return 'Not yet completed';
+    const parts = [];
+    if (stepDef.completedDate) parts.push('Completed ' + formatDate(stepDef.completedDate));
+    if (stepDef.expDate) {
+      parts.push((stepDef.state === 'overdue' ? 'Overdue — was due ' : 'Due ') + formatDate(stepDef.expDate));
+    }
+    return parts.join(' · ') + ' — ' + (stepDef.filename || 'document');
+  }
+
   function renderStaffStepSection(container, stepDef) {
     // Same filename convention lib/staff-training.js's buildFilename
-    // uses server-side: "{location}_Staff_{staffId}_{stepKey}_{expDate}".
+    // uses server-side: "{location}_Staff_{staffId}_{key}_{completedDate}".
     // The staff member's page ID stands in for their name — unlike
     // resident initials or Annual Planning's fixed Service enum, a full
     // name loses information once spaces are stripped, so it can't be
     // parsed back out of a filename unambiguously; the ID has no such
     // problem. This is the one channel a form's native "save to Drive"
     // integration has for telling the reusable form-completion Zap
-    // which staff member/step/expiration a document is for.
-    function buildFilename(expDate) {
+    // which staff member/item/date a document is for.
+    function buildFilename(completedDate) {
       return sanitizeForFilename(currentStaffLocation) + '_Staff_' +
-        sanitizeForFilename(currentStaffId) + '_' + stepDef.key + '_' + expDate;
+        sanitizeForFilename(currentStaffId) + '_' + stepDef.key + '_' + completedDate;
     }
 
     const wrap = document.createElement('div');
@@ -1777,24 +1866,30 @@
 
     const status = document.createElement('p');
     status.className = 'ap-step-status' + (stepDef.done ? ' done' : '');
-    status.textContent = stepDef.done
-      ? ('Expires ' + formatDate(stepDef.expDate) + ' — ' + (stepDef.filename || 'document'))
-      : 'Not yet completed';
+    status.textContent = staffStepStatusText(stepDef);
+    if (stepDef.state === 'overdue') status.style.color = '#B3261E';
+    else if (stepDef.state === 'soon') status.style.color = '#B25E00';
     wrap.appendChild(status);
 
     const actions = document.createElement('div');
     actions.className = 'ap-step-actions';
 
     const dateLabel = document.createElement('label');
-    dateLabel.textContent = 'Expiration Date';
+    dateLabel.textContent = 'Date Completed';
     dateLabel.style.display = 'block';
     dateLabel.style.fontSize = '12px';
     dateLabel.style.margin = '0 0 4px';
     const dateInput = document.createElement('input');
     dateInput.type = 'date';
-    dateInput.value = stepDef.expDate || '';
+    dateInput.value = stepDef.completedDate || '';
     actions.appendChild(dateLabel);
     actions.appendChild(dateInput);
+
+    const hint = document.createElement('p');
+    hint.className = 'help-text';
+    hint.style.margin = '4px 0 0';
+    hint.textContent = renewText(stepDef);
+    actions.appendChild(hint);
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -1806,16 +1901,16 @@
     // Same date already on file = same filename = nothing gets archived and
     // a duplicate lands in Drive. Gate the picker itself rather than only
     // catching it after a file's already been chosen.
-    function expDateUsable() {
+    function dateUsable() {
       const v = dateInput.value;
       if (!v) return false;
-      if (stepDef.done && v === stepDef.expDate) return false;
+      if (stepDef.done && v === stepDef.completedDate) return false;
       return true;
     }
 
     const actionEls = [fileInput];
     function refreshActionState() {
-      const usable = expDateUsable();
+      const usable = dateUsable();
       actionEls.forEach(function (el) {
         el.style.opacity = usable ? '' : '0.5';
         el.style.cursor = usable ? '' : 'not-allowed';
@@ -1825,12 +1920,12 @@
 
     function blockedMessage() {
       return dateInput.value
-        ? 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before continuing.'
-        : 'Enter an expiration date first.';
+        ? 'That’s the same completion date already on file for ' + stepDef.label + '. Enter the new document’s actual completion date before continuing — otherwise the old copy won’t get archived.'
+        : 'Enter the date it was completed first.';
     }
 
     fileInput.addEventListener('click', function (e) {
-      if (!expDateUsable()) {
+      if (!dateUsable()) {
         e.preventDefault();
         alert(blockedMessage());
       }
@@ -1839,25 +1934,19 @@
     fileInput.addEventListener('change', async function () {
       const file = fileInput.files[0];
       if (!file) return;
-      const expDate = dateInput.value;
-      if (!expDate) {
-        setError('staff-detail-error', 'Enter an expiration date first.');
-        alert('Enter an expiration date first.');
-        fileInput.value = '';
-        return;
-      }
-      if (stepDef.done && expDate === stepDef.expDate) {
-        const msg = 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before uploading — otherwise the old copy won’t get archived.';
+      if (!dateUsable()) {
+        const msg = blockedMessage();
         setError('staff-detail-error', msg);
         alert(msg);
         fileInput.value = '';
         return;
       }
+      const completedDate = dateInput.value;
       setError('staff-detail-error', '');
       fileInput.disabled = true;
       try {
         const config = await apiFetch('/get-staff-training-upload-config?staffId=' + encodeURIComponent(currentStaffId));
-        const filename = buildFilename(expDate);
+        const filename = buildFilename(completedDate);
 
         const formData = new FormData();
         formData.append('file', file, filename);
@@ -1873,7 +1962,7 @@
         await apiFetch('/save-staff-training-step', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ staffId: currentStaffId, stepKey: stepDef.key, filename: filename, expDate: expDate })
+          body: JSON.stringify({ staffId: currentStaffId, stepKey: stepDef.key, filename: filename, completedDate: completedDate })
         });
 
         const scrollY = window.scrollY;
@@ -1897,20 +1986,14 @@
       actionEls.push(formLink);
       formLink.addEventListener('click', function (e) {
         e.preventDefault();
-        const expDate = dateInput.value;
-        if (!expDate) {
-          setError('staff-detail-error', 'Enter an expiration date first.');
-          alert('Enter an expiration date first.');
-          return;
-        }
-        if (stepDef.done && expDate === stepDef.expDate) {
-          const msg = 'That’s the same expiration date already on file for ' + stepDef.label + '. Enter the new document’s actual expiration date before continuing.';
+        if (!dateUsable()) {
+          const msg = blockedMessage();
           setError('staff-detail-error', msg);
           alert(msg);
           return;
         }
         const url = new URL(stepDef.formUrl);
-        url.searchParams.set('app_filename', buildFilename(expDate));
+        url.searchParams.set('app_filename', buildFilename(dateInput.value));
         window.open(url.toString(), '_blank', 'noopener');
       });
       actions.appendChild(formLink);
@@ -1937,35 +2020,58 @@
       currentStaffName = staff.name;
       currentStaffLocation = staff.location;
       document.getElementById('staff-detail-title').textContent = staff.name;
-      document.getElementById('staff-detail-meta').textContent = staff.location;
+      document.getElementById('staff-detail-meta').textContent = staff.location + ' · ' + (staff.roleSet ? staff.role : 'Role not set');
 
       const bannerEl = document.getElementById('staff-detail-banner');
-      if (windowState.missingCount > 0) {
-        const doneCount = STAFF_TRAINING_STEP_COUNT - windowState.missingCount;
-        bannerEl.textContent = doneCount + ' of ' + STAFF_TRAINING_STEP_COUNT + ' items complete — finish the rest below. Each item is due whenever it expires.';
-      } else if (windowState.isOverdue) {
-        bannerEl.innerHTML = '';
+      const doneCount = windowState.totalCount - windowState.missingCount;
+      bannerEl.innerHTML = '';
+      if (windowState.isOverdue) {
         bannerEl.appendChild(document.createTextNode('Overdue since '));
         const strong = document.createElement('strong');
         strong.textContent = formatDate(windowState.dueDate);
         bannerEl.appendChild(strong);
-        bannerEl.appendChild(document.createTextNode(' — update the expiring item below.'));
-      } else {
-        bannerEl.innerHTML = '';
+        bannerEl.appendChild(document.createTextNode(' — update the overdue item below. ' + doneCount + ' of ' + windowState.totalCount + ' items on file.'));
+      } else if (windowState.missingCount > 0) {
+        bannerEl.textContent = doneCount + ' of ' + windowState.totalCount + ' items on file — finish the rest below.';
+      } else if (windowState.dueDate) {
         bannerEl.appendChild(document.createTextNode('Next due '));
         const strong = document.createElement('strong');
         strong.textContent = formatDate(windowState.dueDate);
         bannerEl.appendChild(strong);
-        bannerEl.appendChild(document.createTextNode(' — all ' + STAFF_TRAINING_STEP_COUNT + ' items are current.'));
+        bannerEl.appendChild(document.createTextNode(' — all ' + windowState.totalCount + ' items are on file and current.'));
+      } else {
+        bannerEl.textContent = 'All ' + windowState.totalCount + ' items are on file.';
       }
 
+      renderStaffRoleSection(bodyEl, staff, data.roles || []);
       renderStaffFolderSection(bodyEl, staff);
 
       if (!staff.folderUrl) {
         return; // Steps need the folder set up first.
       }
 
-      steps.forEach(function (stepDef) { renderStaffStepSection(bodyEl, stepDef); });
+      // Part A (annual) then Part B (intake), each split into its sections.
+      let part = null;
+      let section = null;
+      steps.forEach(function (stepDef) {
+        if (stepDef.part !== part) {
+          part = stepDef.part;
+          section = null;
+          const h = document.createElement('p');
+          h.className = 'location-title';
+          h.style.marginTop = '20px';
+          h.textContent = (part === 'Intake' ? 'Part B · ' : 'Part A · ') + part;
+          bodyEl.appendChild(h);
+        }
+        if (stepDef.section !== section) {
+          section = stepDef.section;
+          const sh = document.createElement('p');
+          sh.style.cssText = 'margin: 12px 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #777;';
+          sh.textContent = section;
+          bodyEl.appendChild(sh);
+        }
+        renderStaffStepSection(bodyEl, stepDef);
+      });
     } catch (e) {
       document.getElementById('staff-detail-banner').textContent = '';
       setError('staff-detail-error', e.message);

@@ -1,7 +1,7 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendEmail, sleep } = require('./email');
 const wf = require('./weekly-focus');
-const { staffListForLocation, itemsForStaff, fullStepList } = require('./staff-training');
+const { loadRequirements, staffListForLocation, itemsForStaff, fullStepList } = require('./staff-training');
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarterlyReportingForRecord, activeQuarter } = require('./quarterly-reporting');
 
@@ -112,14 +112,16 @@ function daysBetween(fromISO, toISO) {
 
 // One item per line, same granularity as First Aid/Emergency Supplies —
 // except a staff member who hasn't started at all collapses to a single
-// line rather than 19 near-identical "not completed" entries.
+// line rather than dozens of near-identical "not completed" entries.
+// One-time (intake) items only ever show as not completed.
 async function checkStaffTraining(location, today) {
+  const requirements = (await loadRequirements()).requirements;
   const staff = await staffListForLocation(location);
 
   const perMember = await Promise.all(staff.map(async function (member) {
     const items = await itemsForStaff(location, member.name);
-    const steps = fullStepList(items);
-    const missing = steps.filter(function (s) { return !s.done || !s.expDate; });
+    const steps = fullStepList(items, requirements, member.role);
+    const missing = steps.filter(function (s) { return s.state === 'missing'; });
 
     if (missing.length === steps.length) {
       return ['Staff Training: ' + member.name + ' — no items completed yet (0/' + steps.length + ')'];
@@ -127,10 +129,11 @@ async function checkStaffTraining(location, today) {
 
     const issues = [];
     steps.forEach(function (s) {
-      if (!s.done || !s.expDate) {
+      if (s.state === 'missing') {
         issues.push('Staff Training: ' + member.name + ' — ' + s.label + ': not completed');
         return;
       }
+      if (!s.expDate) return;
       if (s.expDate < today) {
         issues.push('Staff Training: ' + member.name + ' — ' + s.label + ': expired ' + s.expDate);
         return;

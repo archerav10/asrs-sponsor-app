@@ -17,6 +17,7 @@ const IDS = {
   SPONSOR_INTAKE_STAGES_DB_ID: '813f9810-4bfb-45e5-9782-bbb21d90a9bc',
   SPONSOR_INTAKE_STEPS_DB_ID: '446736ee-ef52-4068-8c06-411513ff3492',
   SPONSOR_INTAKE_ROOT_FOLDER_ID: '1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8',
+  TRAINING_REQUIREMENTS_DB_ID: '76cee555-d2ef-4561-9e64-b49596736dea',
   // A Google OAuth client ID is public by design (it's sent to browsers in
   // sign-in links); the client secret and refresh token stay in Netlify.
   GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'

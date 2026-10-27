@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Training Status Report · Print</title>
+<style>
+  /* ASRS-450-01 Training Status Report. Letter portrait; the browser's
+     own Print → Save as PDF produces the file. Part A (annual) and
+     Part B (intake) each start on a new page. */
+  @page {
+    size: letter;
+    margin: 0.45in 0.45in 0.6in;
+    @bottom-left { content: "ASRS-450-01 Training Status Report · Version 20261026 · Governing policy: 12VAC35-105-450"; font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #666; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #666; }
+  }
+  * { box-sizing: border-box; }
+  body { font: 9.5px/1.3 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1d2433; margin: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .toolbar { position: sticky; top: 0; background: #1f3a5f; color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 14px; z-index: 1; }
+  .toolbar button { background: #fff; color: #1f3a5f; border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .toolbar .msg { opacity: .85; }
+  .sheets { max-width: 7.6in; margin: 0 auto; padding: 16px; }
+  .part + .part { break-before: page; margin-top: 40px; }
+  .screen-footer { margin-top: 18px; border-top: 1px solid #c9ced6; padding-top: 4px; color: #666; font-size: 8px; }
+  @media print { .toolbar, .screen-footer { display: none; } .sheets { padding: 0; max-width: none; } .part + .part { margin-top: 0; } }
+  .error { color: #B3261E; padding: 24px 16px; font-size: 14px; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #1f3a5f; padding-bottom: 5px; }
+  .org { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: #1f3a5f; font-weight: 700; }
+  h1 { font-size: 18px; margin: 2px 0; }
+  .sub { color: #555; }
+  .meta { text-align: right; color: #555; }
+  .meta b { color: #1d2433; }
+  .tiles { display: flex; gap: 8px; margin: 8px 0 2px; }
+  .tile { flex: 1; border: 1px solid #d5dae2; border-left: 5px solid #1f3a5f; border-radius: 4px; padding: 4px 9px; }
+  .tile span { display: block; color: #555; }
+  .tile b { font-size: 17px; }
+  .tile.red { border-left-color: #c62828; } .tile.orange { border-left-color: #ef8a00; } .tile.green { border-left-color: #2e7d32; }
+  h2 { font-size: 12px; margin: 10px 0 4px; color: #1f3a5f; break-after: avoid; }
+  h2 span { font-weight: 400; color: #777; font-size: 9px; margin-left: 6px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  tr { break-inside: avoid; }
+  col.itemcol { width: 2.9in; }
+  .grid th, .grid td { border: 1px solid #c9ced6; padding: 2.6px 3px; text-align: center; }
+  .grid th { background: #1f3a5f; color: #fff; font-weight: 600; font-size: 9px; line-height: 1.15; }
+  .grid th .role { font-weight: 400; opacity: .8; font-size: 8px; margin-top: 2px; }
+  .grid .item { text-align: left; padding-left: 6px; }
+  .grid td.item em { color: #888; font-style: normal; }
+  .grid tr.sec td { background: #eef1f5; text-align: left; font-weight: 700; color: #1f3a5f; font-size: 8.5px; text-transform: uppercase; letter-spacing: .04em; padding: 2.5px 6px; }
+  td.overdue { background: #fdecea; color: #b71c1c; font-weight: 700; }
+  td.soon { background: #fff3e0; color: #b25e00; font-weight: 700; }
+  td.na { background: #eceff1; color: #90a4ae; }
+  .legend { margin: 4px 0; color: #555; font-size: 8.5px; }
+  .sw { display: inline-block; width: 9px; height: 9px; border: 1px solid #bbb; vertical-align: -1px; margin: 0 3px 0 7px; }
+  .sw.overdue { background: #fdecea; } .sw.soon { background: #fff3e0; } .sw.current { background: #fff; } .sw.na { background: #eceff1; }
+  .fu th, .fu td { border: 1px solid #d5dae2; padding: 4px 5px; text-align: left; vertical-align: top; }
+  .fu th { background: #eef1f5; }
+  .fu th:first-child { width: 1.15in; }
+  .fu th.act { width: 1.3in; }
+  .t-overdue { color: #b71c1c; } .t-soon { color: #b25e00; }
+  .r { color: #777; font-size: 8.5px; }
+  .sig { display: flex; gap: 36px; margin-top: 36px; break-inside: avoid; }
+  .sig > div { flex: 1; color: #555; }
+  .sig > div:last-child { flex: .45; }
+  .line { border-bottom: 1px solid #333; height: 24px; margin-bottom: 3px; }
+</style>
+</head>
+<body>
+<div class="toolbar"><button type="button" id="print-btn">Print / Save as PDF</button><span class="msg" id="msg">Loading…</span></div>
+<div class="sheets" id="sheets"></div>
+
+<script>
+(function () {
+  const FN_BASE = '/.netlify/functions';
+  const SESSION_KEY = 'asrs_admin_dashboard_session';
+  const PARTS = [
+    { name: 'Annual training & certification', title: 'Part A · Annual training &amp; certification', note: 'cells show next due date · 1 year after completion unless noted' },
+    { name: 'Intake', title: 'Part B · Intake', note: 'completed once · cells show date completed' }
+  ];
+  const location = new URLSearchParams(window.location.search).get('location') || '';
+
+  document.getElementById('print-btn').addEventListener('click', function () { window.print(); });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmtDate(iso, long) {
+    if (!iso) return '';
+    const p = iso.split('-');
+    return Number(p[1]) + '/' + Number(p[2]) + '/' + (long ? p[0] : p[0].slice(2));
+  }
+
+  async function api(path) {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { stored = null; }
+    if (!stored) throw new Error('Log in to the admin dashboard first, then use its Print button.');
+    const res = await fetch(FN_BASE + path, { headers: { Authorization: 'Bearer ' + stored.sessionToken } });
+    const data = await res.json();
+    if (res.status === 401) throw new Error('Your admin session expired. Log in to the dashboard again, then print.');
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    return data;
+  }
+
+  // missing and overdue print the same (red); a cell with no entry means
+  // the item doesn't apply to that person's role.
+  function cellOf(person, row) {
+    return person.cells[row.key] || { state: 'na', date: '' };
+  }
+  function cellClass(state) { return state === 'missing' ? 'overdue' : state; }
+  function cellText(cell) {
+    if (cell.state === 'missing') return 'Missing';
+    if (cell.state === 'na') return 'N/A';
+    return fmtDate(cell.date);
+  }
+
+  function header(data, license) {
+    return '<header><div><div class="org">Arch Support Residential Services</div><h1>Training Status Report</h1>' +
+      '<div class="sub">' + esc(data.location) + ' · License ' + license + '</div></div>' +
+      '<div class="meta">Run date <b>' + fmtDate(data.runDate, true) + '</b></div></header>';
+  }
+
+  function grid(part, rows, staff) {
+    let section = null;
+    let body = '';
+    rows.forEach(function (row) {
+      if (row.section !== section) {
+        section = row.section;
+        body += '<tr class="sec"><td colspan="' + (staff.length + 1) + '">' + esc(section) + '</td></tr>';
+      }
+      body += '<tr><td class="item">' + esc(row.label) + (row.renewYears === 2 ? ' <em>(2 yr)</em>' : '') + '</td>' +
+        staff.map(function (p) {
+          const c = cellOf(p, row);
+          return '<td class="' + cellClass(c.state) + '">' + cellText(c) + '</td>';
+        }).join('') + '</tr>';
+    });
+    return '<h2>' + part.title + ' <span>' + part.note + '</span></h2>' +
+      '<table class="grid"><colgroup><col class="itemcol">' + staff.map(function () { return '<col>'; }).join('') + '</colgroup>' +
+      '<thead><tr><th class="item">Item</th>' + staff.map(function (p) {
+        return '<th>' + esc(p.name) + '<div class="role">' + esc(p.role) + (p.roleSet ? '' : ' (role not set)') + '</div></th>';
+      }).join('') + '</tr></thead><tbody>' + body + '</tbody></table>';
+  }
+
+  const LEGEND = '<div class="legend"><span class="sw overdue"></span>Overdue / missing <span class="sw soon"></span>Due within 30 days ' +
+    '<span class="sw current"></span>On file / current <span class="sw na"></span>Not required for this role</div>';
+
+  // One follow-up row per person, so the list never runs longer than the
+  // number of staff.
+  function followUp(rows, staff) {
+    const list = staff.map(function (p) {
+      const applies = rows.filter(function (r) { return cellOf(p, r).state !== 'na'; });
+      const by = function (st) { return applies.filter(function (r) { return cellOf(p, r).state === st; }); };
+      return { p: p, applies: applies, overdue: by('overdue'), soon: by('soon'), missing: by('missing') };
+    }).filter(function (f) { return f.overdue.length || f.soon.length || f.missing.length; });
+
+    function dated(rs, p) {
+      return rs.map(function (r) { return esc(r.label) + ' (' + fmtDate(cellOf(p, r).date) + ')'; }).join('; ');
+    }
+    function missingText(f) {
+      if (f.missing.length === f.applies.length) return 'All ' + f.applies.length + ' items (no records on file)';
+      if (f.missing.length > 6) return f.missing.length + ' of ' + f.applies.length + ' items – see Staff Training tab';
+      return f.missing.map(function (r) { return esc(r.label); }).join('; ');
+    }
+
+    return '<h2>Follow-up <span>' + list.length + ' staff</span></h2>' +
+      '<table class="fu"><thead><tr><th>Staff</th><th>Overdue</th><th>Due within 30 days</th><th>Missing</th><th class="act">Action / date resolved</th></tr></thead><tbody>' +
+      (list.length ? list.map(function (f) {
+        return '<tr><td><b>' + esc(f.p.name) + '</b><br><span class="r">' + esc(f.p.role) + '</span></td>' +
+          '<td class="t-overdue">' + dated(f.overdue, f.p) + '</td><td class="t-soon">' + dated(f.soon, f.p) + '</td>' +
+          '<td class="t-overdue">' + missingText(f) + '</td><td></td></tr>';
+      }).join('') : '<tr><td colspan="5">Nothing overdue, due soon, or missing.</td></tr>') +
+      '</tbody></table>';
+  }
+
+  function render(data) {
+    const isLongstreet = data.location === 'Longstreet';
+    const license = isLongstreet ? '1409-01-001 (Group Home)' : '1409-08-011 (Sponsored Residential)';
+    const signer = isLongstreet ? 'House Manager' : 'Residential Liaison';
+    const staff = data.staff;
+    const rows = data.rows;
+
+    const states = [];
+    staff.forEach(function (p) { rows.forEach(function (r) { states.push(cellOf(p, r).state); }); });
+    const count = function (f) { return states.filter(f).length; };
+    const tiles = '<div class="tiles">' +
+      '<div class="tile"><span>Staff</span><b>' + staff.length + '</b></div>' +
+      '<div class="tile red"><span>Overdue / missing</span><b>' + count(function (s) { return s === 'overdue' || s === 'missing'; }) + '</b></div>' +
+      '<div class="tile orange"><span>Due in 30 days</span><b>' + count(function (s) { return s === 'soon'; }) + '</b></div>' +
+      '<div class="tile green"><span>On file / current</span><b>' + count(function (s) { return s === 'current'; }) + '</b></div></div>';
+
+    const parts = PARTS.map(function (part, i) {
+      const partRows = rows.filter(function (r) { return r.part === part.name; });
+      let html = '<section class="part">' + header(data, license) + (i === 0 ? tiles : '');
+      html += partRows.length ? grid(part, partRows, staff) + LEGEND : '<h2>' + part.title + '</h2><p>No items apply.</p>';
+      if (i === PARTS.length - 1) {
+        html += followUp(rows, staff) +
+          '<div class="sig"><div><div class="line"></div>' + signer + ' signature</div><div><div class="line"></div>Date</div></div>';
+      }
+      return html + '</section>';
+    });
+
+    document.getElementById('sheets').innerHTML = parts.join('') +
+      '<div class="screen-footer">ASRS-450-01 Training Status Report · Version 20261026 · Governing policy: 12VAC35-105-450</div>';
+    document.title = data.location + ' Training Status Report - ' + data.runDate;
+  }
+
+  (async function () {
+    const msg = document.getElementById('msg');
+    try {
+      if (!location) throw new Error('No location chosen. Open this from the Staff Training tab.');
+      const data = await api('/get-training-status-report?location=' + encodeURIComponent(location));
+      if (!data.staff.length) throw new Error('No active staff at ' + location + '.');
+      render(data);
+      msg.textContent = data.location + ' · ' + data.staff.length + ' staff';
+    } catch (e) {
+      msg.textContent = '';
+      document.getElementById('sheets').innerHTML = '<p class="error">' + esc(e.message) + '</p>';
+    }
+  })();
+})();
+</script>
+</body>
+</html>

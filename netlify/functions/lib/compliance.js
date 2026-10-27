@@ -1,6 +1,6 @@
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarterlyReportingForRecord } = require('./quarterly-reporting');
-const { staffListForLocation, itemsForStaff, computeStaffTrainingWindow, STEPS: STAFF_STEPS } = require('./staff-training');
+const { loadRequirements, staffListForLocation, staffTrainingStatus } = require('./staff-training');
 const { appointmentsForResident, computeMedicalCompliance, residentsForLocation } = require('./medical-appointments');
 const { supplyInfoForLocation, mostRecentDrill, mostRecentUpdate } = require('./report-status-check');
 const { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate } = require('./report-due-date');
@@ -163,16 +163,17 @@ async function quarterlyArea(location, residents, now) {
 
 // ---- Training & Certification ----
 async function trainingArea(location, now) {
+  const requirements = (await loadRequirements()).requirements;
   const staff = await staffListForLocation(location);
   const details = await Promise.all(staff.map(async function (member) {
-    const w = computeStaffTrainingWindow(await itemsForStaff(location, member.name), now);
-    if (w.missingCount > 0) {
-      return { label: member.name, status: 'red', text: w.missingCount + ' of ' + STAFF_STEPS.length + ' items not completed' };
-    }
-    const due = dateISO(w.dueDate);
+    const w = (await staffTrainingStatus(location, member, requirements, now)).window;
+    const due = w.dueDate ? dateISO(w.dueDate) : '';
     if (w.isOverdue) return { label: member.name, status: 'red', text: 'expired ' + fmt(due) };
-    if (w.isDueSoon) return { label: member.name, status: 'yellow', text: 'next item expires ' + fmt(due) };
-    return { label: member.name, status: 'green', text: 'current until ' + fmt(due) };
+    if (w.missingCount > 0) {
+      return { label: member.name, status: 'red', text: w.missingCount + ' of ' + w.totalCount + ' items not completed' };
+    }
+    if (w.isDueSoon) return { label: member.name, status: 'yellow', text: 'next item due ' + fmt(due) };
+    return { label: member.name, status: 'green', text: due ? 'current until ' + fmt(due) : 'current' };
   }));
   return area('training', 'Training & Certification', details, 'No staff on file');
 }

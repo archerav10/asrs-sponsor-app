@@ -1,10 +1,10 @@
-const { parseFilename, staffInfoById, itemsForStaff, driveFolderIdFromUrl } = require('./lib/staff-training');
+const { loadRequirements, parseFilename, staffInfoById, itemsForStaff, driveFolderIdFromUrl } = require('./lib/staff-training');
 
 // Called by the reusable "any form template" Zap for this process —
 // same shape as annual-planning-resolve-upload.js. A form's own native
 // Google Drive integration drops the completed submission's PDF into a
 // shared staging folder, with no other way for the Zap to know which
-// staff member/step/expiration it's for — so this endpoint tells it,
+// staff member/item/completion date it's for — so this endpoint tells it,
 // parsed entirely from the filename this app built when "Complete Form"
 // was opened. No folder name to compute here (unlike Annual Planning) —
 // every document goes straight into the staff member's one ongoing
@@ -23,7 +23,10 @@ exports.handler = async function (event) {
 
     const parsed = parseFilename(body.filename);
     if (!parsed) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Could not parse a staff/step/expiration from that filename.' }) };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Could not parse a staff/item/date from that filename.' }) };
+    }
+    if (!(await loadRequirements()).byKey[parsed.stepKey]) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown item in that filename.' }) };
     }
 
     const staff = await staffInfoById(parsed.staffId);
@@ -47,7 +50,9 @@ exports.handler = async function (event) {
         location: staff.location,
         staffName: staff.name,
         stepKey: parsed.stepKey,
-        expDate: parsed.expDate,
+        // The completion date, under the name the Zap already passes on to
+        // staff-training-form-submitted.js.
+        expDate: parsed.date,
         filename: body.filename,
         parentFolderId: parentFolderId,
         previousFilename: (priorItem && priorItem.filename) || ''
