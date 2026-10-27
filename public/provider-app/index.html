@@ -1436,11 +1436,11 @@
   // shown for yellow/red, since a green dot needs no explanation.
   function staffTrainingReasonText(member) {
     if (member.status === 'green') return '';
-    if (member.missingCount > 0) {
-      return 'Incomplete (' + member.doneCount + '/' + member.totalCount + ')';
-    }
     if (member.isOverdue) {
       return 'Overdue ' + formatDate(member.dueDate);
+    }
+    if (member.missingCount > 0) {
+      return 'Incomplete (' + member.doneCount + '/' + member.totalCount + ')';
     }
     return 'Due ' + formatDate(member.dueDate);
   }

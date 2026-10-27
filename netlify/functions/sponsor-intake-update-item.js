@@ -22,10 +22,11 @@ exports.handler = async function (event) {
   try {
     const session = requireIntakeAdmin(event);
     const body = JSON.parse(event.body || '{}');
-    const step = (await loadChecklist({ fresh: true })).byKey[body.stepKey];
-    if (!body.id || !step) return json(400, { error: 'id and a valid stepKey are required.' });
-
+    if (!body.id) return json(400, { error: 'id and a valid stepKey are required.' });
     const intake = await getIntake(body.id);
+    const step = (await loadChecklist({ fresh: true, process: intake.process })).byKey[body.stepKey];
+    if (!step) return json(400, { error: 'id and a valid stepKey are required.' });
+
     const items = await itemsForIntake(intake.id);
     const item = items[step.key] || null;
     const status = item ? item.status : '';

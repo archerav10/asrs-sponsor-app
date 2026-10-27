@@ -4,7 +4,8 @@ const {
   statusPageUrl,
   sponsorActionUrl,
   sponsorActionLabel,
-  siteBaseUrl
+  siteBaseUrl,
+  processInfo
 } = require('./sponsor-intake');
 
 // Every intake email goes through its own EmailJS template
@@ -32,7 +33,7 @@ function button(url, label) {
     esc(label) + '</a>';
 }
 
-// opts.title replaces the "Sponsor Intake" header. opts.noStatusLink: for emails to someone other than the sponsor (a
+// opts.title replaces the "Sponsor Intake" / "DSP Intake" header. opts.noStatusLink: for emails to someone other than the sponsor (a
 // reference), who must never get the sponsor's private status link.
 function layout(bodyHtml, intake, opts) {
   return '<div style="background:' + CREAM + ';padding:24px 12px;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;color:#1C1C1A">' +
@@ -40,7 +41,7 @@ function layout(bodyHtml, intake, opts) {
     '<div style="background:' + FOREST + ';color:' + CREAM + ';padding:18px 24px">' +
     '<table role="presentation" cellspacing="0" cellpadding="0"><tr>' +
     '<td style="vertical-align:middle;padding-right:14px"><img src="' + esc(siteBaseUrl() + '/intake/logo.jpg') + '" width="62" height="56" alt="ASRS" style="display:block;border:0;border-radius:3px;color:' + CREAM + ';font-size:18px;font-weight:700;line-height:56px;text-align:center"></td>' +
-    '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">' + esc((opts && opts.title) || 'Sponsor Intake') + '</td>' +
+    '<td style="vertical-align:middle;font-size:19px;font-weight:600;color:' + CREAM + '">' + esc((opts && opts.title) || processInfo(intake).title) + '</td>' +
     '</tr></table></div>' +
     '<div style="padding:24px;font-size:15px;line-height:1.55">' + bodyHtml + '</div>' +
     '<div style="padding:16px 24px;border-top:1px solid ' + BORDER + ';font-size:13px;color:#5E5B52">' +
@@ -73,7 +74,7 @@ function requestEmail(cl, intake, items, note) {
   const stageNums = items.map(function (i) { return i.step.stage; });
   const stage = stageFor(cl, Math.min.apply(null, stageNums));
   const count = items.length;
-  const subject = 'Action needed: ' + count + ' item' + (count === 1 ? '' : 's') + ' for your ASRS sponsor intake';
+  const subject = 'Action needed: ' + count + ' item' + (count === 1 ? '' : 's') + ' for your ASRS ' + processInfo(intake).noun + ' intake';
 
   let body = '<p style="margin:0 0 6px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#2F5D45;font-weight:700">Stage ' +
     stage.position + ' of ' + cl.stages.length + ' · ' + esc(stage.name) + '</p>' +
@@ -95,14 +96,14 @@ function requestEmail(cl, intake, items, note) {
 
 function welcomeEmail(intake, note) {
   let body = '<p style="margin:0 0 14px">Hi ' + esc(firstName(intake.name)) + ',</p>' +
-    '<p style="margin:0 0 14px">Welcome to the ASRS sponsor intake process. We\'ll email you whenever we need something from you, ' +
+    '<p style="margin:0 0 14px">Welcome to the ASRS ' + esc(processInfo(intake).noun) + ' intake process. We\'ll email you whenever we need something from you, ' +
     'and each email will have a button for every item.</p>' +
     '<p style="margin:0 0 18px">You can follow your progress at any time on your private status page. Please don\'t share this link.</p>';
   if (note) {
     body += '<p style="margin:0 0 18px;padding:12px 14px;background:' + CREAM + ';border-radius:8px">' + esc(note).replace(/\n/g, '<br>') + '</p>';
   }
   body += '<p style="margin:0">' + button(statusPageUrl(intake), 'View my intake status') + '</p>';
-  return { subject: 'Your ASRS sponsor intake status page', html: layout(body, intake) };
+  return { subject: 'Your ASRS ' + processInfo(intake).noun + ' intake status page', html: layout(body, intake) };
 }
 
 // The email an admin sends to a reference the sponsor named. Links only
@@ -110,7 +111,7 @@ function welcomeEmail(intake, note) {
 // sponsor's status page.
 function referenceEmail(intake, refName, formUrl, note) {
   let body = '<p style="margin:0 0 14px">Hi ' + esc(firstName(refName)) + ',</p>' +
-    '<p style="margin:0 0 14px"><strong>' + esc(intake.name) + '</strong> has applied to become a sponsor with ' +
+    '<p style="margin:0 0 14px"><strong>' + esc(intake.name) + '</strong> has applied to become ' + esc(processInfo(intake).applyingFor) + ' with ' +
     'Arch Support Residential Services (ASRS) and named you as a reference.</p>' +
     '<p style="margin:0 0 18px">Would you complete our short reference form? It only takes a few minutes, ' +
     'and your answers go straight to ASRS.</p>';
@@ -120,7 +121,7 @@ function referenceEmail(intake, refName, formUrl, note) {
   body += '<p style="margin:0 0 18px">' + button(formUrl, 'Complete the reference form') + '</p>' +
     '<p style="margin:0;font-size:13px;color:#5E5B52">Thank you for your help.</p>';
   return {
-    subject: 'Reference request for ' + intake.name + ' (ASRS sponsor application)',
+    subject: 'Reference request for ' + intake.name + ' (ASRS ' + processInfo(intake).noun + ' application)',
     html: layout(body, intake, { noStatusLink: true, title: 'Reference Request' })
   };
 }
@@ -164,7 +165,7 @@ async function notifyAdmins(intake, step, completedForAsrs) {
     : '<p><strong>' + esc(intake.name) + '</strong> submitted <strong>' + esc(step.key + ' ' + step.label) + '</strong>.</p>' +
       '<p>It\'s in their Drive folder and marked <em>Received</em>. Review it and accept or return it from the ';
   const html = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1C1C1A">' +
-    body + '<a href="' + esc(siteBaseUrl() + '/admin-dashboard/') + '">admin dashboard</a> (Sponsor Intake tab).</p></div>';
+    body + '<a href="' + esc(siteBaseUrl() + '/admin-dashboard/') + '">admin dashboard</a> (Intake tab, ' + esc(processInfo(intake).title) + ').</p></div>';
 
   for (let i = 0; i < recipients.length; i++) {
     try {

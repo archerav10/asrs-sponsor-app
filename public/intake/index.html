@@ -13,7 +13,7 @@
 <header class="bar">
   <div class="bar-inner">
     <img class="bar-logo" src="logo.jpg" alt="Arch Support Residential Services">
-    <span class="bar-title">Sponsor Intake</span>
+    <span class="bar-title" id="bar-title">Intake</span>
   </div>
 </header>
 
@@ -45,7 +45,7 @@
       <ol class="stages" id="stage-list"></ol>
     </section>
 
-    <p class="footnote">This page is private to you, so please don't share the link. Questions? Reply to any email from ASRS Sponsor Intake.</p>
+    <p class="footnote">This page is private to you, so please don't share the link. Questions? Reply to any email from ASRS.</p>
   </div>
 </main>
 
@@ -93,6 +93,7 @@
 
   function render(data) {
     document.title = data.name + ' · Intake Status · ASRS';
+    document.getElementById('bar-title').textContent = data.title || 'Sponsor Intake';
     document.getElementById('sponsor-name').textContent = data.name;
 
     const current = data.currentStage;

@@ -24,8 +24,8 @@ exports.handler = async function (event) {
     }
     if (!parsed) return json(400, { error: 'Could not find an intake/step in that filename.' });
 
-    const step = stepOrPlaceholder(await loadChecklist(), parsed.stepKey);
     const intake = await getIntake(parsed.intakeId);
+    const step = stepOrPlaceholder(await loadChecklist({ process: intake.process }), parsed.stepKey);
     const item = (await itemsForIntake(intake.id))[step.key] || null;
 
     const props = {

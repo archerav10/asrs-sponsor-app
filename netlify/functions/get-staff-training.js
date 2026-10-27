@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { staffInfoById, itemsForStaff, fullStepList, computeStaffTrainingWindow } = require('./lib/staff-training');
+const { ROLES, loadRequirements, staffInfoById, staffTrainingStatus } = require('./lib/staff-training');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -23,17 +23,27 @@ exports.handler = async function (event) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
 
-    const items = await itemsForStaff(staff.location, staff.name);
-    const windowState = computeStaffTrainingWindow(items);
+    const checklist = await loadRequirements({ fresh: true });
+    const status = await staffTrainingStatus(staff.location, staff, checklist.requirements);
+    const windowState = status.window;
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        staff: { id: staff.id, name: staff.name, location: staff.location, folderUrl: staff.trainingFolderUrl || '' },
-        steps: fullStepList(items),
+        staff: {
+          id: staff.id,
+          name: staff.name,
+          location: staff.location,
+          role: staff.role,
+          roleSet: staff.roleSet,
+          folderUrl: staff.trainingFolderUrl || ''
+        },
+        roles: ROLES,
+        steps: status.steps,
         window: {
           hasStarted: windowState.hasStarted,
           missingCount: windowState.missingCount,
+          totalCount: windowState.totalCount,
           dueDate: windowState.dueDate ? windowState.dueDate.toISOString().slice(0, 10) : null,
           isDueSoon: windowState.isDueSoon,
           isOverdue: windowState.isOverdue

@@ -1,4 +1,4 @@
-const { requireIntakeAdmin, createIntake, json, errorResponse, useRequestHost } = require('./lib/sponsor-intake');
+const { requireIntakeAdmin, createIntake, processOf, json, errorResponse, useRequestHost } = require('./lib/sponsor-intake');
 const { welcomeEmail, sendToSponsor } = require('./lib/sponsor-intake-email');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,13 +20,14 @@ exports.handler = async function (event) {
     const phone = (body.phone || '').trim();
 
     if (!name || !email) {
-      return json(400, { error: 'Enter the sponsor\'s name and email.' });
+      return json(400, { error: 'Enter their name and email.' });
     }
     if (!EMAIL_RE.test(email)) {
       return json(400, { error: 'That email address doesn\'t look right.' });
     }
 
-    const intake = await createIntake(name, email, phone, session.name || session.email);
+    // Process: "Sponsor" (default) or "DSP" (DSPs and Secondary DSPs).
+    const intake = await createIntake(name, email, phone, session.name || session.email, processOf(body.process));
 
     let welcomeSent = false;
     if (body.sendWelcome) {

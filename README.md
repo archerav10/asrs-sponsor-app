@@ -739,76 +739,104 @@ never `computeDueDate` — to build it.
 
 One button per active staff member/sponsor in each location an admin is
 granted (`get-staff-training-oversight.js`, `staffListForLocation` in
-`lib/staff-training.js`). 19 required items (First Aid/CPR, Behavior
-Management Training, Medication Administration Refresher, Human Rights,
-HCBS, Serious Incident Reporting, Universal Precautions/Infectious
-Controls, Emergency Preparation/Crisis Management, HIPAA Training, DSP
-Competencies Assessment Report, Annual Performance Evaluation & Review,
-ASRS Role and Responsibilities, TB Test/Assessment, Behavior Supports for
-DSPs, Autism Supports for DSPs, Person Centered Thinking Training, Shared
-Planning & Goals, How We Treat Our Residents, Psychological First Aid —
-see `STEPS` in `lib/staff-training.js`), each satisfied by either an
-upload or (once a `formUrl` is set for it) a preconfigured JotForm, same
-two paths as Annual Planning.
+`lib/staff-training.js`), with a **Print Training Status Report** link per
+location (ASRS-450-01, below).
 
-**No shared cycle, no finalize — unlike Annual Planning and MAR.** Every
-one of the 19 items has its own independent expiration date, set
-whenever *that specific item* is completed, and just renews on its own
-schedule forever. There's nothing to lock or roll forward, so unlike
-Annual Planning's `isWindowOpen` check on every write, any item can be
-updated at any time.
+**The checklist lives in Notion, not in code** — the "Training
+Requirements" database (`TRAINING_REQUIREMENTS_DB_ID`, in `lib/ids.js`),
+loaded and validated by `loadRequirements`, the same idea as Sponsor
+Intake's Intake Steps. One row per required item, seeded from the
+"Sponsor and DSP Intake and Annual Doc Checklist 2.0":
 
-- **Notion:** new "Staff Training Items" database
-  (`STAFF_TRAINING_DB_ID`), one active row per Location + Staff Name +
-  Step Key (row-per-item, not row-per-cycle like Annual Planning's
-  row-per-service) — closer in shape to First Aid Supplies/Emergency
-  Supplies' per-item expiration than to Annual Planning. Staff/location
-  data itself comes from the existing "ASRS People" database
-  (`ASRS_PEOPLE_DB_ID`, `Type` = Staff), which also gained a permanent
-  `Training Folder URL` column, set once per staff member the same way
-  Annual Planning's folder link is.
-- **Next due date = the literal next expiration, no offset** —
-  `computeStaffDueDate` takes the earliest `Exp Date` across all 19
-  items once every item has been completed at least once; returns `null`
-  (reads as "incomplete") until then. This is deliberately different
-  from MAR/Annual Planning/Supplies, which all subtract a lead time from
-  their due date — here the spec is "next due date will be when the next
-  document expires," full stop.
-- **The puzzle only controls the spin, not a lock:** it turns yellow and
-  starts spinning 30 days before that next expiration
-  (`WINDOW_DAYS_BEFORE_DUE` in `lib/staff-training.js` — the same
-  `puzzleSpin` CSS Annual Planning uses, just a 30-day threshold instead
-  of 6 weeks), and shows the due date on the button. There's no gray
-  "locked" state the way Annual Planning has, since nothing is ever
-  locked here.
-- **The one manual step:** same pattern as Annual Planning's Drive
-  folder — the first time a staff member goes through this, an admin
-  pastes the link to their existing ongoing Training folder in Drive;
-  the folder ID is parsed out and remembered permanently
-  (`Training Folder URL`). One ongoing folder per staff member, not a
-  dated subfolder per cycle, since there's no cycle to date a folder by.
+| Column | Meaning |
+| --- | --- |
+| Label | What the item is called everywhere |
+| Key | Letters and numbers only; **never change once used** (progress rows and filenames are keyed by it) — rename the Label instead. The original 19 items kept their old keys. |
+| Part | `Annual training & certification` (Part A) or `Intake` (Part B) |
+| Section | Heading within the part (Certifications, Annual training, Competencies & evaluation, Documents, Intake training, or a new one) |
+| Applies To | Sponsor, DSP, Secondary DSP (House Managers are DSP) |
+| Renews | `One-time`, `1 year` or `2 years` (First Aid/CPR) |
+| Order | Sort order within the part |
+| Active | Uncheck to retire an item |
+| Form Link | Optional JotForm; lights up "Complete Form" for that item |
+| Sponsor Intake Steps / DSP Intake Steps | Optional. The intake step Key(s) in that checklist that satisfy this item, comma-separated (e.g. `7.5, 7.6`); see "From intake" below |
+
+A row with a missing Label/Key/Part/Renews/Applies To, a bad Key, or a
+duplicate Key is skipped and listed in a red box on the Staff Training
+tab, never breaking the app. Edits show up on the next reload (30s cache
+elsewhere).
+
+**Roles.** "ASRS People" (`ASRS_PEOPLE_DB_ID`, `Type` = Staff) has a
+`Role` select (Sponsor / DSP / Secondary DSP) that decides which items
+apply to a person. It can be set on the person's Staff Training screen
+(`save-staff-training-role.js`). Someone with no Role is treated as a DSP
+and shown as "Role not set".
+
+**Dates.** The admin enters the date an item was **completed**. For a
+renewing item the next due date (`Exp Date`) is worked out from it
+(`addYears`); one-time items have none and stay on file once done. Rows
+recorded before this change have only an `Exp Date`, which is still used
+as their due date. An item is *overdue* on its due date and *due soon*
+30 days before (`WINDOW_DAYS_BEFORE_DUE`), when the puzzle turns yellow
+and spins. There's no shared cycle, finalize step or lock: any item can
+be updated at any time.
+
+- **Notion:** "Staff Training Items" (`STAFF_TRAINING_DB_ID`), one active
+  row per Location + Staff Name + Step Key, with `Completed Date`, `Exp
+  Date` (next due; blank for one-time items), `Filename`, `Done`. A new
+  requirement's Key is added to the `Step Key` select the first time it's
+  written. `ASRS People` also has the permanent `Training Folder URL`,
+  set once per staff member.
+- **The one manual step:** the first time a staff member goes through
+  this, an admin pastes the link to their ongoing Training folder in
+  Drive (`save-staff-training-folder.js`).
 - **Filename convention uses the staff member's Notion page ID, not
-  their name:** `"{location}_Staff_{staffId}_{stepKey}_{expDate}"`
-  (`buildFilename`/`parseFilename` in `lib/staff-training.js`). Unlike
-  resident initials or Annual Planning's small, fixed `SERVICES` enum, a
-  full name like "Ovetis Cooper" can't be losslessly recovered once
-  `sanitizeForFilename` strips its spaces — there's no closed set to
-  reverse-lookup against. The page ID has no such problem, and
-  `staffInfoById` (backed by a new `getPage` helper in `lib/notion.js`)
-  resolves it back to the real name/location/folder server-side.
-- **Uploads and forms** reuse the exact same two-webhook shape as Annual
-  Planning (`get-staff-training-upload-config.js`,
+  their name:** `"{location}_Staff_{staffId}_{key}_{completedDate}"`
+  (`buildFilename`/`parseFilename`). A full name can't be losslessly
+  recovered once `sanitizeForFilename` strips its spaces; the page ID
+  can, via `staffInfoById`.
+- **Uploads and forms** reuse the two-webhook shape of Annual Planning
+  (`get-staff-training-upload-config.js`,
   `staff-training-resolve-upload.js`, `staff-training-form-submitted.js`,
-  same `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET` — deliberately not a new
-  env var, since these are just more Zapier-facing endpoints on the same
-  admin dashboard), with one simplification: no "Find/Create dated
-  subfolder" Zap step, since every document goes straight into the one
-  ongoing folder — Move File can target the resolved `parentFolderId`
-  directly. **New env vars:** `STAFF_TRAINING_DB_ID`, and
-  `ZAPIER_STAFF_TRAINING_WEBHOOK_URL` for the direct-upload path (a new
-  Zap, simpler than Annual Planning's for the reason above). No step has
-  a `formUrl` set yet — add one to any entry in `STEPS` to light up its
-  "Complete Form" option, same as Annual Planning.
+  `ANNUAL_PLANNING_FORM_WEBHOOK_SECRET`). The date in a filename is now
+  the completion date; the resolve endpoint still returns it as
+  `expDate` and the form-submitted endpoint still accepts that name, so
+  the existing Zaps keep working. Env vars: `STAFF_TRAINING_DB_ID`,
+  `ASRS_PEOPLE_DB_ID`, `ZAPIER_STAFF_TRAINING_WEBHOOK_URL`.
+- **Everywhere else that shows training** — the Compliance tab and the
+  Sponsor App's My Home's Compliance (`lib/compliance.js`), the Sponsor
+  App's Staff Training rows (`get-provider-staff-training-status.js`) and
+  the weekly admin digest (`lib/admin-digest-check.js`) — reads the same
+  requirements and roles, so they always agree.
+
+**From intake.** Each person's screen has an **Intake** box: a Sponsor
+picks from Sponsor intakes, a DSP or Secondary DSP from DSP intakes
+(finished ones included). **Link and Bring In Completed Items**
+(`staff-training-intake.js`, `copyFromIntake`) saves the link on their
+ASRS People row (`Intake ID`). Every requirement that applies to them
+and names steps in that process's column (**Sponsor Intake Steps** or
+**DSP Intake Steps**) is marked done once **all** of
+those steps are Complete or Not Applicable in the intake, using the
+latest of their completion dates, so a renewing item's due date follows
+from it (marking a step Not Applicable stamps that date). An item whose
+steps were all Not Applicable says so on screen. Items
+already on file are never overwritten, so the button can be pressed
+again as the intake moves along. Steps still open, or done without a
+completion date, are listed back rather than copied.
+Copied rows have no Filename (the document stays in the intake's Drive
+folder) and `Last Updated By` = "Intake – {process} (admin)". Same access
+gate as the Intake tab (`SPONSOR_INTAKE_ADMIN_EMAILS`).
+
+**ASRS-450-01 Training Status Report** (`admin-dashboard/training-report.html`,
+data from `get-training-status-report.js`): one location, staff as
+columns, items as rows. Part A (annual training & certification) shows
+each item's next due date; Part B (intake, on its own page) shows the
+completion date. Red = overdue or missing, orange = due within 30 days,
+grey = N/A for that person's role; rows only appear if they apply to
+someone at the location. Tiles above Part A, and a one-row-per-person
+Follow-up table plus a signature line (House Manager for Longstreet,
+Residential Liaison for sponsored homes) after Part B. License number and
+footer per the form. Print → Save as PDF produces the file.
 
 ### Quarterly Reporting (fourth process — tied entirely to Annual Planning)
 
@@ -1288,6 +1316,21 @@ report's own date range is already baked into its filename:
 7. Publish the Zap.
 
 ### Sponsor Intake (seventh process — prospective sponsors, no login)
+
+**Now also DSP intake.** The same system runs a second checklist for
+DSPs and Secondary DSPs. Each intake has a **Process** (`Sponsor` or
+`DSP`, blank = Sponsor) on its Sponsor Intakes row, chosen under "Intake
+for" when it's started on the dashboard's **Intake** tab. The DSP
+checklist lives in its own Notion databases, **DSP Intake Stages** and
+**DSP Intake Steps** (`DSP_INTAKE_STAGES_DB_ID` / `DSP_INTAKE_STEPS_DB_ID`
+in `lib/ids.js`), with exactly the same columns as Intake Stages / Intake
+Steps below; it started from "DSP Intake Checklist 1.2". `PROCESSES` in
+`lib/sponsor-intake.js` maps each process to its databases and wording:
+every handler loads the intake first and then `loadChecklist({ process })`.
+Emails, the status and upload pages and printed sheets say "DSP Intake"
+and "candidate" for a DSP intake; Drive folders are `{Name} (DSP)` under
+the same root. Everything below about sponsors applies to DSP candidates
+too ("Sponsor Upload/Form" steps are the candidate's).
 
 A one-time, stage-by-stage checklist for a **prospective** sponsor. It
 started as 9 stages and 77 items from "Sponsor Intake Process – Master

@@ -13,7 +13,7 @@
 <header class="bar">
   <div class="bar-inner">
     <img class="bar-logo" src="logo.jpg" alt="Arch Support Residential Services">
-    <span class="bar-title">Sponsor Intake</span>
+    <span class="bar-title" id="bar-title">Intake</span>
   </div>
 </header>
 
@@ -207,6 +207,7 @@
       if (!r.ok) throw new Error(r.data.error || 'Something went wrong.');
       config = r.data;
       document.title = config.label + ' · ASRS';
+      $('bar-title').textContent = config.title || 'Sponsor Intake';
       $('for-name').textContent = 'Upload for ' + config.sponsorName;
       $('item-label').textContent = config.label;
       if (config.includes && config.includes.length) {

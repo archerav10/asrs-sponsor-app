@@ -1,11 +1,14 @@
-const { STEP_KEYS, markItemDone } = require('./lib/staff-training');
+const { loadRequirements, markItemDone } = require('./lib/staff-training');
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Called by Zapier after a JotForm submission's PDF has already been
 // moved into the staff member's Drive folder — the other end of the
 // "complete form" path. Auth is a shared secret, not a session — same
-// pattern as annual-planning-form-submitted.js.
+// pattern as annual-planning-form-submitted.js. The date is the
+// completion date; `expDate` is still accepted as its name because
+// that's the field the Zap was built to pass along from
+// staff-training-resolve-upload.js.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method not allowed' };
@@ -21,20 +24,21 @@ exports.handler = async function (event) {
     const location = body.location;
     const staffName = body.staffName;
     const stepKey = body.stepKey;
-    const expDate = body.expDate;
+    const completedDate = body.completedDate || body.expDate;
     const filename = body.filename || '';
 
-    if (!location || !staffName || !stepKey || !expDate) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'location, staffName, stepKey, and expDate are required.' }) };
+    if (!location || !staffName || !stepKey || !completedDate) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'location, staffName, stepKey, and completedDate are required.' }) };
     }
-    if (STEP_KEYS.indexOf(stepKey) === -1) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown step.' }) };
+    if (!DATE_RE.test(completedDate)) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'completedDate must be in YYYY-MM-DD format.' }) };
     }
-    if (!DATE_RE.test(expDate)) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'expDate must be in YYYY-MM-DD format.' }) };
+    const req = (await loadRequirements()).byKey[stepKey];
+    if (!req) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Unknown item.' }) };
     }
 
-    await markItemDone(location, staffName, stepKey, filename, expDate, 'JotForm submission');
+    await markItemDone(location, staffName, req, filename, completedDate, 'JotForm submission');
 
     return { statusCode: 200, body: JSON.stringify({ success: true }) };
   } catch (err) {

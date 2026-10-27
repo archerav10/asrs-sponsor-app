@@ -24,8 +24,8 @@ exports.handler = async function (event) {
     const note = (body.note || '').trim();
     if (!body.id) return json(400, { error: 'id is required.' });
 
-    const cl = await loadChecklist({ fresh: true });
     const intake = await getIntake(body.id);
+    const cl = await loadChecklist({ fresh: true, process: intake.process });
     if (!intake.email) return json(400, { error: 'This sponsor has no email address on file.' });
 
     if (!stepKeys.length) {

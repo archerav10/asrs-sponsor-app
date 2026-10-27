@@ -25,8 +25,8 @@ exports.handler = async function (event) {
     }
     if (ticket.kind !== 'intake-upload') return json(401, { error: 'Invalid upload session.' });
 
-    const step = stepOrPlaceholder(await loadChecklist(), ticket.stepKey);
     const intake = await getIntake(ticket.intakeId);
+    const step = stepOrPlaceholder(await loadChecklist({ process: intake.process }), ticket.stepKey);
     const item = (await itemsForIntake(intake.id))[step.key] || null;
     const total = Math.max(1, Math.min(20, parseInt(body.total, 10) || 1));
     const ext = String(body.ext || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toLowerCase();

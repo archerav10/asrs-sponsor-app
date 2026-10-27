@@ -1,7 +1,7 @@
 const { encryptToken } = require('./lib/crypto');
 const {
   requireIntakeAdmin, loadChecklist, getIntake, findIntakeByToken, itemsForIntake, STATUS,
-  isSponsorStep, json, errorResponse
+  isSponsorStep, processInfo, json, errorResponse
 } = require('./lib/sponsor-intake');
 
 const TICKET_TTL_SECONDS = 2 * 60 * 60;
@@ -25,8 +25,7 @@ exports.handler = async function (event) {
 
   try {
     const params = event.queryStringParameters || {};
-    const step = (await loadChecklist()).byKey[params.step];
-    if (!step) return json(400, { error: 'That link is missing which item it\'s for.' });
+    if (!params.step) return json(400, { error: 'That link is missing which item it\'s for.' });
 
     let intake;
     let role;
@@ -44,7 +43,11 @@ exports.handler = async function (event) {
       by = session.name || session.email;
     }
 
+    const step = (await loadChecklist({ process: intake.process })).byKey[params.step];
+    if (!step) return json(400, { error: 'That link is missing which item it\'s for.' });
+
     const info = {
+      title: processInfo(intake).title,
       sponsorName: intake.name,
       stepKey: step.key,
       label: step.label,
