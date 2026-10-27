@@ -342,8 +342,11 @@ function itemFromPage(page) {
   };
 }
 
-async function listIntakes() {
-  const pages = await queryDatabaseAll(INTAKES_DB_ID, { property: 'Active', checkbox: { equals: true } });
+// options.all includes finished (inactive) intakes too, e.g. for linking
+// a sponsor's training record to the intake they went through.
+async function listIntakes(options) {
+  const filter = options && options.all ? null : { property: 'Active', checkbox: { equals: true } };
+  const pages = await queryDatabaseAll(INTAKES_DB_ID, filter);
   return pages.map(intakeFromPage);
 }
 

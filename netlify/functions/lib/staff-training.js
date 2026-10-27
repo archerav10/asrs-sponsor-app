@@ -7,7 +7,9 @@ const ASRS_PEOPLE_DB_ID = process.env.ASRS_PEOPLE_DB_ID;
 // The checklist itself (ASRS-450-01) lives in Notion, not in code, so it
 // can be edited without a deploy — the same idea as Sponsor Intake's
 // Intake Steps. One row per required item: Label, Key, Part, Section,
-// Applies To (roles), Renews, Order, Active, optional Form Link. Progress
+// Applies To (roles), Renews, Order, Active, optional Form Link, and
+// optional Intake Steps (the Sponsor Intake step Keys that satisfy the
+// item, used by copyFromIntake). Progress
 // rows in Staff Training Items are keyed by each requirement's Key, which
 // is why a Key must never change once used — rename the Label instead.
 const REQUIREMENTS_DB_ID = configId('TRAINING_REQUIREMENTS_DB_ID');
@@ -30,6 +32,8 @@ const PARTS = ['Annual training & certification', 'Intake'];
 const RENEW_YEARS = { 'One-time': 0, '1 year': 1, '2 years': 2 };
 // Keys end up in filenames split on "_", so letters and numbers only.
 const KEY_RE = /^[A-Za-z0-9]+$/;
+// Last Updated By prefix on rows copied from Sponsor Intake.
+const INTAKE_SOURCE = 'Sponsor Intake';
 
 let requirementsCache = null;
 
@@ -78,7 +82,9 @@ async function loadRequirements(options) {
       appliesTo: appliesTo,
       renewYears: RENEW_YEARS[renews],
       order: typeof order === 'number' ? order : 9999,
-      formUrl: /^https?:\/\//i.test(formUrl) ? formUrl : ''
+      formUrl: /^https?:\/\//i.test(formUrl) ? formUrl : '',
+      intakeSteps: (getPlainText(p['Intake Steps']) || '').split(',')
+        .map(function (k) { return k.trim(); }).filter(Boolean)
     };
     byKey[key] = req;
     requirements.push(req);
@@ -134,7 +140,8 @@ function personFromPage(page) {
     location: getPlainText(page.properties['Location']),
     role: effectiveRole(role),
     roleSet: ROLES.indexOf(role) !== -1,
-    trainingFolderUrl: getPlainText(page.properties['Training Folder URL'])
+    trainingFolderUrl: getPlainText(page.properties['Training Folder URL']),
+    intakeId: getPlainText(page.properties['Sponsor Intake ID']) || ''
   };
 }
 
@@ -165,7 +172,8 @@ function itemFromPage(page) {
     done: !!page.properties['Done'].checkbox,
     filename: getPlainText(page.properties['Filename']),
     completedDate: getPlainText(page.properties['Completed Date']) || '',
-    expDate: getPlainText(page.properties['Exp Date']) || ''
+    expDate: getPlainText(page.properties['Exp Date']) || '',
+    lastUpdatedBy: getPlainText(page.properties['Last Updated By']) || ''
   };
 }
 
@@ -222,6 +230,9 @@ function fullStepList(items, requirements, role, now) {
       filename: item ? item.filename : '',
       completedDate: item ? item.completedDate : '',
       expDate: item && req.renewYears ? item.expDate : '',
+      // Copied from Sponsor Intake: the document is in the sponsor's
+      // intake folder, not their training folder.
+      fromIntake: !!item && item.lastUpdatedBy.indexOf(INTAKE_SOURCE) === 0,
       state: itemState(req, item, now)
     };
   });
@@ -299,6 +310,42 @@ async function markItemDone(location, staffName, req, filename, completedDate, u
   }, props));
 }
 
+// Fills in a sponsor's training record from their Sponsor Intake: every
+// requirement that applies to them and names Intake Steps is marked done
+// once all of those steps are Complete in the intake, using the latest of
+// their completion dates (so a renewing item's due date follows from it).
+// Items already on file are left alone, so this is safe to run again as
+// the intake progresses. intakeItemsByKey is lib/sponsor-intake.js's
+// itemsForIntake result. No filename: the documents stay in the intake's
+// Drive folder.
+async function copyFromIntake(location, person, requirements, intakeItemsByKey, updatedBy) {
+  const existing = {};
+  (await itemsForStaff(location, person.name)).forEach(function (i) { existing[i.stepKey] = i; });
+  const result = { copied: [], alreadyOnFile: [], notYet: [], noDate: [] };
+
+  const reqs = requirementsForRole(requirements, person.role).filter(function (r) { return r.intakeSteps.length; });
+  for (const req of reqs) {
+    if (existing[req.key] && existing[req.key].done) {
+      result.alreadyOnFile.push(req.label);
+      continue;
+    }
+    const steps = req.intakeSteps.map(function (k) { return intakeItemsByKey[k]; });
+    if (steps.some(function (s) { return !s || s.status !== 'Complete'; })) {
+      result.notYet.push(req.label);
+      continue;
+    }
+    const dates = steps.map(function (s) { return s.completedDate; }).filter(Boolean).sort();
+    if (dates.length !== steps.length) {
+      result.noDate.push(req.label);
+      continue;
+    }
+    const date = dates[dates.length - 1].slice(0, 10);
+    await markItemDone(location, person.name, req, '', date, INTAKE_SOURCE + ' (' + updatedBy + ')');
+    result.copied.push({ label: req.label, date: date });
+  }
+  return result;
+}
+
 module.exports = {
   ROLES,
   PARTS,
@@ -315,5 +362,6 @@ module.exports = {
   staffTrainingStatus,
   addYears,
   markItemDone,
+  copyFromIntake,
   driveFolderIdFromUrl
 };

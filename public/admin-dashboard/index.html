@@ -1819,6 +1819,77 @@
     container.appendChild(wrap);
   }
 
+  // Sponsors only: link their training record to the Sponsor Intake they
+  // went through and bring in what it already completed. Safe to run
+  // again as the intake moves along — items already on file are skipped.
+  function renderStaffIntakeSection(container, staff) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = 'Sponsor Intake';
+    wrap.appendChild(title);
+
+    const help = document.createElement('p');
+    help.className = 'help-text';
+    help.style.margin = '0 0 6px';
+    help.textContent = 'Loading…';
+    wrap.appendChild(help);
+    container.appendChild(wrap);
+
+    apiFetch('/staff-training-intake?staffId=' + encodeURIComponent(staff.id)).then(function (data) {
+      const intakes = data.intakes || [];
+      if (!intakes.length) {
+        help.textContent = 'No Sponsor Intakes on file.';
+        return;
+      }
+      const linked = intakes.filter(function (i) { return i.id === data.linkedIntakeId; })[0];
+      help.textContent = linked
+        ? 'Linked to ' + linked.name + '’s intake. Bring in again to pick up anything completed there since.'
+        : 'Choose the intake this sponsor went through to bring in what it already completed.';
+
+      const select = document.createElement('select');
+      intakes.forEach(function (i) {
+        const opt = document.createElement('option');
+        opt.value = i.id;
+        opt.textContent = i.name + (i.active ? '' : ' (finished)') + (i.startedDate ? ' — started ' + formatDate(i.startedDate) : '');
+        if (linked ? i.id === linked.id : i.name.trim().toLowerCase() === staff.name.trim().toLowerCase()) opt.selected = true;
+        select.appendChild(opt);
+      });
+      wrap.appendChild(select);
+
+      const btn = document.createElement('button');
+      btn.textContent = linked ? 'Bring In Completed Intake Items' : 'Link and Bring In Completed Items';
+      btn.style.marginTop = '10px';
+      btn.addEventListener('click', async function () {
+        setError('staff-detail-error', '');
+        btn.disabled = true;
+        try {
+          const r = await apiFetch('/staff-training-intake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ staffId: staff.id, intakeId: select.value })
+          });
+          const lines = [];
+          lines.push(r.copied.length
+            ? 'Brought in ' + r.copied.length + ': ' + r.copied.map(function (c) { return c.label; }).join(', ') + '.'
+            : 'Nothing new to bring in.');
+          if (r.notYet.length) lines.push('Not complete in the intake yet: ' + r.notYet.join(', ') + '.');
+          if (r.noDate.length) lines.push('Complete but missing a completion date in the intake: ' + r.noDate.join(', ') + '.');
+          alert(lines.join('\n\n'));
+          loadStaffDetail();
+        } catch (e) {
+          setError('staff-detail-error', e.message);
+          btn.disabled = false;
+        }
+      });
+      wrap.appendChild(btn);
+    }).catch(function (e) {
+      help.textContent = e.message;
+    });
+  }
+
   function renewText(stepDef) {
     if (stepDef.renewYears === 1) return 'Renews every year — the next due date is set from the date completed.';
     if (stepDef.renewYears > 1) return 'Renews every ' + stepDef.renewYears + ' years — the next due date is set from the date completed.';
@@ -1832,7 +1903,7 @@
     if (stepDef.expDate) {
       parts.push((stepDef.state === 'overdue' ? 'Overdue — was due ' : 'Due ') + formatDate(stepDef.expDate));
     }
-    return parts.join(' · ') + ' — ' + (stepDef.filename || 'document');
+    return parts.join(' · ') + ' — ' + (stepDef.filename || (stepDef.fromIntake ? 'from Sponsor Intake (document is in the intake folder)' : 'document'));
   }
 
   function renderStaffStepSection(container, stepDef) {
@@ -2044,6 +2115,7 @@
       }
 
       renderStaffRoleSection(bodyEl, staff, data.roles || []);
+      if (staff.role === 'Sponsor') renderStaffIntakeSection(bodyEl, staff);
       renderStaffFolderSection(bodyEl, staff);
 
       if (!staff.folderUrl) {

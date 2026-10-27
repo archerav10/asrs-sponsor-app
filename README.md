@@ -759,6 +759,7 @@ Intake's Intake Steps. One row per required item, seeded from the
 | Order | Sort order within the part |
 | Active | Uncheck to retire an item |
 | Form Link | Optional JotForm; lights up "Complete Form" for that item |
+| Intake Steps | Optional. The Sponsor Intake step Key(s) that satisfy this item, comma-separated (e.g. `7.5, 7.6`); see "From Sponsor Intake" below |
 
 A row with a missing Label/Key/Part/Renews/Applies To, a bad Key, or a
 duplicate Key is skipped and listed in a red box on the Staff Training
@@ -807,6 +808,21 @@ be updated at any time.
   App's Staff Training rows (`get-provider-staff-training-status.js`) and
   the weekly admin digest (`lib/admin-digest-check.js`) — reads the same
   requirements and roles, so they always agree.
+
+**From Sponsor Intake.** A Sponsor's screen has a **Sponsor Intake**
+box: choose the intake they went through (finished intakes included) and
+click **Link and Bring In Completed Items**
+(`staff-training-intake.js`, `copyFromIntake`). The link is saved on
+their ASRS People row (`Sponsor Intake ID`). Every requirement that
+applies to them and names Intake Steps is marked done once **all** of
+those steps are Complete in the intake, using the latest of their
+completion dates, so a renewing item's due date follows from it. Items
+already on file are never overwritten, so the button can be pressed
+again as the intake moves along. Steps still open, Not Applicable, or
+Complete without a completion date are listed back rather than copied.
+Copied rows have no Filename (the document stays in the intake's Drive
+folder) and `Last Updated By` = "Sponsor Intake (admin)". Same access gate
+as the Sponsor Intake tab (`SPONSOR_INTAKE_ADMIN_EMAILS`).
 
 **ASRS-450-01 Training Status Report** (`admin-dashboard/training-report.html`,
 data from `get-training-status-report.js`): one location, staff as
