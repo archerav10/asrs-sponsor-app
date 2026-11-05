@@ -20,6 +20,12 @@ const IDS = {
   DSP_INTAKE_STEPS_DB_ID: 'dcd857a2-5870-4bca-bdfd-14870badd538',
   SPONSOR_INTAKE_ROOT_FOLDER_ID: '1A3LrLbu_T2mn80FkKsmyjum0xWwCN3A8',
   TRAINING_REQUIREMENTS_DB_ID: '76cee555-d2ef-4561-9e64-b49596736dea',
+  ASRS_PEOPLE_DB_ID: 'd4b45ddb-cc42-4a50-8c07-a1df5501904d',
+  // Training Modules (Longstreet Dashboard / Training Modules in Notion)
+  MODULES_DB_ID: 'f6eb1eb2-4cc0-424c-86d9-e29da4fa74da',
+  MODULE_STEPS_DB_ID: '7ffcb163-43a5-4df4-bf5c-e7dcacc75da6',
+  MODULE_ASSIGNMENTS_DB_ID: '423c9fc0-6339-4b14-b3e7-16150094c36c',
+  MODULE_RESPONSES_DB_ID: 'ec21d714-34af-40e7-820a-a4b7c3339173',
   // A Google OAuth client ID is public by design (it's sent to browsers in
   // sign-in links); the client secret and refresh token stay in Netlify.
   GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'

@@ -7,6 +7,26 @@
   to = "/provider-app/"
   status = 302
 
+# Training module links (/m/{token}) open the module page; the page reads
+# the token from the path.
+[[redirects]]
+  from = "/m/*"
+  to = "/module/index.html"
+  status = 200
+
+# The module page embeds YouTube, which refuses to play without a
+# Referer. Only the origin is sent, so the link's token never leaves.
+[[headers]]
+  for = "/module/*"
+  [headers.values]
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Robots-Tag = "noindex, nofollow"
+[[headers]]
+  for = "/m/*"
+  [headers.values]
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Robots-Tag = "noindex, nofollow"
+
 [functions."check-report-status"]
   # 9:30am US/Eastern. Netlify cron runs in UTC with no DST awareness,
   # so this is pinned to EDT (UTC-4); during EST (Nov-Mar) it'll fire at
