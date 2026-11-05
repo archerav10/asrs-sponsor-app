@@ -24,6 +24,15 @@ const STEP_TYPES = ['Reading', 'Video', 'Questions'];
 // A link keeps working this many days past the due date.
 const LINK_GRACE_DAYS = 30;
 const SITE_URL = (process.env.URL || 'https://asrs-sponsor-app.netlify.app').replace(/\/$/, '');
+// Production or a deploy preview / branch deploy of this site.
+const SITE_HOST_RE = /^([a-z0-9-]+--)?asrs-sponsor-app\.netlify\.app$/;
+
+// The site a request came in on, so links and certificate call-backs made
+// on a deploy preview stay on that preview. Anything else -> SITE_URL.
+function siteFromEvent(event) {
+  const host = String((event && event.headers && (event.headers.host || event.headers.Host)) || '').toLowerCase();
+  return SITE_HOST_RE.test(host) ? 'https://' + host : SITE_URL;
+}
 
 // ---------- small helpers ----------
 
@@ -151,8 +160,8 @@ function linkExpiry(dueDate) {
   return Math.max(due, Date.now()) + LINK_GRACE_DAYS * 864e5;
 }
 
-function moduleLink(assignment) {
-  return SITE_URL + '/m/' + makeLinkToken(assignment.id, assignment.linkVersion, linkExpiry(assignment.dueDate));
+function moduleLink(assignment, site) {
+  return (site || SITE_URL) + '/m/' + makeLinkToken(assignment.id, assignment.linkVersion, linkExpiry(assignment.dueDate));
 }
 
 // ---------- modules and steps ----------
@@ -342,7 +351,7 @@ function assignmentEmail(assignment, mod, link) {
 // Sends the assignment notice by text when the person is Opted In with a
 // phone number, otherwise by email. Returns the channel used.
 async function sendAssignmentNotice(assignment, mod, deps) {
-  const link = moduleLink(assignment);
+  const link = moduleLink(assignment, deps.site);
   const phone = normalizePhone(assignment.phone);
   if (phone && assignment.smsConsent === 'Opted In') {
     await deps.sendSms(phone, assignmentText(assignment, mod, link));
@@ -529,7 +538,7 @@ async function uploadCertificate(pdfBytes, fields) {
   form.append('file', new Blob([pdfBytes], { type: 'application/pdf' }), fields.filename);
   form.append('assignmentId', fields.assignmentId);
   form.append('certificateId', fields.certificateId);
-  form.append('site', SITE_URL);
+  form.append('site', fields.site || SITE_URL);
   const res = await fetch(url, { method: 'POST', body: form });
   if (!res.ok) throw new Error('Certificate webhook returned ' + res.status);
 }
@@ -554,7 +563,7 @@ async function certificateDestination(assignmentId, certificateId) {
 // Builds the certificate for a completed assignment and hands it to the
 // Zap. Never throws: a failed hand-off leaves Certificate Status = Failed
 // for the admin view. Pending = on its way; the Zap sets Saved.
-async function issueCertificate(assignment, mod) {
+async function issueCertificate(assignment, mod, site) {
   const completedDate = (assignment.completedAt || todayIso()).slice(0, 10);
   const certificateId = assignment.certificateId || await newCertificateId();
   const filename = certificateFilename(mod, assignment.personName, completedDate);
@@ -570,7 +579,7 @@ async function issueCertificate(assignment, mod) {
       moduleVersion: assignment.moduleVersion, certificateId: certificateId
     });
     // Stays Pending until the Zap reports the file saved (module-certificate-resolve).
-    await uploadCertificate(pdf, { filename: filename, certificateId: certificateId, assignmentId: assignment.id });
+    await uploadCertificate(pdf, { filename: filename, certificateId: certificateId, assignmentId: assignment.id, site: site });
     return { certificateId: certificateId, filename: filename, status: 'Pending' };
   } catch (err) {
     console.error('Certificate failed for assignment ' + assignment.id, err);
@@ -599,7 +608,7 @@ async function writeResponses(assignment, mod, progress) {
 }
 
 module.exports = {
-  DEFAULT_MIN_WORDS, SITE_URL,
+  DEFAULT_MIN_WORDS, SITE_URL, siteFromEvent,
   badRequest, wordCount, parseTime, videoSource, richText, sameId, todayIso, prettyDate, normalizePhone,
   makeLinkToken, readLinkToken, linkExpiry, moduleLink,
   moduleFromPage, stepFromPage, loadModule, listModules,

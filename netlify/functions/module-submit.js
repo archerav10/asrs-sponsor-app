@@ -37,7 +37,7 @@ exports.handler = async function (event) {
       'Completed At': { date: { start: completedAt } }
     });
 
-    const cert = await tm.issueCertificate(Object.assign({}, assignment, { completedAt: completedAt, status: 'Completed' }), mod);
+    const cert = await tm.issueCertificate(Object.assign({}, assignment, { completedAt: completedAt, status: 'Completed' }), mod, tm.siteFromEvent(event));
 
     return json(200, {
       completed: true,

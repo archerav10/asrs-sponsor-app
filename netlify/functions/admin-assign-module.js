@@ -40,10 +40,11 @@ exports.handler = async function (event) {
       dueDate: body.dueDate, assignedBy: session.email, phone: phone, email: person.email
     });
 
-    let sent = { channel: '', link: tm.moduleLink(assignment) };
+    const site = tm.siteFromEvent(event);
+    let sent = { channel: '', link: tm.moduleLink(assignment, site) };
     let sendError = '';
     try {
-      sent = await tm.sendAssignmentNotice(Object.assign({}, assignment, { smsConsent: person.smsConsent }), mod, { sendSms: sendSms, sendEmail: sendEmail });
+      sent = await tm.sendAssignmentNotice(Object.assign({}, assignment, { smsConsent: person.smsConsent }), mod, { sendSms: sendSms, sendEmail: sendEmail, site: site });
     } catch (e) {
       console.error('Assignment notice failed', e);
       sendError = e.message;

@@ -35,7 +35,7 @@ exports.handler = async function (event) {
     if (link.expired) {
       // Send a fresh link the same way the first one went, then say so.
       const person = await tm.getPerson(assignment.personId).catch(function () { return null; });
-      const sent = await tm.sendAssignmentNotice(Object.assign({}, assignment, { smsConsent: person && person.smsConsent }), mod, { sendSms: sendSms, sendEmail: sendEmail }).catch(function (e) { console.error(e); return { channel: '' }; });
+      const sent = await tm.sendAssignmentNotice(Object.assign({}, assignment, { smsConsent: person && person.smsConsent }), mod, { sendSms: sendSms, sendEmail: sendEmail, site: tm.siteFromEvent(event) }).catch(function (e) { console.error(e); return { channel: '' }; });
       return json(410, { error: sent.channel === 'Text' ? 'This link has expired. We\'ve texted you a new one.' : sent.channel === 'Email' ? 'This link has expired. We\'ve emailed you a new one.' : 'This link has expired. Please ask ASRS for a new one.' });
     }
 
