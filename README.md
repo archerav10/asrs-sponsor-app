@@ -66,8 +66,9 @@ at 4 KB in total, and this site has reached it: a deploy fails with
 secret (Notion data source IDs, Drive folder IDs) go in
 `netlify/functions/lib/ids.js` instead. That's where
 `MEDICAL_APPOINTMENTS_DB_ID`, `WEEKLY_FOCUS_DB_ID`,
-`WEEKLY_FOCUS_RESPONSES_DB_ID` and `FACILITY_REPORTING_ROOT_FOLDER_ID`
-live; an env var of the same name still overrides them. Turning off
+`WEEKLY_FOCUS_RESPONSES_DB_ID`, `FACILITY_REPORTING_ROOT_FOLDER_ID`,
+`ASRS_PEOPLE_DB_ID`, `STAFF_TRAINING_DB_ID`, the three Daily Progress Note
+database IDs and the Training Modules databases live; an env var of the same name still overrides them. Turning off
 "Lambda compatibility mode" for functions in Netlify removes the limit
 altogether (https://ntl.fyi/functions-migrate).
 

@@ -1,8 +1,9 @@
+const { id: configId } = require('./ids');
 const { queryDatabase, updatePage, createPage, getPlainText } = require('./notion');
 
-const QUESTIONS_DB_ID = process.env.DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID;
-const NOTES_DB_ID = process.env.DAILY_PROGRESS_NOTES_DB_ID;
-const ANSWERS_DB_ID = process.env.DAILY_PROGRESS_NOTE_ANSWERS_DB_ID;
+const QUESTIONS_DB_ID = configId('DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID');
+const NOTES_DB_ID = configId('DAILY_PROGRESS_NOTES_DB_ID');
+const ANSWERS_DB_ID = configId('DAILY_PROGRESS_NOTE_ANSWERS_DB_ID');
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }

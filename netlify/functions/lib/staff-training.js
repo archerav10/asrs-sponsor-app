@@ -1,7 +1,7 @@
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPlainText, getPage, driveFolderIdFromUrl } = require('./notion');
 const { id: configId } = require('./ids');
 
-const STAFF_TRAINING_DB_ID = process.env.STAFF_TRAINING_DB_ID;
+const STAFF_TRAINING_DB_ID = configId('STAFF_TRAINING_DB_ID');
 const ASRS_PEOPLE_DB_ID = configId('ASRS_PEOPLE_DB_ID');
 
 // The checklist itself (ASRS-450-01) lives in Notion, not in code, so it
