@@ -2349,6 +2349,35 @@
       status.textContent = text;
       if (a.overdue) status.style.color = '#B3261E';
       row.appendChild(status);
+      if (a.canResend) {
+        const actions = document.createElement('div');
+        actions.className = 'in-actions-row';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'secondary';
+        btn.textContent = 'Resend certificate';
+        const note = document.createElement('span');
+        note.className = 'meta';
+        note.style.cssText = 'font-size: 13px; color: #777;';
+        btn.addEventListener('click', async function () {
+          btn.disabled = true;
+          btn.textContent = 'Sending…';
+          note.textContent = '';
+          try {
+            const data = await apiFetch('/admin-resend-certificate', { method: 'POST', body: JSON.stringify({ assignmentId: a.id }) });
+            btn.textContent = 'Sent';
+            note.textContent = data.message;
+          } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Resend certificate';
+            note.textContent = e.message;
+            note.style.color = '#B3261E';
+          }
+        });
+        actions.appendChild(btn);
+        actions.appendChild(note);
+        row.appendChild(actions);
+      }
       listEl.appendChild(row);
     });
   }
