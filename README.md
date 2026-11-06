@@ -2169,6 +2169,11 @@ the person's Training folder, or `Facility Reporting/{Location}/Module
 Certificates/` when none is set (created on first use), then tells the
 same endpoint it's saved. Certificate Status: Pending (sent to the Zap),
 Saved (in Drive) or Failed (the post to the Zap failed).
+**Resend certificate** (Training Modules tab, `admin-resend-certificate`)
+appears on a completed assignment whose certificate Failed, or is still
+Pending 10 minutes after it was last sent (`Certificate Sent` on the
+assignment). It rebuilds the PDF with the same Certificate ID and filename
+and posts it to the Zap again.
 
 **Admin Dashboard → Training Modules:** assign a Published module to one
 person (staff at your granted locations) with a due date, see how it will

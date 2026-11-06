@@ -280,6 +280,7 @@ function assignmentFromPage(page) {
     certificateId: getPlainText(p['Certificate ID']),
     certificateFile: getPlainText(p['Certificate File']),
     certificateStatus: getPlainText(p['Certificate Status']),
+    certificateSentAt: getPlainText(p['Certificate Sent']),
     reviewed: !!getPlainText(p['Reviewed'])
   };
 }
@@ -580,12 +581,25 @@ async function issueCertificate(assignment, mod, site) {
     });
     // Stays Pending until the Zap reports the file saved (module-certificate-resolve).
     await uploadCertificate(pdf, { filename: filename, certificateId: certificateId, assignmentId: assignment.id, site: site });
+    await updatePage(assignment.id, { 'Certificate Sent': { date: { start: new Date().toISOString() } } }).catch(function (e) { console.error('Certificate Sent not recorded', e); });
     return { certificateId: certificateId, filename: filename, status: 'Pending' };
   } catch (err) {
     console.error('Certificate failed for assignment ' + assignment.id, err);
     await updatePage(assignment.id, { 'Certificate Status': { select: { name: 'Failed' } } }).catch(function () {});
     return { certificateId: certificateId, filename: filename, status: 'Failed' };
   }
+}
+
+// A completed assignment's certificate can be sent again when it Failed,
+// or when it's still Pending (or was never recorded) 10 minutes after the
+// module was completed or last sent.
+const RESEND_AFTER_MS = 10 * 60 * 1000;
+function canResendCertificate(assignment, nowMs) {
+  if (assignment.status !== 'Completed') return false;
+  if (assignment.certificateStatus === 'Saved') return false;
+  if (assignment.certificateStatus === 'Failed') return true;
+  const since = Date.parse(assignment.certificateSentAt || assignment.completedAt || '') || 0;
+  return nowMs - since >= RESEND_AFTER_MS;
 }
 
 async function writeResponses(assignment, mod, progress) {
@@ -615,5 +629,5 @@ module.exports = {
   assignmentFromPage, getAssignment, listAssignments, createAssignment,
   getPerson, staffAtLocations, assignmentText, assignmentEmail, sendAssignmentNotice,
   missingForSubmit, mergeProgress, publicModule,
-  certificateFilename, buildCertificatePdf, issueCertificate, certificateDestination, writeResponses
+  certificateFilename, buildCertificatePdf, issueCertificate, certificateDestination, canResendCertificate, writeResponses
 };

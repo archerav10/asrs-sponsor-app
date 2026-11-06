@@ -34,7 +34,8 @@ exports.handler = async function (event) {
           personName: a.personName, role: a.role, location: a.location, status: a.status,
           overdue: a.status !== 'Completed' && a.status !== 'Cancelled' && !!a.dueDate && a.dueDate.slice(0, 10) < today,
           assignedDate: a.assignedDate, dueDate: a.dueDate, completedAt: a.completedAt, channel: a.channel,
-          certificateId: a.certificateId, certificateStatus: a.certificateStatus
+          certificateId: a.certificateId, certificateStatus: a.certificateStatus,
+          canResend: tm.canResendCertificate(a, Date.now())
         };
       })
       .sort(function (a, b) { return String(b.assignedDate).localeCompare(String(a.assignedDate)); });
