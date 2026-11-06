@@ -281,7 +281,10 @@ function assignmentFromPage(page) {
     certificateFile: getPlainText(p['Certificate File']),
     certificateStatus: getPlainText(p['Certificate Status']),
     certificateSentAt: getPlainText(p['Certificate Sent']),
-    reviewed: !!getPlainText(p['Reviewed'])
+    reviewed: !!getPlainText(p['Reviewed']),
+    reviewedBy: getPlainText(p['Reviewed By']),
+    reviewNote: getPlainText(p['Review Note']),
+    needsFollowUp: !!getPlainText(p['Needs Follow-up'])
   };
 }
 
@@ -627,7 +630,7 @@ module.exports = {
   makeLinkToken, readLinkToken, linkExpiry, moduleLink,
   moduleFromPage, stepFromPage, loadModule, listModules,
   assignmentFromPage, getAssignment, listAssignments, createAssignment,
-  getPerson, staffAtLocations, assignmentText, assignmentEmail, sendAssignmentNotice,
+  getPerson, staffAtLocations, firstName, assignmentText, assignmentEmail, sendAssignmentNotice,
   missingForSubmit, mergeProgress, publicModule,
   certificateFilename, buildCertificatePdf, issueCertificate, certificateDestination, canResendCertificate, writeResponses
 };

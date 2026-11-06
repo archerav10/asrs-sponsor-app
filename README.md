@@ -2175,16 +2175,48 @@ Pending 10 minutes after it was last sent (`Certificate Sent` on the
 assignment). It rebuilds the PDF with the same Certificate ID and filename
 and posts it to the Zap again.
 
-**Admin Dashboard → Training Modules:** assign a Published module to one
-person (staff at your granted locations) with a due date, see how it will
-be sent, copy the link, and see every assignment's status, how it was
-sent and its certificate.
+**Admin Dashboard → Training Modules** (`admin-training-modules`):
 
-**Not built yet (phases 2–4 of the spec):** assign by location and role,
-read and review answers in the dashboard, reminders every 2 days, STOP
-handling for DSP numbers in `sms-inbound`, the Friday digest section,
-"Modules completed" on Staff Training, Slides steps, graded modules.
-Until then, answers are read in Module Responses in Notion.
+- **Assign training** (`admin-assign-modules`): tick one or more modules
+  (several = a bundle, any order, one due date), then narrow by
+  Locations (all your granted locations, or some) and Roles (starts from
+  the ticked modules' Applies To; widen it if you mean to), untick anyone
+  to leave out, or search to pick one person. **Review** shows who gets
+  what, how many by text and by email, and who's skipped (module already
+  open). **Assign and send** sends each person one message listing all
+  their modules. Up to 4 person × module pairs run in the request; bigger
+  sends go to `module-jobs-background` (15 minutes, EmailJS's one email a
+  second) and fill the list as they go. Anyone with no phone + consent and
+  no email gets their links shown to copy.
+- **The list**, filtered by Needs attention (overdue, needs follow-up,
+  certificate to resend, completed but not reviewed) / Open / Completed /
+  All. Open rows: **Send reminder**, **New link** (raises Link Version,
+  so older links stop working, and sends the new one), **Change due
+  date**, **Cancel** (asks to confirm). Completed rows: **Read answers**
+  (from Module Responses, grouped by Questions step) with **Mark
+  reviewed** and an optional note, and **Resend certificate** when needed.
+  All in `admin-module-assignment`.
+
+**Reminders** (`module-reminders`, scheduled `0 14,15 * * 1-5` and only
+acting at 10:00 AM Eastern on weekdays; hands off to
+`module-jobs-background`): every open assignment last contacted 2 or more
+days ago (assigned, or last reminded) is reminded, one message per person
+covering all their open modules, by text if Opted In with a phone,
+otherwise email. Before the due date: "still open and due …"; after:
+"now overdue". After the 10th reminder an assignment gets **Needs
+Follow-up** and reminders stop. Lib: `lib/training-modules-send.js`.
+Test without waiting for 10 AM:
+`/.netlify/functions/module-reminders?force=1&secret=<NOTIFICATION_TEST_SECRET>`.
+
+**Texts back from staff** (`sms-inbound`): STOP / START from a number on
+an ASRS People row sets its SMS Consent Status (and Date), alongside the
+existing Sponsors handling; any other text from a staff number that isn't
+a sponsor's gets "this number doesn't take replies" pointing back to the
+link.
+
+**Not built yet:** training paths (ordered modules with a path
+certificate, phase 3 of the spec), the Friday digest section, "Modules
+completed" on Staff Training, Slides steps, graded modules.
 
 **Setup:** connect the Notion integration to the four databases if they
 don't show up (… → Connections); fill in Phone Number, Email and SMS

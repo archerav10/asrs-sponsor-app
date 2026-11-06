@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const wf = require('./lib/weekly-focus');
 const sms = require('./lib/weekly-focus-sms');
 const { alertAdminsRed } = require('./lib/weekly-focus-alert');
+const modulesSend = require('./lib/training-modules-send');
 
 // Twilio calls this for every text sent to the Messaging Service's number
 // (the service's "Incoming messages" webhook). It records Weekly Focus
@@ -111,12 +112,22 @@ exports.handler = async function (event) {
       for (const sponsor of await wf.sponsorsByPhone(from)) {
         try { await wf.setSmsConsent(sponsor.id, status); } catch (e) { console.error('Could not set SMS consent for ' + sponsor.name, e); }
       }
+      // Staff (DSPs, and sponsors' ASRS People rows) for training texts.
+      try {
+        for (const person of await modulesSend.staffByPhone(from)) {
+          try { await modulesSend.setStaffSmsConsent(person.id, status); } catch (e) { console.error('Could not set SMS consent for ' + person.name, e); }
+        }
+      } catch (e) { console.error('Could not look up staff by phone', e); }
       return twiml(null); // Twilio sends its own STOP/START confirmation
     }
     if (keyword === 'help') return twiml(null);
 
     const found = await findOpenWeek(from);
-    if (!found.sponsors.length) return twiml(null); // not a sponsor's number
+    if (!found.sponsors.length) {
+      // A staff member answering a training text: point them back to the link.
+      const staff = await modulesSend.staffByPhone(from).catch(function () { return []; });
+      return twiml(staff.length && body ? modulesSend.NO_REPLIES_SMS : null);
+    }
     const choice = sms.parseChoice(body);
     if (!found.match) return twiml(choice ? sms.CLOSED : null);
 

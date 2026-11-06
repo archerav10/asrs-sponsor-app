@@ -35,12 +35,14 @@ exports.handler = async function (event) {
           overdue: a.status !== 'Completed' && a.status !== 'Cancelled' && !!a.dueDate && a.dueDate.slice(0, 10) < today,
           assignedDate: a.assignedDate, dueDate: a.dueDate, completedAt: a.completedAt, channel: a.channel,
           certificateId: a.certificateId, certificateStatus: a.certificateStatus,
-          canResend: tm.canResendCertificate(a, Date.now())
+          canResend: tm.canResendCertificate(a, Date.now()),
+          remindersSent: a.remindersSent, lastReminder: a.lastReminder, needsFollowUp: a.needsFollowUp,
+          reviewed: a.reviewed
         };
       })
       .sort(function (a, b) { return String(b.assignedDate).localeCompare(String(a.assignedDate)); });
 
-    return json(200, { modules: published, people: people, assignments: assignments });
+    return json(200, { modules: published, people: people, assignments: assignments, locations: granted });
   } catch (err) {
     if (!err.statusCode) console.error(err);
     return json(err.statusCode || 500, { error: err.message || 'Something went wrong.' });
