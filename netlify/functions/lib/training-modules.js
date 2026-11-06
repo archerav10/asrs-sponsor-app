@@ -259,6 +259,12 @@ function assignmentFromPage(page) {
     id: page.id,
     name: getPlainText(p['Name']),
     moduleId: relationIds(p['Module'])[0] || '',
+    // Set on a module that is a step in a training path, and on a Path
+    // Assignments row itself (isPath), which shares these field names.
+    pathAssignmentId: relationIds(p['Path Assignment'])[0] || '',
+    pathStep: getPlainText(p['Path Step']) || null,
+    pathId: relationIds(p['Path'])[0] || '',
+    isPath: !!p['Path'] && !p['Module'],
     moduleVersion: getPlainText(p['Module Version']) || 1,
     personId: relationIds(p['Person'])[0] || '',
     personName: getPlainText(p['Person Name']),
@@ -384,6 +390,12 @@ async function createAssignment(fields) {
     'Reminders Sent': { number: 0 },
     'Progress': richText('{}')
   };
+  if (fields.status) props['Status'] = { select: { name: fields.status } };
+  if (fields.dueDate === null) delete props['Due Date'];
+  if (fields.pathAssignmentId) {
+    props['Path Assignment'] = { relation: [{ id: fields.pathAssignmentId }] };
+    props['Path Step'] = { number: fields.pathStep };
+  }
   if (fields.role) props['Role'] = { select: { name: fields.role } };
   if (fields.location) props['Location'] = { select: { name: fields.location } };
   if (fields.phone) props['Phone'] = { phone_number: fields.phone };
@@ -458,9 +470,9 @@ function publicModule(mod) {
 
 // ---------- certificate ----------
 
-function certificateFilename(mod, personName, dateIso) {
+function certificateFilename(mod, personName, dateIso, prefix) {
   const who = String(personName || 'Unknown').trim().replace(/[^A-Za-z0-9 -]/g, '').replace(/\s+/g, '-');
-  return 'Module_' + mod.key + '_' + who + '_' + dateIso + '.pdf';
+  return (prefix || 'Module') + '_' + mod.key + '_' + who + '_' + dateIso + '.pdf';
 }
 
 async function newCertificateId() {
@@ -509,11 +521,12 @@ async function buildCertificatePdf(c) {
   center('This certifies that', H - 215, serif, 22, ink);
   center(c.personName, H - 265, serifItalic, 34, green);
   page.drawLine({ start: { x: W / 2 - 170, y: H - 277 }, end: { x: W / 2 + 170, y: H - 277 }, thickness: 0.8, color: gold });
-  center('has completed the training module', H - 305, sans, 12, muted);
+  center(c.kindText || 'has completed the training module', H - 305, sans, 12, muted);
   center(c.moduleTitle, H - 340, serifBold, 24, ink);
   center(c.certificateLine, H - 365, sans, 11, muted);
 
-  const cols = [['Completed', longDate(c.completedDate)], ['Location', c.location || '—'], ['Role', c.role || '—'], ['Module version', String(c.moduleVersion)], ['Certificate ID', c.certificateId]];
+  const cols = [['Completed', longDate(c.completedDate)], ['Location', c.location || '—'], ['Role', c.role || '—']]
+    .concat(c.hideVersion ? [] : [['Module version', String(c.moduleVersion)]]).concat([['Certificate ID', c.certificateId]]);
   const colW = (W - 140) / cols.length;
   cols.forEach(function (col, i) {
     const cx = 70 + colW * i + colW / 2;
@@ -567,10 +580,11 @@ async function certificateDestination(assignmentId, certificateId) {
 // Builds the certificate for a completed assignment and hands it to the
 // Zap. Never throws: a failed hand-off leaves Certificate Status = Failed
 // for the admin view. Pending = on its way; the Zap sets Saved.
-async function issueCertificate(assignment, mod, site) {
+async function issueCertificate(assignment, mod, site, options) {
+  options = options || {};
   const completedDate = (assignment.completedAt || todayIso()).slice(0, 10);
   const certificateId = assignment.certificateId || await newCertificateId();
-  const filename = certificateFilename(mod, assignment.personName, completedDate);
+  const filename = certificateFilename(mod, assignment.personName, completedDate, options.filenamePrefix);
   await updatePage(assignment.id, {
     'Certificate ID': richText(certificateId),
     'Certificate File': richText(filename),
@@ -580,7 +594,8 @@ async function issueCertificate(assignment, mod, site) {
     const pdf = await buildCertificatePdf({
       personName: assignment.personName, moduleTitle: mod.title, certificateLine: mod.certificateLine,
       completedDate: completedDate, location: assignment.location, role: assignment.role,
-      moduleVersion: assignment.moduleVersion, certificateId: certificateId
+      moduleVersion: assignment.moduleVersion, certificateId: certificateId, kindText: mod.kindText,
+      hideVersion: !!options.filenamePrefix
     });
     // Stays Pending until the Zap reports the file saved (module-certificate-resolve).
     await uploadCertificate(pdf, { filename: filename, certificateId: certificateId, assignmentId: assignment.id, site: site });

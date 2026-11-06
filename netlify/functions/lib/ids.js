@@ -30,6 +30,9 @@ const IDS = {
   MODULE_STEPS_DB_ID: '7ffcb163-43a5-4df4-bf5c-e7dcacc75da6',
   MODULE_ASSIGNMENTS_DB_ID: '423c9fc0-6339-4b14-b3e7-16150094c36c',
   MODULE_RESPONSES_DB_ID: 'ec21d714-34af-40e7-820a-a4b7c3339173',
+  PATHS_DB_ID: '72dfc838-d9bc-4cf4-9d8c-d23f0720fe78',
+  PATH_STEPS_DB_ID: '6119b077-c8bf-4819-8b29-358b915bf9cb',
+  PATH_ASSIGNMENTS_DB_ID: '02b6083f-6255-47b2-a579-1930e3034bf4',
   // A Google OAuth client ID is public by design (it's sent to browsers in
   // sign-in links); the client secret and refresh token stay in Netlify.
   GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'

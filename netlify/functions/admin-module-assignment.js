@@ -14,12 +14,22 @@ const send = require('./lib/training-modules-send');
 //   newlink    -> a new link (older links stop working), sent to the person
 //   due        -> change the Due Date (dueDate)
 //   cancel     -> Status Cancelled; no more reminders, the link stops working
+//   cancelpath -> { pathAssignmentId }: cancels a training path and its open steps
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
   try {
     const session = requireSession(event);
     if (session.accountType !== 'admin-dashboard') return json(403, { error: 'Not authorized for the admin dashboard.' });
     const body = JSON.parse(event.body || '{}');
+    if (body.action === 'cancelpath') {
+      const tp = require('./lib/training-paths');
+      if (!body.pathAssignmentId) throw tm.badRequest('Pick a path assignment.');
+      const pa = await tp.pathAssignmentFromPage(await require('./lib/notion').getPage(body.pathAssignmentId));
+      if ((session.grantedLocations || []).indexOf(pa.location) < 0) return json(403, { error: 'You aren\'t granted ' + (pa.location || 'that location') + '.' });
+      if (pa.status !== 'In Progress') throw tm.badRequest('This path isn\'t in progress.');
+      await tp.cancelPath(pa);
+      return json(200, { message: 'Path cancelled. No more reminders, and its links no longer work.' });
+    }
     if (!body.assignmentId) throw tm.badRequest('Pick an assignment.');
     const a = await tm.getAssignment(body.assignmentId);
     if ((session.grantedLocations || []).indexOf(a.location) < 0) return json(403, { error: 'You aren\'t granted ' + (a.location || 'that location') + '.' });
@@ -58,6 +68,7 @@ exports.handler = async function (event) {
       }
       case 'cancel': {
         if (!send.isOpen(a)) throw tm.badRequest('This module isn\'t open.');
+        if (a.pathAssignmentId) throw tm.badRequest('This module is a step in a training path. Cancel the path instead.');
         await updatePage(a.id, { 'Status': { select: { name: 'Cancelled' } } });
         return json(200, { message: 'Cancelled. No more reminders, and the link no longer works.' });
       }

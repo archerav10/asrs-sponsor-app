@@ -17,6 +17,9 @@ exports.handler = async function (event) {
     if (assignment.status === 'Cancelled') {
       return json(410, { error: 'This training module was cancelled. Nothing more is needed from you.' });
     }
+    if (assignment.status === 'Locked') {
+      return json(409, { error: await require('./lib/training-paths').lockedMessage(assignment) });
+    }
     if (link.linkVersion !== assignment.linkVersion) {
       return json(410, { error: 'This link has been replaced by a newer one. Please use the most recent link we sent you.' });
     }

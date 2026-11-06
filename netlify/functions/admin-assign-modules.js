@@ -17,7 +17,7 @@ exports.handler = async function (event) {
     if (session.accountType !== 'admin-dashboard') return json(403, { error: 'Not authorized for the admin dashboard.' });
     const body = JSON.parse(event.body || '{}');
     const opts = {
-      moduleIds: body.moduleIds, personIds: body.personIds, dueDate: body.dueDate,
+      moduleIds: body.moduleIds, pathIds: body.pathIds, personIds: body.personIds, dueDate: body.dueDate,
       grantedLocations: session.grantedLocations || [], assignedBy: session.email, site: tm.siteFromEvent(event)
     };
     const plan = await send.planAssignments(opts);
@@ -29,7 +29,7 @@ exports.handler = async function (event) {
       return json(200, { done: true, totals: plan.totals, results: results });
     }
     await send.startJob('assign', {
-      moduleIds: opts.moduleIds, personIds: opts.personIds, dueDate: opts.dueDate,
+      moduleIds: opts.moduleIds, pathIds: opts.pathIds, personIds: opts.personIds, dueDate: opts.dueDate,
       grantedLocations: opts.grantedLocations, assignedBy: opts.assignedBy, site: opts.site
     }, opts.site);
     return json(200, { started: true, totals: plan.totals });

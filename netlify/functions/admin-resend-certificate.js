@@ -28,8 +28,13 @@ exports.handler = async function (event) {
         : 'This certificate was sent less than 10 minutes ago. Give it a few minutes before resending.', 409);
     }
 
-    const mod = await tm.loadModule(assignment.moduleId);
-    const cert = await tm.issueCertificate(assignment, mod, tm.siteFromEvent(event));
+    let cert;
+    if (assignment.isPath) {
+      const tp = require('./lib/training-paths');
+      cert = await tp.issuePathCertificate(assignment, await tp.loadPath(assignment.pathId), tm.siteFromEvent(event));
+    } else {
+      cert = await tm.issueCertificate(assignment, await tm.loadModule(assignment.moduleId), tm.siteFromEvent(event));
+    }
     if (cert.status === 'Failed') {
       return json(502, { error: 'The certificate couldn\'t be sent to the Zap. Check that ZAPIER_MODULE_CERTIFICATE_WEBHOOK_URL is set in Netlify and the site has been redeployed since.' });
     }
