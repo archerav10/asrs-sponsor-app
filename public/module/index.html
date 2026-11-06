@@ -389,7 +389,9 @@ p { margin: 0; }
       '<span class="small">has completed the training module</span><span class="mod">' + esc(m.title) + '</span><span class="small">' + esc(m.certificateLine || '') + '</span>' +
       '<div class="meta"><div>Completed<b>' + esc(longDate(j.completedAt || new Date().toISOString())) + '</b></div><div>Location<b>' + esc(j.location || '—') + '</b></div>' +
       '<div>Role<b>' + esc(j.role || '—') + '</b></div><div>Certificate ID<b>' + esc(j.certificateId || '') + '</b></div></div></div>' +
-      '<p class="muted">You can close this page.</p></section>';
+      (j.next ? '<div class="note" style="display:flex;flex-direction:column;gap:10px;"><span><b>Next up</b> in "' + esc(j.next.pathTitle) + '" (step ' + j.next.step + ' of ' + j.next.steps + '): ' + esc(j.next.title) + ', due ' + esc(niceDate(j.next.dueDate)) + '. We\'ve also sent you the link.</span><a class="btn" style="text-align:center;text-decoration:none;" href="' + esc(j.next.link) + '">Start the next module</a></div>' : '') +
+      (j.pathCompleted ? '<p class="note">You\'ve completed the whole training path, <b>' + esc(j.pathTitle) + '</b>. Your path certificate is on its way to your training file too.</p>' : '') +
+      (j.next ? '' : '<p class="muted">You can close this page.</p>') + '</section>';
     window.scrollTo(0, 0);
   }
 

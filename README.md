@@ -2214,9 +2214,40 @@ existing Sponsors handling; any other text from a staff number that isn't
 a sponsor's gets "this number doesn't take replies" pointing back to the
 link.
 
-**Not built yet:** training paths (ordered modules with a path
-certificate, phase 3 of the spec), the Friday digest section, "Modules
-completed" on Staff Training, Slides steps, graded modules.
+**Training paths** (`lib/training-paths.js`): modules done in a set
+order. In Notion (Training Modules page; IDs in `lib/ids.js`): **Paths**
+(Title, Key, Status, Applies To, Certificate Line), **Path Steps** (Path,
+Module, Order, Days to complete; blank = 7) and **Path Assignments** (one
+row per person per path, written by the app). Module Assignments gained
+**Path Assignment**, **Path Step** and a **Locked** status.
+
+- Assign a path from the same form (Training paths, under Modules; it
+  fills Roles from the path's Applies To). That creates the Path
+  Assignments row and one Module Assignments row per step: step 1 is
+  Assigned with its due date (Days to complete from today), the rest are
+  Locked with none. The text says it's a path ("you've started the
+  training path …, first up: …"). A person can't be given the same path
+  twice while it's in progress.
+- A Locked step's link shows "This module opens after you finish …", and
+  reminders skip Locked steps (they only cover Assigned / In Progress).
+- Submitting a step (`module-submit` → `afterStepCompleted`) unlocks the
+  next: Assigned today, due in its Days to complete, and texts "Nice work
+  finishing …. Next up …". The done screen shows a Next up box with a
+  button straight to it.
+- Submitting the last step completes the Path Assignment and issues a
+  path certificate ("has completed the training path"),
+  `Path_{Key}_{First-Last}_{date}.pdf`, through the same Zap and
+  `module-certificate-resolve` (Path Assignments shares the certificate
+  field names). Resend works on it too.
+- The list shows each path as one row ("1 of 2 done · on step 2, …, due
+  …") with **Cancel path** (cancels every step not done) and **Resend path
+  certificate**. Its steps also appear as module rows labelled "(step n of
+  N in …)"; they have no Cancel of their own.
+- A sample path, **Staff Orientation** (Heads Up, then When Frustration
+  Builds, 7 days each), is in Notion to try it with.
+
+**Not built yet:** the Friday digest section, "Modules completed" on
+Staff Training, Slides steps, graded modules.
 
 **Setup:** connect the Notion integration to the four databases if they
 don't show up (… → Connections); fill in Phone Number, Email and SMS

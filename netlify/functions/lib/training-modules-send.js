@@ -5,6 +5,7 @@ const { updatePage, queryDatabaseAll } = require('./notion');
 const { id: configId } = require('./ids');
 const { encryptToken, decryptToken } = require('./crypto');
 const tm = require('./training-modules');
+const tp = require('./training-paths');
 
 const ROLES = ['Sponsor', 'DSP', 'Secondary DSP'];
 // Above this many person x module pairs, Assign hands off to the
@@ -31,15 +32,31 @@ function channelFor(person) {
 // ---------- message text ----------
 // items: [{ assignment, mod, link }], all for one person.
 
+// An item may be the first step of a path: it.path = { title, steps }.
+function itemLine(it) {
+  return it.path
+    ? it.mod.title + ' (step 1 of ' + it.path.steps + ' in "' + it.path.title + '", due ' + tm.prettyDate(it.assignment.dueDate) + ')'
+    : it.mod.title + ' (due ' + tm.prettyDate(it.assignment.dueDate) + ')';
+}
+
 function assignText(person, items) {
   const hi = 'ASRS Training: Hi ' + tm.firstName(person.name) + ', ';
   if (items.length === 1) {
     const it = items[0];
+    if (it.path) {
+      return hi + 'you\'ve started the training path "' + it.path.title + '": ' + it.path.steps + ' modules, one at a time. First up: "' + it.mod.title + '"' +
+        (it.mod.minutes ? ' (about ' + it.mod.minutes + ' min)' : '') + ', due ' + tm.prettyDate(it.assignment.dueDate) + ': ' + it.link + ' Reply STOP to opt out.';
+    }
     return hi + 'you have a new training module, "' + it.mod.title + '"' + (it.mod.minutes ? ' (about ' + it.mod.minutes + ' min)' : '') +
       '. Please finish it by ' + tm.prettyDate(it.assignment.dueDate) + ': ' + it.link + ' Reply STOP to opt out.';
   }
-  return hi + 'you have ' + items.length + ' new training modules, due ' + tm.prettyDate(items[0].assignment.dueDate) + ':\n' +
-    items.map(function (it, i) { return (i + 1) + ') ' + it.mod.title + ': ' + it.link; }).join('\n') + '\nReply STOP to opt out.';
+  return hi + 'you have new training:\n' +
+    items.map(function (it, i) { return (i + 1) + ') ' + itemLine(it) + ': ' + it.link; }).join('\n') + '\nReply STOP to opt out.';
+}
+
+function nextStepText(person, info) {
+  return 'ASRS Training: Nice work finishing "' + info.prevTitle + '". Next up in "' + info.path.title + '" (step ' + info.step + ' of ' + info.steps + '): "' +
+    info.mod.title + '", due ' + tm.prettyDate(info.assignment.dueDate) + ': ' + info.link;
 }
 
 function reminderText(items, today) {
@@ -64,8 +81,13 @@ function emailFor(kind, person, items, today) {
   const sign = '\n\nNo password is needed: the link opens your module.\n\nThank you,\nArch Support Residential Services';
   const list = items.map(function (it) {
     return '- ' + it.mod.title + (it.mod.minutes ? ' (about ' + it.mod.minutes + ' minutes)' : '') +
+      (it.path ? ', step 1 of ' + it.path.steps + ' in the training path "' + it.path.title + '"' : '') +
       ', due ' + tm.prettyDate(it.assignment.dueDate) + (isOverdue(it.assignment, today) ? ' (overdue)' : '') + ':\n  ' + it.link;
   }).join('\n');
+  if (kind === 'nextstep') {
+    const info = items[0];
+    return { subject: 'Next up: ' + info.mod.title, message: greeting + 'Nice work finishing "' + info.prevTitle + '". Next up in the training path "' + info.path.title + '" (step ' + info.step + ' of ' + info.steps + '):\n\n- ' + info.mod.title + ', due ' + tm.prettyDate(info.assignment.dueDate) + ':\n  ' + info.link + sign };
+  }
   if (kind === 'remind') {
     return { subject: 'Reminder: training ' + (items.length === 1 ? 'module "' + items[0].mod.title + '"' : 'modules') + ' still open',
       message: greeting + 'This is a reminder that ' + (items.length === 1 ? 'this training module is' : 'these training modules are') + ' still open:\n\n' + list + sign };
@@ -73,7 +95,7 @@ function emailFor(kind, person, items, today) {
   if (kind === 'newlink') {
     return { subject: 'New link: ' + items[0].mod.title, message: greeting + 'Here is a new link for your training module. Your earlier link no longer works.\n\n' + list + sign };
   }
-  return { subject: items.length === 1 ? 'Training module: ' + items[0].mod.title : 'New training modules (' + items.length + ')',
+  return { subject: items.length === 1 ? (items[0].path ? 'Training path: ' + items[0].path.title : 'Training module: ' + items[0].mod.title) : 'New training (' + items.length + ' items)',
     message: greeting + 'You have ' + (items.length === 1 ? 'a new training module' : items.length + ' new training modules') + ':\n\n' + list + sign };
 }
 
@@ -82,7 +104,7 @@ function emailFor(kind, person, items, today) {
 async function notify(kind, person, items, deps, today) {
   const channel = channelFor(person);
   if (channel === 'Text') {
-    const body = kind === 'remind' ? reminderText(items, today) : kind === 'newlink' ? newLinkText(items[0]) : assignText(person, items);
+    const body = kind === 'remind' ? reminderText(items, today) : kind === 'newlink' ? newLinkText(items[0]) : kind === 'nextstep' ? nextStepText(person, items[0]) : assignText(person, items);
     await deps.sendSms(tm.normalizePhone(person.phone), body);
   } else if (channel === 'Email') {
     const e = emailFor(kind, person, items, today);
@@ -98,11 +120,15 @@ async function notify(kind, person, items, deps, today) {
 async function planAssignments(opts) {
   const granted = opts.grantedLocations || [];
   const moduleIds = Array.from(new Set(opts.moduleIds || []));
+  const pathIds = Array.from(new Set(opts.pathIds || []));
   const personIds = Array.from(new Set(opts.personIds || []));
-  if (!moduleIds.length) throw tm.badRequest('Pick at least one module.');
+  if (!moduleIds.length && !pathIds.length) throw tm.badRequest('Pick at least one module or path.');
   if (!personIds.length) throw tm.badRequest('Pick at least one person.');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.dueDate || '')) throw tm.badRequest('Pick a due date.');
-  if (opts.dueDate < tm.todayIso()) throw tm.badRequest('The due date is in the past.');
+  // Modules need a due date; a path's steps each get theirs as they unlock.
+  if (moduleIds.length) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.dueDate || '')) throw tm.badRequest('Pick a due date.');
+    if (opts.dueDate < tm.todayIso()) throw tm.badRequest('The due date is in the past.');
+  }
 
   const modules = [];
   for (const id of moduleIds) {
@@ -111,28 +137,41 @@ async function planAssignments(opts) {
     if (mod.problems.length) throw tm.badRequest('"' + mod.title + '" can\'t be assigned yet: ' + mod.problems.join(' '));
     modules.push(mod);
   }
+  const paths = [];
+  for (const id of pathIds) {
+    const path = await tp.loadPath(id);
+    if (path.status !== 'Published') throw tm.badRequest('The path "' + path.title + '" isn\'t Published in Notion yet.');
+    if (path.problems.length) throw tm.badRequest('The path "' + path.title + '" can\'t be assigned yet: ' + path.problems.join(' '));
+    paths.push(path);
+  }
 
   const people = [];
   for (const id of personIds) {
     const person = await tm.getPerson(id);
     if (granted.indexOf(person.location) < 0) throw tm.badRequest('You aren\'t granted ' + (person.location || 'that person\'s location') + '.', 403);
     const open = (await tm.listAssignments({ property: 'Person', relation: { contains: person.id } })).filter(isOpen);
-    const add = [], skip = [];
+    const openPaths = paths.length ? (await tp.listPathAssignments({ property: 'Person', relation: { contains: person.id } })).filter(function (x) { return x.status === 'In Progress'; }) : [];
+    const add = [], skip = [], addPaths = [];
+    paths.forEach(function (path) {
+      if (openPaths.some(function (x) { return tm.sameId(x.pathId, path.id); })) skip.push({ mod: { title: path.title }, reason: 'path already in progress' });
+      else addPaths.push(path);
+    });
     modules.forEach(function (mod) {
       const dup = open.find(function (a) { return tm.sameId(a.moduleId, mod.id); });
       if (dup) skip.push({ mod: mod, reason: 'already open, due ' + tm.prettyDate(dup.dueDate) });
       else add.push(mod);
     });
-    people.push({ person: person, channel: channelFor(person), add: add, skip: skip });
+    people.push({ person: person, channel: channelFor(person), add: add, addPaths: addPaths, skip: skip });
   }
 
-  const sending = people.filter(function (p) { return p.add.length; });
+  const sending = people.filter(function (p) { return p.add.length || p.addPaths.length; });
   return {
     modules: modules,
+    paths: paths,
     people: people,
     totals: {
       people: sending.length,
-      assignments: sending.reduce(function (n, p) { return n + p.add.length; }, 0),
+      assignments: sending.reduce(function (n, p) { return n + p.add.length + p.addPaths.length; }, 0),
       byText: sending.filter(function (p) { return p.channel === 'Text'; }).length,
       byEmail: sending.filter(function (p) { return p.channel === 'Email'; }).length,
       noContact: sending.filter(function (p) { return !p.channel; }).length,
@@ -145,10 +184,11 @@ function planSummary(plan) {
   return {
     totals: plan.totals,
     modules: plan.modules.map(function (m) { return { id: m.id, title: m.title }; }),
+    paths: plan.paths.map(function (x) { return { id: x.id, title: x.title, steps: x.steps.length, firstDays: x.steps[0].days, firstTitle: x.steps[0].mod.title }; }),
     people: plan.people.map(function (p) {
       return {
         id: p.person.id, name: p.person.name, role: p.person.role, location: p.person.location, channel: p.channel,
-        add: p.add.map(function (m) { return m.title; }),
+        add: p.add.map(function (m) { return m.title; }).concat(p.addPaths.map(function (x) { return x.title + ' (path)'; })),
         skip: p.skip.map(function (s) { return s.mod.title + ' (' + s.reason + ')'; })
       };
     })
@@ -161,9 +201,13 @@ async function carryOutPlan(plan, opts, deps) {
   const results = [];
   let lastEmailAt = 0;
   for (const p of plan.people) {
-    if (!p.add.length) continue;
+    if (!p.add.length && !p.addPaths.length) continue;
     const items = [];
     try {
+      for (const path of p.addPaths) {
+        const made = await tp.createPathAssignment(path, p.person, opts);
+        items.push({ assignment: made.first.assignment, mod: made.first.mod, link: tm.moduleLink(made.first.assignment, opts.site), path: { title: path.title, steps: path.steps.length } });
+      }
       for (const mod of p.add) {
         const assignment = await tm.createAssignment({
           moduleId: mod.id, moduleTitle: mod.title, moduleVersion: mod.version,
@@ -321,7 +365,13 @@ async function setStaffSmsConsent(personId, status) {
 
 const NO_REPLIES_SMS = 'ASRS Training: this number doesn\'t take replies. Open the link in your text to finish your training module, or contact your ASRS supervisor.';
 
+// For lib/training-paths.js afterStepCompleted.
+function notifyNextStep(deps) {
+  return function (person, info) { return notify('nextstep', person, [info], deps); };
+}
+
 module.exports = {
+  notifyNextStep,
   ROLES, INLINE_LIMIT, MAX_REMINDERS, REMINDER_EVERY_MS,
   isOpen, isOverdue, channelFor, assignText, reminderText, emailFor, notify,
   planAssignments, planSummary, carryOutPlan, startJob, readJobTicket,

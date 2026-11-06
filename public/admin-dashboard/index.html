@@ -566,6 +566,8 @@
         <div id="ma-form">
           <label>Modules <span class="ma-hint">tick more than one to send them together</span></label>
           <div id="ma-modules" class="ma-checks"></div>
+          <label>Training paths <span class="ma-hint">modules done in order; each unlocks when the one before is submitted</span></label>
+          <div id="ma-paths" class="ma-checks"></div>
           <label>Locations <span class="ma-hint">none ticked = all your locations</span></label>
           <div id="ma-locations" class="ma-checks"></div>
           <label>Roles <span class="ma-hint">none ticked = all roles; ticking a module fills in its Applies To</span></label>
@@ -574,7 +576,7 @@
           <input type="text" id="ma-search" placeholder="Search by name to pick one person">
           <div class="in-actions-row"><button type="button" class="secondary" id="ma-tick-all">Tick everyone shown</button><button type="button" class="secondary" id="ma-untick-all">Untick everyone shown</button></div>
           <div id="ma-people" class="ma-people"></div>
-          <label for="ma-due">Due date</label>
+          <label for="ma-due">Due date <span class="ma-hint">for modules; a path's steps get their own as they unlock</span></label>
           <input type="date" id="ma-due">
           <p class="error-text" id="module-assign-error"></p>
           <button type="button" id="module-assign-review">Review</button>
@@ -2415,9 +2417,9 @@
   }
   function maModulesChanged() {
     if (maRolesTouched) return;
-    const picked = maValues('ma-modules');
+    const picked = maValues('ma-modules').concat(maValues('ma-paths'));
     const roles = new Set();
-    ((lastModulesData && lastModulesData.modules) || []).forEach(function (m) {
+    ((lastModulesData && lastModulesData.modules) || []).concat((lastModulesData && lastModulesData.paths) || []).forEach(function (m) {
       if (picked.indexOf(m.id) >= 0) (m.appliesTo || []).forEach(function (r) { roles.add(r); });
     });
     maSetRoles(Array.from(roles));
@@ -2430,7 +2432,7 @@
   }
 
   function maPayload() {
-    return { moduleIds: maValues('ma-modules'), personIds: maPicked().map(function (p) { return p.id; }), dueDate: document.getElementById('ma-due').value };
+    return { moduleIds: maValues('ma-modules'), pathIds: maValues('ma-paths'), personIds: maPicked().map(function (p) { return p.id; }), dueDate: document.getElementById('ma-due').value };
   }
 
   function maRenderPreview(plan) {
@@ -2439,8 +2441,15 @@
     el.innerHTML = '';
     const head = document.createElement('p');
     head.style.cssText = 'font-weight:600; margin: 12px 0 4px;';
-    head.textContent = t.people + (t.people === 1 ? ' person' : ' people') + ' will get ' + plan.modules.map(function (m) { return '"' + m.title + '"'; }).join(' and ') + ', due ' + formatDate(document.getElementById('ma-due').value) + '.';
+    const things = plan.modules.map(function (m) { return '"' + m.title + '"'; }).concat((plan.paths || []).map(function (x) { return 'the path "' + x.title + '"'; }));
+    head.textContent = t.people + (t.people === 1 ? ' person' : ' people') + ' will get ' + things.join(' and ') + (plan.modules.length ? ', modules due ' + formatDate(document.getElementById('ma-due').value) : '') + '.';
     el.appendChild(head);
+    (plan.paths || []).forEach(function (x) {
+      const n = document.createElement('p');
+      n.className = 'help-text';
+      n.textContent = '"' + x.title + '" has ' + x.steps + ' steps. It starts with "' + x.firstTitle + '", due in ' + x.firstDays + ' days; each next step unlocks, with its own due date, when the one before is submitted.';
+      el.appendChild(n);
+    });
     const how = document.createElement('p');
     how.className = 'help-text';
     how.textContent = t.byText + ' by text, ' + t.byEmail + ' by email' + (t.noContact ? ', ' + t.noContact + ' with no phone or email (you\'ll get their links to send)' : '') + '. ' + t.assignments + ' assignment' + (t.assignments === 1 ? '' : 's') + ' in all.';
@@ -2643,10 +2652,78 @@
     }
   }
 
+  function mlPathRows() {
+    const f = document.getElementById('ml-filter').value;
+    return ((lastModulesData && lastModulesData.pathAssignments) || []).filter(function (x) {
+      if (f === 'open') return x.status === 'In Progress';
+      if (f === 'completed') return x.status === 'Completed';
+      if (f === 'attention') return (x.current && x.current.overdue) || x.canResend;
+      return true;
+    });
+  }
+
+  function renderPathRow(x, listEl) {
+    const row = document.createElement('div');
+    row.className = 'ap-step';
+    row.style.borderLeft = '3px solid var(--forest)';
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = x.personName + ' · Path: ' + x.pathTitle;
+    row.appendChild(title);
+    const status = document.createElement('p');
+    status.className = 'ap-step-status';
+    let text;
+    if (x.status === 'Completed') text = 'Completed ' + formatDate((x.completedAt || '').slice(0, 10)) + ' · all ' + x.steps + ' steps' +
+      (x.certificateStatus === 'Saved' ? ' · path certificate ' + x.certificateId + ' saved to Drive' : x.certificateStatus === 'Failed' ? ' · path certificate upload failed' : ' · path certificate on its way to Drive');
+    else if (x.status === 'Cancelled') text = 'Cancelled · ' + x.done + ' of ' + x.steps + ' steps done';
+    else text = x.done + ' of ' + x.steps + ' done' + (x.current ? ' · on step ' + x.current.step + ', ' + x.current.title + ', due ' + formatDate((x.current.dueDate || '').slice(0, 10)) + (x.current.overdue ? ' (overdue)' : '') : '');
+    status.textContent = text + ' · ' + (x.role || 'Role not set') + ', ' + x.location;
+    if (x.current && x.current.overdue) status.style.color = '#B3261E';
+    row.appendChild(status);
+    const actions = document.createElement('div');
+    actions.className = 'in-actions-row';
+    const note = document.createElement('span');
+    note.className = 'help-text';
+    note.style.margin = '0';
+    if (x.status === 'In Progress') {
+      const cancel = mlButton('Cancel path', async function () {
+        if (!cancel.dataset.confirm) {
+          cancel.dataset.confirm = '1';
+          cancel.textContent = 'Yes, cancel the path';
+          note.textContent = 'Cancels every step not yet done. Click again to confirm.';
+          return;
+        }
+        cancel.disabled = true;
+        try {
+          const d = await apiFetch('/admin-module-assignment', { method: 'POST', body: JSON.stringify({ action: 'cancelpath', pathAssignmentId: x.id }) });
+          note.textContent = d.message;
+          setTimeout(loadModulesDashboard, 600);
+        } catch (e) { cancel.disabled = false; note.style.color = '#B3261E'; note.textContent = e.message; }
+      });
+      actions.appendChild(cancel);
+    }
+    if (x.canResend) {
+      const resend = mlButton('Resend path certificate', async function () {
+        resend.disabled = true;
+        try {
+          const d = await apiFetch('/admin-resend-certificate', { method: 'POST', body: JSON.stringify({ assignmentId: x.id }) });
+          resend.textContent = 'Sent';
+          note.textContent = d.message;
+        } catch (e) { resend.disabled = false; note.style.color = '#B3261E'; note.textContent = e.message; }
+      });
+      actions.appendChild(resend);
+    }
+    if (actions.children.length) { actions.appendChild(note); row.appendChild(actions); }
+    listEl.appendChild(row);
+  }
+
   function renderModulesList() {
     const listEl = document.getElementById('modules-list');
     const rows = mlFiltered();
+    const pathRows = mlPathRows();
     listEl.innerHTML = '';
+    pathRows.forEach(function (x) { renderPathRow(x, listEl); });
+    if (!rows.length && pathRows.length) return;
     if (!rows.length) {
       listEl.innerHTML = '<p class="empty-text">' + (((lastModulesData && lastModulesData.assignments) || []).length ? 'Nothing to show for this filter.' : 'No modules assigned yet.') + '</p>';
       return;
@@ -2657,7 +2734,7 @@
       row.className = 'ap-step';
       const title = document.createElement('p');
       title.className = 'ap-step-title';
-      title.textContent = a.personName + ' · ' + a.moduleTitle;
+      title.textContent = a.personName + ' · ' + a.moduleTitle + (a.pathTitle ? ' (step ' + a.pathStep + ' of ' + (a.pathSteps || '?') + ' in ' + a.pathTitle + ')' : '');
       row.appendChild(title);
       const status = document.createElement('p');
       status.className = 'ap-step-status';
@@ -2709,7 +2786,7 @@
             note.textContent = 'Cancelling stops reminders and the link. Click again to confirm.';
           }
         });
-        [remind, newLink, due, cancel].forEach(function (b) { actions.appendChild(b); });
+        [remind, newLink, due].concat(a.pathTitle ? [] : [cancel]).forEach(function (b) { actions.appendChild(b); });
       }
       if (a.status === 'Completed') {
         const answersBox = document.createElement('div');
@@ -2765,6 +2842,13 @@
           const box = maCheckbox(modEl, m.id, m.title + (m.minutes ? ' (' + m.minutes + ' min)' : '') + (m.problems.length ? ' — not ready: ' + m.problems.join(' ') : ''), false, maModulesChanged);
           box.disabled = m.problems.length > 0;
         });
+        const pathEl = document.getElementById('ma-paths');
+        pathEl.innerHTML = '';
+        if (!(data.paths || []).length) pathEl.innerHTML = '<p class="empty-text" style="margin:0;">No Published paths yet.</p>';
+        (data.paths || []).forEach(function (x) {
+          const box = maCheckbox(pathEl, x.id, x.title + ' (' + x.steps.length + ' steps: ' + x.steps.map(function (st) { return st.title; }).join(' → ') + ')' + (x.problems.length ? ' — not ready: ' + x.problems.join(' ') : ''), false, maModulesChanged);
+          box.disabled = x.problems.length > 0;
+        });
         maAllGroup('ma-locations', data.locations || [], maRenderPeople);
         maAllGroup('ma-roles', ['Sponsor', 'DSP', 'Secondary DSP'], function () { maRolesTouched = true; maRenderPeople(); });
         const due = document.getElementById('ma-due');
@@ -2791,9 +2875,9 @@
     setError('module-assign-error', '');
     document.getElementById('module-assign-result').style.display = 'none';
     const payload = maPayload();
-    if (!payload.moduleIds.length) { setError('module-assign-error', 'Tick at least one module.'); return; }
+    if (!payload.moduleIds.length && !payload.pathIds.length) { setError('module-assign-error', 'Tick at least one module or path.'); return; }
     if (!payload.personIds.length) { setError('module-assign-error', 'Tick at least one person.'); return; }
-    if (!payload.dueDate) { setError('module-assign-error', 'Pick a due date.'); return; }
+    if (payload.moduleIds.length && !payload.dueDate) { setError('module-assign-error', 'Pick a due date.'); return; }
     btn.disabled = true;
     btn.textContent = 'Checking…';
     try {

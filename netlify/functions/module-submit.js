@@ -1,5 +1,9 @@
 const { updatePage } = require('./lib/notion');
 const tm = require('./lib/training-modules');
+const tp = require('./lib/training-paths');
+const send = require('./lib/training-modules-send');
+const { sendSms } = require('./lib/twilio');
+const { sendEmail } = require('./lib/email');
 
 // Submit from the module page. The page locks steps for the person; this
 // is the real check: every video watched (per the saved progress) and
@@ -13,7 +17,7 @@ exports.handler = async function (event) {
     const link = tm.readLinkToken(body.token);
     if (link.expired) throw tm.badRequest('This link has expired. Reload the page to get a new one.', 410);
     const assignment = await tm.getAssignment(link.assignmentId);
-    if (link.linkVersion !== assignment.linkVersion || assignment.status === 'Cancelled') {
+    if (link.linkVersion !== assignment.linkVersion || assignment.status === 'Cancelled' || assignment.status === 'Locked') {
       throw tm.badRequest('This link no longer works.', 410);
     }
     if (assignment.status === 'Completed') {
@@ -37,12 +41,24 @@ exports.handler = async function (event) {
       'Completed At': { date: { start: completedAt } }
     });
 
-    const cert = await tm.issueCertificate(Object.assign({}, assignment, { completedAt: completedAt, status: 'Completed' }), mod, tm.siteFromEvent(event));
+    const site = tm.siteFromEvent(event);
+    const cert = await tm.issueCertificate(Object.assign({}, assignment, { completedAt: completedAt, status: 'Completed' }), mod, site);
+
+    // In a training path: unlock and announce the next step, or finish the path.
+    let path = {};
+    try {
+      path = await tp.afterStepCompleted(Object.assign({}, assignment, { status: 'Completed' }), { notifyNextStep: send.notifyNextStep({ sendSms: sendSms, sendEmail: sendEmail }) }, site);
+    } catch (e) {
+      console.error('Path step after submit failed for ' + assignment.id, e);
+    }
 
     return json(200, {
       completed: true,
       completedAt: completedAt,
       certificateId: cert.certificateId,
+      next: path.next || null,
+      pathCompleted: !!path.pathCompleted,
+      pathTitle: path.pathTitle || '',
       personName: assignment.personName,
       location: assignment.location,
       role: assignment.role
