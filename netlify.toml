@@ -73,6 +73,12 @@
   # 9:00am US/Eastern every Thursday, all year (same DST handling).
   schedule = "0 13,14 * * 4"
 
+[functions."module-reminders"]
+  # Training module reminders, 10:00 AM US/Eastern on weekdays, all year:
+  # fires at both 14:00 and 15:00 UTC and the function only proceeds in
+  # whichever one is 10 AM Eastern (EDT or EST), like weekly-focus-send.
+  schedule = "0 14,15 * * 1-5"
+
 [functions."check-vehicle-reminders"]
   # 9:30am US/Eastern daily (EDT-pinned like check-report-status) — texts
   # each location's admins when a group home vehicle's inspection, tags,
