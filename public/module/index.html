@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Training Module · ASRS</title>
+<meta name="theme-color" content="#16332B">
+<style>
+/* Same ASRS palette as the provider app, intake pages and admin dashboard. */
+:root {
+  --forest: #16332B; --forest-light: #2F5D45; --cream: #F6F3EC; --ink: #1C1C1A; --muted: #5E5B52;
+  --border: #D8D2C2; --surface: #FFFFFF; --error: #B3261E; --error-bg: #FDEDEC;
+  --done: #1B7A3D; --done-bg: #DDEEE3; --gold: #C9A227; --gold-bg: #FBF3D6; --gold-ink: #6B5200;
+  --idle: #6B6659; --idle-bg: #ECE8DE;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--cream); color: var(--ink); line-height: 1.5; font-size: 16px; }
+.bar { background: var(--forest); color: var(--cream); padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left)); }
+.bar-inner { max-width: 640px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.bar-logo { height: 40px; width: auto; display: block; border-radius: 3px; }
+.bar-title { font-size: 17px; font-weight: 600; }
+main { max-width: 640px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right)) 56px max(16px, env(safe-area-inset-left)); display: flex; flex-direction: column; gap: 16px; }
+h1 { font-size: 24px; line-height: 1.25; margin: 0; text-wrap: balance; }
+h2 { font-size: 17px; margin: 0; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--forest-light); }
+.muted { color: var(--muted); font-size: 14.5px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.body p + p { margin-top: 10px; }
+.progress { display: flex; gap: 4px; }
+.seg { flex: 1; height: 7px; border-radius: 3px; background: var(--idle-bg); }
+.seg.done { background: var(--done); }
+.seg.current { background: var(--gold); }
+.btn { font: inherit; font-weight: 600; font-size: 16px; background: var(--forest); color: var(--cream); border: 0; border-radius: 10px; padding: 13px 16px; cursor: pointer; width: 100%; }
+.btn[disabled] { background: var(--idle-bg); color: var(--idle); cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--forest-light); border: 1px solid var(--border); }
+.btnrow { display: flex; gap: 10px; }
+.btnrow .btn.ghost { width: auto; flex: 0 0 auto; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 15px; margin: 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.steps li { display: flex; gap: 10px; align-items: baseline; }
+.steps .k { font-size: 13px; font-weight: 700; color: var(--forest-light); min-width: 1.2em; }
+.steps li.done .k { color: var(--done); }
+.player { background: #000; border-radius: 10px; overflow: hidden; aspect-ratio: 16 / 9; max-width: 100%; position: relative; }
+.player > div, .player iframe, .player video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.lock { font-size: 14.5px; color: var(--muted); }
+.lock.ok { color: var(--done); font-weight: 600; }
+.note { font-size: 14px; color: var(--gold-ink); background: var(--gold-bg); border-radius: 8px; padding: 9px 12px; }
+.error { color: var(--error); background: var(--error-bg); border-radius: 10px; padding: 14px 16px; }
+.error ul { margin: 6px 0 0; padding-left: 20px; }
+.q { display: flex; flex-direction: column; gap: 6px; }
+.q label { font-weight: 600; }
+.q .qn { color: var(--forest-light); margin-right: 4px; }
+.q textarea { font: inherit; color: var(--ink); background: var(--cream); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; min-height: 110px; resize: vertical; width: 100%; }
+.count { font-size: 13px; color: var(--muted); }
+.count.ok { color: var(--done); }
+.attest { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; background: var(--cream); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.attest input { margin-top: 3px; width: 20px; height: 20px; flex-shrink: 0; }
+.saved { font-size: 13px; color: var(--muted); }
+.cert { background: #FFFDF7; border: 1px solid var(--gold); outline: 4px double var(--gold); outline-offset: -10px; border-radius: 4px; padding: 26px 20px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: Georgia, "Times New Roman", serif; }
+.cert img { height: 48px; width: auto; }
+.cert .kind { font: 700 11px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.cert .name { font-size: 24px; font-style: italic; color: var(--forest); border-bottom: 1px solid var(--gold); padding: 0 12px 2px; }
+.cert .mod { font-size: 18px; font-weight: 700; }
+.cert .small { font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--muted); }
+.cert .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; width: 100%; margin-top: 10px; font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--muted); text-align: left; }
+.cert .meta b { display: block; color: var(--ink); font-size: 13px; }
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-inner">
+  <img class="bar-logo" src="/intake/logo.jpg" alt="Arch Support Residential Services">
+  <span class="bar-title">Training</span>
+</div></header>
+<main id="main">
+  <p class="muted" id="loading">Loading your training module&hellip;</p>
+</main>
+<script>
+(function () {
+  var token = (location.pathname.match(/\/m\/([A-Za-z0-9_-]+)/) || [])[1] || new URLSearchParams(location.search).get('t') || '';
+  var main = document.getElementById('main');
+  var D = null;            // module-open response
+  var P = null;            // progress: { videos: {order: {max, watched}}, answers: {order: [..]}, current }
+  var idx = -1;            // -1 = start screen, steps.length = done
+  var player = null;       // the active video's controller
+  var saveTimer = null, saving = false, pendingSave = null, lastSavedAt = 0;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function paras(text) { return String(text || '').split(/\n\s*\n/).map(function (p) { return '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>'; }).join(''); }
+  function words(s) { var m = String(s || '').trim().match(/\S+/g); return m ? m.length : 0; }
+  function mmss(t) { t = Math.max(0, Math.floor(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+  function niceDate(iso) { return iso ? new Date(iso.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''; }
+  function longDate(iso) { return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+  function nowTime() { return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+
+  function api(name, body) {
+    return fetch('/.netlify/functions/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: token }, body || {})) })
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (j) { j._status = res.status; return j; }); });
+  }
+
+  function showError(msg) { main.innerHTML = '<p class="error">' + esc(msg) + '</p>'; }
+
+  // ---------- saving ----------
+  function queueSave(part, delay) {
+    pendingSave = pendingSave || {};
+    if (part.videos) pendingSave.videos = Object.assign(pendingSave.videos || {}, part.videos);
+    if (part.answers) pendingSave.answers = Object.assign(pendingSave.answers || {}, part.answers);
+    if (typeof part.current === 'number') pendingSave.current = part.current;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(flushSave, delay == null ? 1500 : delay);
+  }
+  function flushSave() {
+    if (saving || !pendingSave) return Promise.resolve();
+    var body = pendingSave; pendingSave = null; saving = true;
+    return api('module-save-progress', { progress: body }).then(function (j) {
+      saving = false;
+      if (j._status === 200) {
+        lastSavedAt = Date.now();
+        Object.keys(j.videos || {}).forEach(function (k) { P.videos[k] = Object.assign(P.videos[k] || {}, { watched: !!j.videos[k].watched, serverMax: j.videos[k].max }); });
+        var s = document.getElementById('saved'); if (s) s.textContent = 'Saved ' + nowTime();
+        onServerVideos();
+      } else {
+        pendingSave = Object.assign(body, pendingSave || {});
+        var s2 = document.getElementById('saved'); if (s2) s2.textContent = j.error || 'Couldn\'t save. We\'ll try again.';
+        if (j._status !== 410 && j._status !== 409) saveTimer = setTimeout(flushSave, 5000);
+      }
+      if (pendingSave) flushSave();
+    }).catch(function () {
+      saving = false; pendingSave = Object.assign(body, pendingSave || {});
+      saveTimer = setTimeout(flushSave, 5000);
+    });
+  }
+
+  // ---------- layout ----------
+  function steps() { return D.module.steps; }
+  function stepDone(s) {
+    if (s.type === 'Reading') return idx > steps().indexOf(s) || (P.current || 0) > steps().indexOf(s);
+    if (s.type === 'Video') return !!(P.videos[s.order] && P.videos[s.order].watched);
+    var a = P.answers[s.order] || [];
+    return s.questions.every(function (q, i) { return words(a[i]) >= D.module.minWords; });
+  }
+  function furthestAllowed() {
+    var i = 0;
+    while (i < steps().length && (stepDone(steps()[i]) || steps()[i].type === 'Reading' && i < (P.current || 0))) i++;
+    return i;
+  }
+  function progressBar() {
+    return '<div class="progress" aria-hidden="true">' + steps().map(function (s, i) {
+      return '<span class="seg ' + (i === idx ? 'current' : (stepDone(s) ? 'done' : '')) + '"></span>';
+    }).join('') + '</div>';
+  }
+
+  function go(i) {
+    if (player && player.destroy) player.destroy();
+    player = null;
+    idx = i;
+    if (i >= 0 && i < steps().length && i > (P.current || 0)) { P.current = i; queueSave({ current: i }); }
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function render() {
+    if (idx < 0) return renderStart();
+    var s = steps()[idx];
+    var head = '<span class="eyebrow">Step ' + (idx + 1) + ' of ' + steps().length + ' · ' + esc(s.label) + '</span>' + progressBar() + '<h1>' + esc(s.title) + '</h1>';
+    var back = idx > 0 ? '<button class="btn ghost" id="back" type="button">Back</button>' : '';
+    if (s.type === 'Reading') {
+      main.innerHTML = '<section class="card">' + head + '<div class="body">' + paras(s.body) + '</div><div class="btnrow">' + back + '<button class="btn" id="next" type="button">Continue</button></div></section>';
+      document.getElementById('next').onclick = function () { go(idx + 1); };
+    } else if (s.type === 'Video') {
+      main.innerHTML = '<section class="card">' + head + (s.body ? '<div class="body">' + paras(s.body) + '</div>' : '') +
+        '<div class="player"><div id="pl"></div></div><p class="note" id="vnote" hidden></p><p class="lock" id="lock"></p>' +
+        '<div class="btnrow">' + back + '<button class="btn" id="next" type="button" disabled>Continue</button></div></section>';
+      document.getElementById('next').onclick = function () { if (stepDone(s)) go(idx + 1); };
+      mountVideo(s);
+      paintLock();
+    } else {
+      renderQuestions(s, head, back);
+    }
+    var b = document.getElementById('back'); if (b) b.onclick = function () { go(idx - 1); };
+  }
+
+  function renderStart() {
+    var m = D.module, vids = m.steps.filter(function (s) { return s.type === 'Video'; });
+    var list = m.steps.map(function (s, i) {
+      var t = s.type === 'Reading' ? 'Read: ' + s.title
+        : s.type === 'Video' ? 'Watch ' + (vids.length > 1 ? s.title : 'a ' + mmss(s.video.end - s.video.start) + ' video') + ' all the way through'
+        : 'Answer ' + s.questions.length + ' question' + (s.questions.length > 1 ? 's' : '') + ' in your own words';
+      return '<li class="' + (stepDone(s) ? 'done' : '') + '"><span class="k">' + (stepDone(s) ? '✓' : i + 1) + '</span>' + esc(t) + '</li>';
+    }).join('');
+    var started = (P.current || 0) > 0 || Object.keys(P.answers).length || Object.keys(P.videos).length;
+    main.innerHTML = '<section class="card"><span class="eyebrow">Training module</span><h1>' + esc(m.title) + '</h1>' +
+      '<p>Hi ' + esc(D.firstName || 'there') + '. ' + (m.minutes ? 'This takes about ' + m.minutes + ' minutes. ' : '') + 'There are no right or wrong answers. We want to hear what you think.</p>' +
+      '<dl class="facts">' + (D.dueDate ? '<dt>Due</dt><dd>' + esc(niceDate(D.dueDate)) + '</dd>' : '') + (m.minutes ? '<dt>Time</dt><dd>About ' + m.minutes + ' minutes</dd>' : '') + '</dl>' +
+      '<h2>What you\'ll do</h2><ol class="steps">' + list + '<li><span class="k">' + (m.steps.length + 1) + '</span>Get your certificate</li></ol>' +
+      (vids.length ? '<p class="muted">Turn your sound on. Your place is saved as you go, so you can come back to this link.</p>' : '') +
+      '<button class="btn" id="start" type="button">' + (started ? 'Pick up where you left off' : 'Start') + '</button></section>';
+    document.getElementById('start').onclick = function () { go(Math.min(furthestAllowed(), steps().length - 1)); };
+  }
+
+  // ---------- video ----------
+  function paintLock() {
+    var s = steps()[idx], v = P.videos[s.order] || {}, lock = document.getElementById('lock'), next = document.getElementById('next');
+    if (!lock) return;
+    if (v.watched) { lock.className = 'lock ok'; lock.textContent = '✓ Watched to the end. You can continue.'; note(''); }
+    else if (v.waiting) { lock.className = 'lock'; lock.textContent = 'Saving your place…'; }
+    else { lock.className = 'lock'; lock.textContent = 'Watch to ' + mmss(s.video.end) + ' to continue · ' + mmss(s.video.end - Math.max(s.video.start, localMax(s))) + ' left'; }
+    next.disabled = !v.watched;
+  }
+  function localMax(s) { var v = P.videos[s.order] || {}; return Math.max(v.max || 0, v.serverMax || 0, s.video.start); }
+  function note(msg) { var n = document.getElementById('vnote'); if (!n) return; n.hidden = !msg; n.textContent = msg || ''; }
+  function onServerVideos() {
+    if (idx < 0 || idx >= steps().length) return;
+    var s = steps()[idx];
+    if (s.type !== 'Video') return;
+    var v = P.videos[s.order] || {};
+    if (v.waiting && !v.watched) { setTimeout(function () { reportPosition(s, s.video.end, true); }, 3000); }
+    if (v.watched) v.waiting = false;
+    paintLock();
+  }
+  // Called by every player with its current time.
+  function reportPosition(s, t, force) {
+    var v = P.videos[s.order] = P.videos[s.order] || {};
+    var max = localMax(s);
+    if (t <= max + 2) v.max = Math.min(s.video.end, Math.max(max, t));
+    var atEnd = v.max >= s.video.end - 0.5;
+    if (atEnd && !v.watched) v.waiting = true;
+    var part = {}; part[s.order] = { max: v.max };
+    if (force || atEnd || Date.now() - lastSavedAt > 5000) { queueSave({ videos: part }, 0); }
+    else queueSave({ videos: part }, 5000);
+    paintLock();
+  }
+  function tooFar(s, t) { return t > localMax(s) + 2; }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      if (document.querySelector('script[src="' + src + '"]')) return resolve();
+      var el = document.createElement('script'); el.src = src; el.onload = resolve; el.onerror = reject; document.head.appendChild(el);
+    });
+  }
+
+  function mountVideo(s) {
+    var v = s.video, startAt = Math.min(Math.max(v.start, localMax(s) >= v.end - 0.5 ? v.start : localMax(s)), v.end - 1);
+    var holder = document.getElementById('pl');
+    if (v.kind === 'file') {
+      var el = document.createElement('video');
+      el.src = v.src; el.controls = true; el.playsInline = true; el.preload = 'metadata';
+      el.setAttribute('controlsList', 'nodownload noplaybackrate'); el.disablePictureInPicture = true;
+      holder.replaceWith(el);
+      var guard = false;
+      el.addEventListener('loadedmetadata', function () { el.currentTime = startAt; });
+      el.addEventListener('play', function () { if (el.currentTime >= v.end - 0.3) el.currentTime = v.start; });
+      el.addEventListener('seeking', function () {
+        if (guard) return;
+        if (tooFar(s, el.currentTime)) { guard = true; el.currentTime = localMax(s); note('Skipping ahead isn\'t allowed. The video went back to the furthest point you\'ve watched.'); setTimeout(function () { guard = false; }, 300); }
+        else if (el.currentTime < v.start - 0.3) { guard = true; el.currentTime = v.start; setTimeout(function () { guard = false; }, 300); }
+      });
+      el.addEventListener('timeupdate', function () {
+        if (el.seeking) return;
+        if (el.currentTime >= v.end) { el.pause(); }
+        reportPosition(s, Math.min(el.currentTime, v.end));
+      });
+      el.addEventListener('error', function () { note('This video didn\'t load. Check your connection and reload the page.'); });
+      player = { destroy: function () { el.pause(); } };
+      return;
+    }
+    if (v.kind === 'youtube') {
+      var poll = null;
+      loadScript('https://www.youtube.com/iframe_api').then(function () {
+        function make() {
+          var yt = new YT.Player(holder, {
+            videoId: v.id, width: '100%', height: '100%',
+            playerVars: { start: Math.floor(startAt), end: Math.ceil(v.end), rel: 0, playsinline: 1, modestbranding: 1, disablekb: 1, fs: 1 },
+            events: {
+              onStateChange: function (e) {
+                clearInterval(poll);
+                if (e.data === YT.PlayerState.PLAYING) {
+                  if (yt.getCurrentTime() >= v.end - 0.3) yt.seekTo(v.start, true);
+                  poll = setInterval(function () {
+                    var t = yt.getCurrentTime();
+                    if (tooFar(s, t)) { yt.seekTo(localMax(s), true); note('Skipping ahead isn\'t allowed. The video went back to the furthest point you\'ve watched.'); return; }
+                    if (t >= v.end) { yt.pauseVideo(); }
+                    reportPosition(s, Math.min(t, v.end));
+                  }, 500);
+                }
+                if (e.data === YT.PlayerState.ENDED) reportPosition(s, Math.min(yt.getCurrentTime() || v.end, v.end), true);
+              },
+              onError: function () { note('This video isn\'t available right now. Please let ASRS know.'); }
+            }
+          });
+          player = { destroy: function () { clearInterval(poll); try { yt.destroy(); } catch (e) {} } };
+        }
+        if (window.YT && YT.Player) make(); else { var prev = window.onYouTubeIframeAPIReady; window.onYouTubeIframeAPIReady = function () { if (prev) prev(); make(); }; }
+      }).catch(function () { note('The video player didn\'t load. Check your connection and reload the page.'); });
+      player = { destroy: function () { clearInterval(poll); } };
+      return;
+    }
+    if (v.kind === 'vimeo') {
+      loadScript('https://player.vimeo.com/api/player.js').then(function () {
+        var opts = { id: Number(v.id), responsive: false, playsinline: true, dnt: true };
+        if (v.hash) opts.h = v.hash;
+        var vp = new Vimeo.Player(holder, opts);
+        vp.ready().then(function () { return vp.setCurrentTime(startAt); }).catch(function () {});
+        vp.on('play', function () { vp.getCurrentTime().then(function (t) { if (t >= v.end - 0.3) vp.setCurrentTime(v.start); }); });
+        vp.on('seeked', function (d) { if (tooFar(s, d.seconds)) { vp.setCurrentTime(localMax(s)); note('Skipping ahead isn\'t allowed. The video went back to the furthest point you\'ve watched.'); } });
+        vp.on('timeupdate', function (d) {
+          if (tooFar(s, d.seconds)) return;
+          if (d.seconds >= v.end) vp.pause();
+          reportPosition(s, Math.min(d.seconds, v.end));
+        });
+        vp.on('ended', function () { reportPosition(s, v.end, true); });
+        vp.on('error', function () { note('This video isn\'t available right now. Please let ASRS know.'); });
+        player = { destroy: function () { try { vp.destroy(); } catch (e) {} } };
+      }).catch(function () { note('The video player didn\'t load. Check your connection and reload the page.'); });
+    }
+  }
+
+  // ---------- questions ----------
+  function isLast() { return idx === steps().length - 1; }
+  function renderQuestions(s, head, back) {
+    var a = P.answers[s.order] = P.answers[s.order] || s.questions.map(function () { return ''; });
+    var earlierMissing = steps().slice(0, idx).some(function (x) { return x.type !== 'Reading' && !stepDone(x); });
+    main.innerHTML = '<section class="card">' + head + (s.body ? '<div class="body muted">' + paras(s.body) + '</div>' : '') +
+      (earlierMissing ? '<p class="note">An earlier step isn\'t finished yet. You can answer these now, but you\'ll need to finish it before you submit.</p>' : '') +
+      s.questions.map(function (q, k) {
+        return '<div class="q"><label for="a' + k + '"><span class="qn">' + (k + 1) + '.</span>' + esc(q) + '</label>' +
+          '<textarea id="a' + k + '" data-k="' + k + '">' + esc(a[k] || '') + '</textarea><span class="count" id="c' + k + '"></span></div>';
+      }).join('') +
+      (isLast() ? '<label class="attest" for="att"><input type="checkbox" id="att"><span>I watched the video' + (steps().filter(function (x) { return x.type === 'Video'; }).length > 1 ? 's' : '') + ', and these answers are my own.</span></label>' : '') +
+      '<p class="saved" id="saved">Your answers save as you type.</p><div id="submiterr"></div>' +
+      '<div class="btnrow">' + back + '<button class="btn" id="next" type="button" disabled>' + (isLast() ? 'Submit' : 'Continue') + '</button></div></section>';
+    function paint() {
+      var all = true;
+      a.forEach(function (x, k) {
+        var n = words(x), el = document.getElementById('c' + k);
+        if (n >= D.module.minWords) { el.className = 'count ok'; el.textContent = '✓ ' + n + ' words'; }
+        else { el.className = 'count'; el.textContent = 'At least ' + D.module.minWords + ' words (' + n + ' so far)'; all = false; }
+      });
+      var att = document.getElementById('att');
+      document.getElementById('next').disabled = !(all && (!att || att.checked));
+    }
+    s.questions.forEach(function (q, k) {
+      document.getElementById('a' + k).addEventListener('input', function () {
+        a[k] = this.value; var part = {}; part[s.order] = a.slice(); queueSave({ answers: part }, 2000);
+        document.getElementById('saved').textContent = 'Saving…'; paint();
+      });
+    });
+    var att = document.getElementById('att'); if (att) att.addEventListener('change', paint);
+    document.getElementById('next').onclick = function () {
+      if (!isLast()) { go(idx + 1); return; }
+      submit(this);
+    };
+    paint();
+  }
+
+  function submit(btn) {
+    btn.disabled = true; btn.textContent = 'Submitting…';
+    clearTimeout(saveTimer);
+    var progress = { answers: P.answers, videos: {} };
+    Object.keys(P.videos).forEach(function (k) { progress.videos[k] = { max: P.videos[k].max || 0 }; });
+    (saving ? new Promise(function (r) { setTimeout(r, 1500); }) : Promise.resolve()).then(function () {
+      return api('module-submit', { attest: true, progress: progress });
+    }).then(function (j) {
+      if (j._status === 200 && j.completed) { renderDone(j); return; }
+      btn.disabled = false; btn.textContent = 'Submit';
+      document.getElementById('submiterr').innerHTML = '<div class="error">' + esc(j.error || 'Something went wrong.') +
+        (j.missing ? '<ul>' + j.missing.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = 'Submit';
+      document.getElementById('submiterr').innerHTML = '<div class="error">Couldn\'t reach ASRS. Check your connection and try again. Your answers are saved.</div>';
+    });
+  }
+
+  // ---------- done ----------
+  function renderDone(j) {
+    if (player && player.destroy) player.destroy();
+    var m = D.module;
+    main.innerHTML = '<section class="card"><span class="eyebrow">Done</span><h1>Thank you, ' + esc(D.firstName || '') + '</h1>' +
+      '<p>You\'ve completed <b>' + esc(m.title) + '</b>. Your certificate is saved to your training file, and you won\'t get any more reminders for this module.</p>' +
+      '<div class="cert"><img src="/intake/logo.jpg" alt="ASRS logo"><span class="kind">Certificate of completion</span>' +
+      '<span>This certifies that</span><span class="name">' + esc(j.personName || D.personName || '') + '</span>' +
+      '<span class="small">has completed the training module</span><span class="mod">' + esc(m.title) + '</span><span class="small">' + esc(m.certificateLine || '') + '</span>' +
+      '<div class="meta"><div>Completed<b>' + esc(longDate(j.completedAt || new Date().toISOString())) + '</b></div><div>Location<b>' + esc(j.location || '—') + '</b></div>' +
+      '<div>Role<b>' + esc(j.role || '—') + '</b></div><div>Certificate ID<b>' + esc(j.certificateId || '') + '</b></div></div></div>' +
+      '<p class="muted">You can close this page.</p></section>';
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- start ----------
+  if (!token) { showError('This link is missing part of its address. Open the full link from your text or email.'); return; }
+  api('module-open').then(function (j) {
+    if (j._status !== 200) { showError(j.error || 'Something went wrong. Please try again.'); return; }
+    D = j;
+    if (j.completed) {
+      D.module = j.module; D.personName = j.personName;
+      renderDone(j);
+      main.querySelector('h1').textContent = 'You\'ve already finished this';
+      return;
+    }
+    P = j.progress || { videos: {}, answers: {}, current: 0 };
+    P.videos = P.videos || {}; P.answers = P.answers || {};
+    Object.keys(P.videos).forEach(function (k) { P.videos[k].serverMax = P.videos[k].max; });
+    document.title = j.module.title + ' · ASRS Training';
+    go(-1);
+  }).catch(function () { showError('Couldn\'t reach ASRS. Check your connection and reload the page.'); });
+
+  window.addEventListener('pagehide', function () {
+    if (pendingSave && navigator.sendBeacon) {
+      navigator.sendBeacon('/.netlify/functions/module-save-progress', new Blob([JSON.stringify({ token: token, progress: pendingSave })], { type: 'application/json' }));
+    }
+  });
+})();
+</script>
+</body>
+</html>

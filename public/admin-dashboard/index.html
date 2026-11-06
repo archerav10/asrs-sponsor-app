@@ -444,6 +444,7 @@
       <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
       <button class="tab-button" id="tab-sponsor-checklists" type="button">Checklists</button>
+      <button class="tab-button" id="tab-modules" type="button">Training Modules</button>
     </div>
 
     <div id="mar-tab-content">
@@ -547,6 +548,25 @@
       </details>
       <div id="sponsor-checklists-list" style="margin-top: 18px;"><p class="loading-text">Loading&hellip;</p></div>
       <button type="button" id="sponsor-checklists-view-closed" class="secondary" style="margin-top: 18px;">View closed checklists</button>
+    </div>
+
+    <div id="modules-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Assign a training module to a sponsor or DSP. They get a text with a private link (an email if they have no SMS consent on file in <a href="https://app.notion.com/p/436a803db20744fab2113730156a7fae" target="_blank" rel="noopener">ASRS People</a>), and on submit their certificate goes to their Training folder. Modules are written in <a href="https://app.notion.com/p/40fff13f62f9817ebfabfe104fdf314b" target="_blank" rel="noopener">Notion &rsaquo; Training Modules</a>.</p>
+      <p class="error-text" id="modules-error"></p>
+      <details class="ap-step" id="module-assign" open>
+        <summary style="cursor: pointer; font-weight: 600;">+ Assign a module</summary>
+        <label for="ma-module">Module</label>
+        <select id="ma-module"></select>
+        <label for="ma-person">Person</label>
+        <select id="ma-person"></select>
+        <p class="meta" id="ma-person-note" style="font-size: 13px; color: #777; margin: 4px 0 0;"></p>
+        <label for="ma-due">Due date</label>
+        <input type="date" id="ma-due">
+        <p class="error-text" id="module-assign-error"></p>
+        <button type="button" id="module-assign-save">Assign and send</button>
+        <div id="module-assign-result" style="display:none; margin-top: 12px;"></div>
+      </details>
+      <div id="modules-list" style="margin-top: 18px;"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <div id="weekly-tab-content" style="display:none;">
@@ -1151,7 +1171,8 @@
     weekly: { button: document.getElementById('tab-weekly'), content: document.getElementById('weekly-tab-content'), load: loadWeeklyDashboard },
     compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
     vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
-    sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard }
+    sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard },
+    modules: { button: document.getElementById('tab-modules'), content: document.getElementById('modules-tab-content'), load: loadModulesDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -2293,6 +2314,142 @@
 
   // --- Sponsor Checklists ---
   let lastSponsorChecklists = { open: [], closed: [] };
+  // --- Training Modules: assign one module to one person, and list assignments ---
+  let lastModulesData = null;
+
+  function moduleStatusLabel(a) {
+    if (a.status === 'Completed') return 'Completed ' + formatDate((a.completedAt || '').slice(0, 10));
+    if (a.status === 'Cancelled') return 'Cancelled';
+    return (a.overdue ? 'Overdue · ' : '') + (a.status === 'In Progress' ? 'In progress' : 'Not started') + ' · due ' + formatDate((a.dueDate || '').slice(0, 10));
+  }
+
+  function renderModulesList() {
+    const listEl = document.getElementById('modules-list');
+    const rows = (lastModulesData && lastModulesData.assignments) || [];
+    listEl.innerHTML = '';
+    if (!rows.length) {
+      listEl.innerHTML = '<p class="empty-text">No modules assigned yet.</p>';
+      return;
+    }
+    rows.forEach(function (a) {
+      const row = document.createElement('div');
+      row.className = 'ap-step';
+      const title = document.createElement('p');
+      title.className = 'ap-step-title';
+      title.textContent = a.personName + ' · ' + a.moduleTitle;
+      row.appendChild(title);
+      const status = document.createElement('p');
+      status.className = 'ap-step-status';
+      let text = moduleStatusLabel(a) + ' · ' + (a.role || 'Role not set') + ', ' + a.location;
+      if (a.channel) text += ' · sent by ' + a.channel.toLowerCase();
+      if (a.status === 'Completed') {
+        text += a.certificateStatus === 'Saved' ? ' · certificate ' + a.certificateId + ' saved to Drive'
+          : a.certificateStatus === 'Failed' ? ' · certificate upload failed (check the Zap)' : ' · certificate on its way to Drive';
+      }
+      status.textContent = text;
+      if (a.overdue) status.style.color = '#B3261E';
+      row.appendChild(status);
+      listEl.appendChild(row);
+    });
+  }
+
+  function updateModulePersonNote() {
+    const sel = document.getElementById('ma-person');
+    const note = document.getElementById('ma-person-note');
+    const p = ((lastModulesData && lastModulesData.people) || []).find(function (x) { return x.id === sel.value; });
+    if (!p) { note.textContent = ''; return; }
+    note.textContent = p.smsConsent === 'Opted In' && p.hasPhone ? 'Will be sent by text.'
+      : p.hasEmail ? 'Will be sent by email (no SMS consent' + (p.hasPhone ? '' : ' or phone') + ' on file).'
+      : 'No phone with SMS consent and no email on file. You\'ll get a link to send yourself.';
+    if (!p.hasFolder) note.textContent += ' No Training folder set, so the certificate goes to the shared Module Certificates folder.';
+  }
+
+  async function loadModulesDashboard() {
+    const listEl = document.getElementById('modules-list');
+    setError('modules-error', '');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/admin-training-modules');
+      lastModulesData = data;
+      const modSel = document.getElementById('ma-module');
+      modSel.innerHTML = '';
+      (data.modules || []).forEach(function (m) {
+        const o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = m.title + (m.minutes ? ' (' + m.minutes + ' min)' : '') + (m.problems.length ? ' — not ready: ' + m.problems.join(' ') : '');
+        o.disabled = m.problems.length > 0;
+        modSel.appendChild(o);
+      });
+      const personSel = document.getElementById('ma-person');
+      personSel.innerHTML = '';
+      (data.people || []).forEach(function (p) {
+        const o = document.createElement('option');
+        o.value = p.id;
+        o.textContent = p.name + ' · ' + p.role + ', ' + p.location;
+        personSel.appendChild(o);
+      });
+      const due = document.getElementById('ma-due');
+      if (!due.value) {
+        const d = new Date(Date.now() + 9 * 864e5);
+        due.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      }
+      updateModulePersonNote();
+      renderModulesList();
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('modules-error', e.message);
+    }
+  }
+
+  document.getElementById('ma-person').addEventListener('change', updateModulePersonNote);
+
+  document.getElementById('module-assign-save').addEventListener('click', async function () {
+    const btn = this;
+    const resultEl = document.getElementById('module-assign-result');
+    setError('module-assign-error', '');
+    resultEl.style.display = 'none';
+    const moduleId = document.getElementById('ma-module').value;
+    const personId = document.getElementById('ma-person').value;
+    const dueDate = document.getElementById('ma-due').value;
+    if (!moduleId || !personId || !dueDate) { setError('module-assign-error', 'Pick a module, a person and a due date.'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const data = await apiFetch('/admin-assign-module', { method: 'POST', body: JSON.stringify({ moduleId: moduleId, personId: personId, dueDate: dueDate }) });
+      resultEl.innerHTML = '';
+      const msg = document.createElement('p');
+      msg.style.margin = '0 0 6px';
+      msg.textContent = data.message;
+      resultEl.appendChild(msg);
+      const linkRow = document.createElement('div');
+      linkRow.className = 'in-actions-row';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.readOnly = true;
+      input.value = data.link;
+      input.style.flex = '1';
+      input.addEventListener('focus', function () { this.select(); });
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'secondary';
+      copy.textContent = 'Copy link';
+      copy.addEventListener('click', function () {
+        input.select();
+        (navigator.clipboard ? navigator.clipboard.writeText(data.link) : Promise.reject()).then(function () { copy.textContent = 'Copied'; }).catch(function () { document.execCommand('copy'); copy.textContent = 'Copied'; });
+      });
+      linkRow.appendChild(input);
+      linkRow.appendChild(copy);
+      resultEl.appendChild(linkRow);
+      resultEl.style.display = '';
+      await loadModulesDashboard();
+    } catch (e) {
+      setError('module-assign-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Assign and send';
+    }
+  });
+
   let sponsorChecklistsShowClosed = false;
 
   function renderSponsorChecklistRow(c, me) {

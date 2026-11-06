@@ -58,6 +58,7 @@ workflow as your other portals.
 | `MEDICATION_ADMIN_LOG_DB_ID` | `88f9b7b1-df5c-40b4-8c87-5c44eed316ad` |
 | `ZAPIER_MEDICATION_REPORT_WEBHOOK_URL` | The Catch Hook URL from your "Medication Administration Records" Zap — see setup steps below |
 | `ZAPIER_MEDICAL_APPOINTMENT_WEBHOOK_URL` | The Catch Hook URL of the "ASRS Medical Appointment Uploads" Zapier workflow — see Medical Appointments below |
+| `ZAPIER_MODULE_CERTIFICATE_WEBHOOK_URL` | The Catch Hook URL of the "asrs-module-certificates" Zapier workflow — see Training Modules below |
 
 **Keep this list short.** AWS Lambda caps each function's environment
 at 4 KB in total, and this site has reached it: a deploy fails with
@@ -65,8 +66,9 @@ at 4 KB in total, and this site has reached it: a deploy fails with
 secret (Notion data source IDs, Drive folder IDs) go in
 `netlify/functions/lib/ids.js` instead. That's where
 `MEDICAL_APPOINTMENTS_DB_ID`, `WEEKLY_FOCUS_DB_ID`,
-`WEEKLY_FOCUS_RESPONSES_DB_ID` and `FACILITY_REPORTING_ROOT_FOLDER_ID`
-live; an env var of the same name still overrides them. Turning off
+`WEEKLY_FOCUS_RESPONSES_DB_ID`, `FACILITY_REPORTING_ROOT_FOLDER_ID`,
+`ASRS_PEOPLE_DB_ID`, `STAFF_TRAINING_DB_ID`, the three Daily Progress Note
+database IDs and the Training Modules databases live; an env var of the same name still overrides them. Turning off
 "Lambda compatibility mode" for functions in Netlify removes the limit
 altogether (https://ntl.fyi/functions-migrate).
 
@@ -802,7 +804,7 @@ be updated at any time.
   the completion date; the resolve endpoint still returns it as
   `expDate` and the form-submitted endpoint still accepts that name, so
   the existing Zaps keep working. Env vars: `STAFF_TRAINING_DB_ID`,
-  `ASRS_PEOPLE_DB_ID`, `ZAPIER_STAFF_TRAINING_WEBHOOK_URL`.
+  `ASRS_PEOPLE_DB_ID` (now in `lib/ids.js`), `ZAPIER_STAFF_TRAINING_WEBHOOK_URL`.
 - **Everywhere else that shows training** — the Compliance tab and the
   Sponsor App's My Home's Compliance (`lib/compliance.js`), the Sponsor
   App's Staff Training rows (`get-provider-staff-training-status.js`) and
@@ -2094,6 +2096,95 @@ check right now" and doesn't count toward the overall light. The Home
 screen's existing Annual Planning and Quarterly Reporting dots now use
 the same rules as this card (they used to turn yellow only 7 days before
 due, and had no 15-day quarterly deadline).
+
+### Training Modules (eleventh process — microlearning, assigned by text)
+
+Short training modules (a reading, a video clip or two, then written
+questions) that an admin assigns to a sponsor or DSP. The person gets a
+text with a private link, works through it on their phone, and on submit
+their answers are saved to Notion and a certificate PDF is filed in their
+Training folder in Drive. The design is in the "Training Modules Spec"
+doc; this is phase 1 of it (one module end to end, assign to one person).
+Modules are standalone: when one counts toward a Staff Training
+requirement, an admin marks that requirement on the Staff Training screen.
+
+**Notion** (Longstreet Dashboard / Training Modules; IDs in `lib/ids.js`):
+
+| Database | One row per | Written by |
+| --- | --- | --- |
+| Modules | module: Title, Key (letters and numbers, never changed once assigned), Status (Draft / Published / Retired), Version, Minutes, Applies To, Min Words (default 10), Certificate Line | an admin |
+| Module Steps | step, in `Order`: Type `Reading` (Body), `Video` (Video URL, Start, End as mm:ss) or `Questions` (one question per line). The last step must be Questions | an admin |
+| Module Assignments | person per module: Status (Assigned / In Progress / Completed / Cancelled), Due Date, Progress (JSON), Link Version, Channel, Certificate ID / File / Status, Reviewed | the app |
+| Module Responses | answer, written on submit, with the question text copied in | the app |
+
+ASRS People gained Phone Number, Email, SMS Consent Status (Opted In /
+Opted Out / Not Asked) and SMS Consent Date. Only Opted In people with a
+phone number get texts; everyone else gets the same notice by email
+(EmailJS default template). A step that can't be shown (no Order, bad
+Video URL, End before Start ...) blocks the module from being assigned
+or opened, and the dashboard says why. The Slides step type is phase 4.
+
+**Video steps.** YouTube (the original channel's upload, for clips ASRS
+doesn't own), Vimeo (ASRS's own videos; use a paid plan with "Hide from
+Vimeo" and playback limited to this site), or a video file: a full
+`https://…mp4` URL or a path on this site. Heads Up currently plays from
+`public/training-videos/heads-up.mp4` until it's on Vimeo; change its two
+Video URL cells then. Continue stays locked until the clip reaches its End
+time; dragging ahead jumps back to the furthest point watched. The page
+reports that point every few seconds (`module-save-progress`) and the
+server only lets it advance at about real-time speed, so a video can't be
+marked watched in one call. A determined person could still fake playback;
+the attestation box and written answers are the safeguard. One video can
+be split across steps (Heads Up: 0:00–0:43, questions, 0:43–0:58).
+
+**The link** is `/m/{token}` (`public/module/index.html`, routed in
+`netlify.toml`). The token is 43 characters: the assignment ID, its Link
+Version and an expiry (30 days past the due date), signed with an HMAC
+keyed from `APP_ENCRYPTION_KEY` (`makeLinkToken` / `readLinkToken` in
+`lib/training-modules.js`). No login: the link is the access, like the
+Weekly Focus email buttons. An expired link sends a fresh one the same way
+the first went; raising Link Version kills older links. Answers autosave
+about 2 seconds after typing stops, so the same link resumes where they
+left off. The `/module/*` and `/m/*` pages send `Referrer-Policy:
+strict-origin-when-cross-origin` because YouTube won't play without a
+Referer; only the origin is sent, never the token.
+
+**Functions.** `module-open`, `module-save-progress`, `module-submit`
+(the real check: every video watched per saved progress, every answer at
+least Min Words, attestation ticked), `admin-training-modules` (the tab's
+data) and `admin-assign-module` (creates the assignment and sends the
+notice; refuses a second open copy of the same module; returns the link
+so it can be copied if nothing could be sent).
+
+**Certificates.** On submit the app makes a one-page landscape PDF
+(pdf-lib, ASRS logo, name, module, Certificate Line, date, location, role,
+module version, Certificate ID `ASRS-M-{year}-{4 digits}`), named
+`Module_{Key}_{First-Last}_{YYYY-MM-DD}.pdf` (deliberately not the Staff
+Training filename pattern), and posts it with the assignment and
+certificate IDs to the **asrs-module-certificates** Zap
+(`zapier/module-certificates.workflow.ts`). The Zap trusts nothing but the
+file: it asks `module-certificate-resolve` where it goes (only answered
+for a Completed assignment whose Certificate ID matches), uploads it to
+the person's Training folder, or `Facility Reporting/{Location}/Module
+Certificates/` when none is set (created on first use), then tells the
+same endpoint it's saved. Certificate Status: Pending (sent to the Zap),
+Saved (in Drive) or Failed (the post to the Zap failed).
+
+**Admin Dashboard → Training Modules:** assign a Published module to one
+person (staff at your granted locations) with a due date, see how it will
+be sent, copy the link, and see every assignment's status, how it was
+sent and its certificate.
+
+**Not built yet (phases 2–4 of the spec):** assign by location and role,
+read and review answers in the dashboard, reminders every 2 days, STOP
+handling for DSP numbers in `sms-inbound`, the Friday digest section,
+"Modules completed" on Staff Training, Slides steps, graded modules.
+Until then, answers are read in Module Responses in Notion.
+
+**Setup:** connect the Notion integration to the four databases if they
+don't show up (… → Connections); fill in Phone Number, Email and SMS
+Consent Status on ASRS People; add `ZAPIER_MODULE_CERTIFICATE_WEBHOOK_URL`
+in Netlify (see below for making room under the 4 KB limit).
 
 ## Weekly admin email digest
 
