@@ -566,9 +566,9 @@
         <div id="ma-form">
           <label>Modules <span class="ma-hint">tick more than one to send them together</span></label>
           <div id="ma-modules" class="ma-checks"></div>
-          <label>Locations</label>
+          <label>Locations <span class="ma-hint">none ticked = all your locations</span></label>
           <div id="ma-locations" class="ma-checks"></div>
-          <label>Roles <span class="ma-hint">starts from the modules' Applies To</span></label>
+          <label>Roles <span class="ma-hint">none ticked = all roles; ticking a module fills in its Applies To</span></label>
           <div id="ma-roles" class="ma-checks"></div>
           <label for="ma-search">People <span class="ma-hint" id="ma-people-count"></span></label>
           <input type="text" id="ma-search" placeholder="Search by name to pick one person">
@@ -2341,7 +2341,7 @@
   let lastSponsorChecklists = { open: [], closed: [] };
   // --- Training Modules: assign by location / role / name, bundles, and the assignment list ---
   let lastModulesData = null;
-  const maExcluded = new Set();   // people unticked in the checklist
+  const maIncluded = new Set();   // people ticked in the checklist (nothing is ticked to start)
   let maRolesTouched = false;     // once the admin changes Roles, modules stop resetting it
   let mlOpenAnswers = null;       // the assignment whose answers are showing
 
@@ -2365,12 +2365,12 @@
   function maAllGroup(id, items, onChange) {
     const el = document.getElementById(id);
     el.innerHTML = '';
-    const all = maCheckbox(el, '*', id === 'ma-locations' ? 'All my locations' : 'All roles', true, function () {
+    const all = maCheckbox(el, '*', id === 'ma-locations' ? 'All my locations' : 'All roles', false, function () {
       el.querySelectorAll('input[type="checkbox"]').forEach(function (b) { b.checked = all.checked; });
       onChange();
     });
     items.forEach(function (v) {
-      maCheckbox(el, v, v, true, function () {
+      maCheckbox(el, v, v, false, function () {
         const boxes = Array.from(el.querySelectorAll('input[type="checkbox"]')).filter(function (b) { return b.value !== '*'; });
         all.checked = boxes.every(function (b) { return b.checked; });
         onChange();
@@ -2383,14 +2383,17 @@
     boxes.forEach(function (b) { if (b.value !== '*') b.checked = roles.indexOf(b.value) >= 0; });
     boxes[0].checked = boxes.slice(1).every(function (b) { return b.checked; });
   }
+  // An empty Locations or Roles group means no limit on that filter.
   function maMatching() {
-    const locs = maValues('ma-locations'), roles = maValues('ma-roles');
+    let locs = maValues('ma-locations'), roles = maValues('ma-roles');
+    if (!locs.length) locs = (lastModulesData && lastModulesData.locations) || [];
+    if (!roles.length) roles = ['Sponsor', 'DSP', 'Secondary DSP'];
     const q = document.getElementById('ma-search').value.trim().toLowerCase();
     return ((lastModulesData && lastModulesData.people) || []).filter(function (p) {
       return locs.indexOf(p.location) >= 0 && roles.indexOf(p.role) >= 0 && (!q || p.name.toLowerCase().indexOf(q) >= 0);
     });
   }
-  function maPicked() { return maMatching().filter(function (p) { return !maExcluded.has(p.id); }); }
+  function maPicked() { return maMatching().filter(function (p) { return maIncluded.has(p.id); }); }
 
   function maRenderPeople() {
     const el = document.getElementById('ma-people');
@@ -2399,8 +2402,8 @@
     if (!shown.length) el.innerHTML = '<p class="empty-text" style="margin:6px 0;">No one matches these filters.</p>';
     shown.forEach(function (p) {
       const how = p.smsConsent === 'Opted In' && p.hasPhone ? 'text' : p.hasEmail ? 'email' : 'no contact on file';
-      maCheckbox(el, p.id, p.name + ' · ' + p.role + ', ' + p.location + ' (' + how + (p.hasFolder ? '' : ', no Training folder') + ')', !maExcluded.has(p.id), function () {
-        if (this.checked) maExcluded.delete(p.id); else maExcluded.add(p.id);
+      maCheckbox(el, p.id, p.name + ' · ' + p.role + ', ' + p.location + ' (' + how + (p.hasFolder ? '' : ', no Training folder') + ')', maIncluded.has(p.id), function () {
+        if (this.checked) maIncluded.add(p.id); else maIncluded.delete(p.id);
         maUpdateCount();
       });
     });
@@ -2417,7 +2420,7 @@
     ((lastModulesData && lastModulesData.modules) || []).forEach(function (m) {
       if (picked.indexOf(m.id) >= 0) (m.appliesTo || []).forEach(function (r) { roles.add(r); });
     });
-    maSetRoles(roles.size ? Array.from(roles) : ['Sponsor', 'DSP', 'Secondary DSP']);
+    maSetRoles(Array.from(roles));
     maRenderPeople();
   }
 
@@ -2468,7 +2471,7 @@
       try {
         const data = await apiFetch('/admin-assign-modules', { method: 'POST', body: JSON.stringify(maPayload()) });
         maRenderResult(data);
-        maExcluded.clear();
+        maIncluded.clear();
         maShowForm();
         await loadModulesDashboard();
         if (data.started) setTimeout(loadModulesDashboard, 15000);
@@ -2779,8 +2782,8 @@
   }
 
   document.getElementById('ma-search').addEventListener('input', maRenderPeople);
-  document.getElementById('ma-tick-all').addEventListener('click', function () { maMatching().forEach(function (p) { maExcluded.delete(p.id); }); maRenderPeople(); });
-  document.getElementById('ma-untick-all').addEventListener('click', function () { maMatching().forEach(function (p) { maExcluded.add(p.id); }); maRenderPeople(); });
+  document.getElementById('ma-tick-all').addEventListener('click', function () { maMatching().forEach(function (p) { maIncluded.add(p.id); }); maRenderPeople(); });
+  document.getElementById('ma-untick-all').addEventListener('click', function () { maMatching().forEach(function (p) { maIncluded.delete(p.id); }); maRenderPeople(); });
   document.getElementById('ml-filter').addEventListener('change', renderModulesList);
 
   document.getElementById('module-assign-review').addEventListener('click', async function () {
@@ -2789,7 +2792,7 @@
     document.getElementById('module-assign-result').style.display = 'none';
     const payload = maPayload();
     if (!payload.moduleIds.length) { setError('module-assign-error', 'Tick at least one module.'); return; }
-    if (!payload.personIds.length) { setError('module-assign-error', 'No one is ticked. Widen the filters or tick someone.'); return; }
+    if (!payload.personIds.length) { setError('module-assign-error', 'Tick at least one person.'); return; }
     if (!payload.dueDate) { setError('module-assign-error', 'Pick a due date.'); return; }
     btn.disabled = true;
     btn.textContent = 'Checking…';
