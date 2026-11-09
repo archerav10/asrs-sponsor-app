@@ -2661,6 +2661,60 @@ The app POSTs each PDF with an encrypted ticket to
 folders under Facility Reporting, uploads, then reports back so PDF Status
 becomes Saved. Workflow sources are in `zapier/`.
 
+## Monthly Location Compliance Report and month-end close
+
+Admin dashboard → **Reports** tab, one month at a time (defaults to last
+month; Previous / Next to move).
+
+**Location reports (ASRS-520-03).** For each granted home:
+- *Current month:* **Preview (month to date)**, rebuilt every time. Anything
+  not done yet but still due before the month ends is yellow, not red. Not
+  for signature.
+- *Ended month:* **Generate Final** builds the whole month (anything that had
+  to happen and didn't is red) and saves a frozen snapshot in the Notion
+  **Location Compliance Reports** table, so **Download Final** gives the
+  same PDF every time. **Regenerate** rebuilds it from today's data.
+  Download, upload to Drive yourself, then tick **Filed in Drive**.
+
+The PDF (`lib/location-report.js` builds the data, `lib/location-report-pdf.js`
+draws it): page 1 is the dashboard, one light per area (worst item wins;
+"to answer" items don't change it); then detail tables (requirement, what
+the app found, source); then findings (every red item plus every liaison
+flag, with a suggested owner and fix-by date) and, on the Final, sign-off
+for the Residential Liaison and the Executive Director. Areas: A emergency &
+fire (fire drills, walkthrough fire/CO/exit items, emergency supplies),
+B first aid & equipment, C medications (MAR review finalized in the month,
+storage check, Give Meds doses), D physical environment (readings in range
+and checked that month), E vehicles, F resident plans (Annual Planning incl.
+Risk Protocols / Care Plans / BSP, quarterly, daily notes signed per day),
+G health (physical, dental, labwork, TB, flu season, reassessment after
+incidents), H quality of life (resident interview, community outings,
+liaison flags), I staff (training), J liaison oversight (on-site visit with
+its location check, weekly calls, sponsor/DSP questionnaire).
+
+Readings like temperatures are kept as the latest value, so a Final for a
+month generated long after it ended can only show what is on file now (an
+item checked again after the month shows as not checked that month).
+Generate each Final soon after the month ends.
+
+**Liaison flags.** In the Liaison app (Concerns → *Flag a concern*) the
+liaison records a concern from an interview, questionnaire, visit or call,
+and whether it was escalated to the QA/Issues log (now or later). Stored in
+the Notion **Liaison Flags** table; each flag is a finding on that month's
+report.
+
+**Month-end close** (due the 15th of the next month; lights gray until the
+10th, yellow the 10th–15th, red after; green when done). Kept on the existing
+**QI & RM Monthly Checklists** row for the month (new columns: Issues Log
+Reviewed On/By/Note, Risk Tool Updated On/By/Note, QI Report Drafted /
+Reviewed / Signed On, QI Report By, QI Report Link):
+- Location reports filed (Finals ticked Filed in Drive)
+- Liaison flags decided (each escalated or marked not needed)
+- QA/Issues Log reviewed
+- Risk Tracking Tool updated
+- QI & RM report (ASRS-620-06): drafted → reviewed at leadership → signed, and its Drive link
+- The Notion QI & RM monthly checklist's own Status (due the end of the month)
+
 ## What's intentionally not built yet
 
 - **PWA icons.** `manifest.json` has an empty `icons` array — add 192px

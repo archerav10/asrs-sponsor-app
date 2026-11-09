@@ -37,6 +37,9 @@ const IDS = {
   VISIT_CHECKLIST_DB_ID: '30300019-3a67-40e8-b4ca-5d89d8a9a173',
   QUESTIONNAIRE_LINKS_DB_ID: 'd451cc84-043a-4c3a-b3a8-2fd9989fa889',
   QUESTIONNAIRE_RESPONSES_DB_ID: 'ff8e2740-cd3e-4ed1-8c64-fbbc801242f3',
+  LIAISON_FLAGS_DB_ID: '66176460-c291-4d17-9837-6e17b96e127a',
+  LOCATION_REPORTS_DB_ID: '11de07c2-d91a-46da-abbe-fa6e1c7dd1db',
+  QI_RM_CHECKLISTS_DB_ID: '265e2ac5-b93c-426e-bc4f-1531b999bffe',
   LOCATION_CODES_DB_ID: '4bf686f3-056b-49c3-925c-a321a2c78591',
   // Catch Hook of the "asrs-vehicle-documents" Zapier workflow. Not a
   // secret: it's handed to the browser for the direct upload, and the

@@ -685,6 +685,14 @@
   .drive-opening { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 14px; }
   .drive-opening a { color: var(--forest); font-weight: 600; }
   .lz-section { margin: 12px 0; }
+  .lz-flagform { margin-top:8px; }
+  .lz-flagform > summary { list-style:none; cursor:pointer; }
+  .lz-flagform > summary::-webkit-details-marker { display:none; }
+  .lz-flagform select, .lz-flagform textarea, .lz-flagform input[type=text] { width:100%; box-sizing:border-box; padding:12px 14px; font:inherit; font-size:16px; border:1px solid var(--border); border-radius:6px; background:#fff; color:var(--ink); }
+  .lz-flag { border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px 12px; margin-top:8px; }
+  .lz-flag .meta { font-size:13px; color:#6b6b6b; }
+  .lz-flag .concern { font-weight:600; margin:2px 0 6px; }
+  .lz-flag select { width:100%; padding:8px 10px; font:inherit; font-size:15px; border:1px solid var(--border); border-radius:6px; background:#fff; }
   .lz-section select, #screen-liaison-visit select, #screen-liaison-visit textarea {
     width: 100%; box-sizing: border-box; padding: 12px 14px; font: inherit; font-size: 16px;
     border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--ink);
@@ -762,6 +770,27 @@
       </button>
       <p class="item-section-title">Interviews &amp; questionnaires</p>
       <div id="lz-questionnaires" class="lz-qlist"></div>
+      <p class="item-section-title">Concerns</p>
+      <details class="lz-flagform" id="lz-flagform">
+        <summary class="action-button"><span class="mar-label-row"><span>&#9873; Flag a concern</span></span><span class="sub">From an interview, questionnaire, visit or call. It goes on the monthly compliance report.</span></summary>
+        <label for="lz-flag-resident">About</label>
+        <select id="lz-flag-resident"></select>
+        <label for="lz-flag-source">From</label>
+        <select id="lz-flag-source"></select>
+        <label for="lz-flag-concern">Concern</label>
+        <input type="text" id="lz-flag-concern" maxlength="300" placeholder="e.g. AR says a staff member treats him like a child">
+        <label for="lz-flag-details">Details (optional)</label>
+        <textarea id="lz-flag-details" rows="3"></textarea>
+        <label for="lz-flag-escalation">QA/Issues log</label>
+        <select id="lz-flag-escalation">
+          <option value="">Decide later</option>
+          <option value="Escalated to QA/Issues log">Escalated to the QA/Issues log</option>
+          <option value="Not needed">Escalation not needed</option>
+        </select>
+        <p class="error-text" id="lz-flag-error"></p>
+        <button type="button" id="lz-flag-save">Save flag</button>
+      </details>
+      <div id="lz-flags"></div>
       <p class="item-section-title">Sponsor app</p>
     </div>
 
@@ -4954,6 +4983,7 @@
     try {
       const data = await apiFetch('/liaison-home');
       lzHome = data;
+      loadLiaisonFlags(session);
       document.getElementById('lz-visit-dot').className = lzStatusClass(data.visit.status);
       document.getElementById('lz-visit-title').textContent = data.visit.draftId ? 'Continue On-site Visit' : 'Start On-site Visit';
       document.getElementById('lz-visit-status').textContent = data.visit.text + (data.homeLocationSet ? '' : ' · Home location not set up yet');
@@ -4979,6 +5009,69 @@
       setError('lz-error', e.message);
     }
   }
+
+
+  // Concerns the liaison flags. Each lands on the monthly compliance report
+  // as a finding; the liaison records whether it went to the QA/Issues log.
+  async function loadLiaisonFlags(session) {
+    const list = document.getElementById('lz-flags');
+    const resSel = document.getElementById('lz-flag-resident');
+    resSel.innerHTML = '';
+    const general = document.createElement('option'); general.value = ''; general.textContent = 'The home (no one resident)'; resSel.appendChild(general);
+    parseResidentInitials(session.residentInitials).forEach(function (r) { const o = document.createElement('option'); o.value = r; o.textContent = r; resSel.appendChild(o); });
+    list.innerHTML = '';
+    try {
+      const data = await apiFetch('/liaison-flags');
+      const srcSel = document.getElementById('lz-flag-source');
+      if (!srcSel.options.length) data.sources.forEach(function (s) { const o = document.createElement('option'); o.value = s; o.textContent = s; srcSel.appendChild(o); });
+      if (!data.flags.length) { list.innerHTML = '<p class="help-text">No concerns flagged for this home in the last 90 days.</p>'; return; }
+      data.flags.forEach(function (f) {
+        const card = document.createElement('div'); card.className = 'lz-flag';
+        card.innerHTML = '<div class="meta">' + escapeHtml(formatDate(f.flaggedOn) + ' · ' + f.source + (f.resident ? ' · ' + f.resident : '') + (f.resolved ? ' · Resolved' : '')) + '</div><div class="concern">' + escapeHtml(f.concern) + '</div>';
+        const sel = document.createElement('select');
+        [['', 'QA/Issues log: decide later'], ['Escalated to QA/Issues log', 'Escalated to the QA/Issues log'], ['Not needed', 'Escalation not needed']].forEach(function (o) {
+          const op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if (f.escalation === o[0]) op.selected = true; sel.appendChild(op);
+        });
+        sel.addEventListener('change', async function () {
+          sel.disabled = true;
+          try { await apiFetch('/liaison-flags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'update', id: f.id, escalation: sel.value }) }); }
+          catch (e) { alert(e.message); }
+          finally { sel.disabled = false; }
+        });
+        card.appendChild(sel);
+        list.appendChild(card);
+      });
+    } catch (e) {
+      list.innerHTML = '<p class="error-text" style="display:block">' + escapeHtml(e.message) + '</p>';
+    }
+  }
+
+  document.getElementById('lz-flag-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('lz-flag-error', '');
+    const concern = document.getElementById('lz-flag-concern').value.trim();
+    if (!concern) { setError('lz-flag-error', 'Describe the concern.'); return; }
+    btn.disabled = true;
+    try {
+      await apiFetch('/liaison-flags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        action: 'create', concern: concern,
+        resident: document.getElementById('lz-flag-resident').value,
+        source: document.getElementById('lz-flag-source').value,
+        details: document.getElementById('lz-flag-details').value,
+        escalation: document.getElementById('lz-flag-escalation').value
+      }) });
+      document.getElementById('lz-flag-concern').value = '';
+      document.getElementById('lz-flag-details').value = '';
+      document.getElementById('lz-flag-escalation').value = '';
+      document.getElementById('lz-flagform').open = false;
+      const stored = getStoredSession();
+      if (stored) loadLiaisonFlags(stored.session);
+    } catch (e) {
+      setError('lz-flag-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   document.getElementById('lz-location').addEventListener('change', async function () {
     const sel = this;
