@@ -16,6 +16,7 @@ exports.handler = async function (event) {
     const newAdminEmail = body.newAdminEmail;
     const phoneNumber = body.phoneNumber;
     const grantedLocations = body.grantedLocations || []; // full replacement list
+    const liaisonEnabled = !!body.liaisonEnabled; // Liaison app access (same granted locations)
 
     if (!name || !newAdminEmail || !phoneNumber) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Name, email, and phone number are required.' }) };
@@ -51,7 +52,8 @@ exports.handler = async function (event) {
       'Email': { rich_text: [{ text: { content: normalizedEmail } }] },
       'Phone Number': { phone_number: normalizedPhone },
       'Granted Locations': { rich_text: [{ text: { content: locationsText } }] },
-      'Admin App Enabled': { checkbox: grantedLocations.length > 0 }
+      'Admin App Enabled': { checkbox: grantedLocations.length > 0 },
+      'Liaison App Enabled': { checkbox: liaisonEnabled && grantedLocations.length > 0 }
     };
 
     if (existing) {
