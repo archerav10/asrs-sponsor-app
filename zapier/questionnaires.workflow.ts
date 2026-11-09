@@ -13,8 +13,7 @@ import { z } from "zod";
 // finds the signed app_tracking value the Liaison app put in the link,
 // and posts everything to /questionnaire-submitted. The app checks the
 // signature, records the response once, and files the PDF in Drive.
-// Submissions without a tracking value (the form opened outside the app)
-// are skipped.
+// Submissions the app can't tie to a link it opened are skipped there.
 
 const sdk = createZapierSdk();
 
@@ -81,12 +80,15 @@ const workflow = defineDurable<Input, unknown>(
     const input = normalizeInput(rawInput);
     let raw: unknown = input.rawRequest;
     if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { /* keep string */ } }
+    // The tracking value can come back empty (a form whose hidden field
+    // has a different name); the app then matches the submission to the
+    // link it opened for this form, so it is posted either way.
     const tracking = findTracking(raw) || findTracking(input);
-    if (!tracking) return { skipped: true, reason: "no-tracking-value" };
 
     const formId = str(input.formID ?? input.formId);
     const submissionId = str(input.submissionID ?? input.submissionId);
     if (!submissionId) return { skipped: true, reason: "no-submission-id" };
+    if (!tracking && !formId) return { skipped: true, reason: "no-tracking-or-form" };
 
     // Fetching and parsing both happen inside the step so a replay reuses
     // the result. A blank submittedAt lets the app use its own clock.

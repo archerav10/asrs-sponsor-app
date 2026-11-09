@@ -2642,9 +2642,16 @@ Hook. The Zap reads the submission from the Jotform API and posts it to
 `questionnaire-submitted`, which checks the signature, records the response
 and files a PDF (resident interviews under
 `{Location}/Residents/{Name}/Resident Interviews`, others under
-`{Location}/Liaison Visits/Questionnaires`). A form opened outside the app
-has no tracking value and is skipped. A copied per-home form must keep the
-webhook and the hidden `app_tracking` field.
+`{Location}/Liaison Visits/Questionnaires`). Forms built by Jotform's AI keep generated
+field names (e.g. `q26_textbox24`), so a Questionnaire Links row can list
+them in **Prefill Names** (`app_tracking=q26_textbox24; location=q3_textbox1;
+resident=q4_textbox2; liaison=q5_textbox3`). Each time a liaison opens a
+form the app also keeps an "Opened" row in Questionnaire Responses (not
+Active, holding the signed value); a submission whose tracking field came
+back empty is matched to the most recent opened row for that form in the
+last 14 days (and the home / resident typed on the form). A form opened
+outside the app matches nothing and is skipped. A copied per-home form must
+keep the webhook.
 
 ### Filing (asrs-document-filing Zap)
 
