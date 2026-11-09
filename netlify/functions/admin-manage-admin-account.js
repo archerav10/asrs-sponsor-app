@@ -16,7 +16,9 @@ exports.handler = async function (event) {
     const newAdminEmail = body.newAdminEmail;
     const phoneNumber = body.phoneNumber;
     const grantedLocations = body.grantedLocations || []; // full replacement list
-    const liaisonEnabled = !!body.liaisonEnabled; // Liaison app access (same granted locations)
+    // Liaison app homes, chosen separately from the admin homes (older
+    // callers send liaisonEnabled = the same homes as Granted Locations).
+    const liaisonLocations = Array.isArray(body.liaisonLocations) ? body.liaisonLocations.filter(function (l) { return typeof l === 'string' && l.trim(); }) : (body.liaisonEnabled ? grantedLocations : []);
     const roles = require('./lib/roles').cleanRoles(body.roles);
 
     if (!name || !newAdminEmail || !phoneNumber) {
@@ -54,7 +56,8 @@ exports.handler = async function (event) {
       'Phone Number': { phone_number: normalizedPhone },
       'Granted Locations': { rich_text: [{ text: { content: locationsText } }] },
       'Admin App Enabled': { checkbox: grantedLocations.length > 0 },
-      'Liaison App Enabled': { checkbox: liaisonEnabled && grantedLocations.length > 0 },
+      'Liaison App Enabled': { checkbox: liaisonLocations.length > 0 },
+      'Liaison Locations': { rich_text: liaisonLocations.length ? [{ text: { content: liaisonLocations.join(', ') } }] : [] },
       'Roles': { multi_select: roles.map(function (r) { return { name: r }; }) }
     };
 
