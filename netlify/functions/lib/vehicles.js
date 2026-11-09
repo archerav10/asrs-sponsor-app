@@ -4,8 +4,10 @@ const { id: configId } = require('./ids');
 const VEHICLES_DB_ID = configId('VEHICLES_DB_ID');
 const SERVICES_DB_ID = configId('VEHICLE_SERVICES_DB_ID');
 
-// Group home vehicles (admin-only; sponsors never see this). Each vehicle
-// belongs to a location; every service is its own row in Vehicle
+// Vehicles used to transport residents: group home vans from the admin
+// dashboard, and sponsors' own vehicles from the sponsor app (a sponsor
+// sees and manages only their own location's). Each vehicle belongs to
+// a location; every service is its own row in Vehicle
 // Services (append-only, like Medical Appointments: a mistaken entry is
 // removed by unchecking Active, never edited). A few service types are
 // tracked with a due date and/or mileage and drive the green/yellow/red
@@ -130,10 +132,17 @@ async function getVehicle(id) {
   }
 }
 
+// Locations a session may see vehicles for: an admin dashboard account's
+// granted locations, or a sponsor app session's own location.
+function sessionLocations(session) {
+  if (session.accountType === 'admin-dashboard') return session.grantedLocations || [];
+  return session.location ? [session.location] : [];
+}
+
 // The vehicle, if the session may see it.
 async function vehicleForSession(session, id) {
   const vehicle = await getVehicle(id);
-  if ((session.grantedLocations || []).indexOf(vehicle.location) === -1) throw httpError(403, 'Not authorized for that location.');
+  if (sessionLocations(session).indexOf(vehicle.location) === -1) throw httpError(403, 'Not authorized for that location.');
   return vehicle;
 }
 
@@ -199,7 +208,13 @@ function serviceFromPage(page) {
     expirationDate: getPlainText(p['Expiration Date']) || '',
     cost: typeof cost === 'number' ? cost : null,
     note: getPlainText(p['Note']),
-    loggedBy: getPlainText(p['Logged By'])
+    loggedBy: getPlainText(p['Logged By']),
+    insurer: getPlainText(p['Insurer']),
+    policyNumber: getPlainText(p['Policy Number']),
+    documentFilename: getPlainText(p['Document Filename']),
+    documentStatus: getPlainText(p['Document Status']),
+    documentLink: getPlainText(p['Document Link']),
+    documentSent: getPlainText(p['Document Sent'])
   };
 }
 
@@ -261,6 +276,8 @@ async function createService(vehicle, input, loggedBy, today) {
     'Expiration Date': { date: type.expires ? { start: input.expirationDate } : null },
     'Cost': { number: input.cost == null ? null : Math.round(input.cost * 100) / 100 },
     'Note': richText(input.note),
+    'Insurer': richText(type.key === 'insurance' ? input.insurer : ''),
+    'Policy Number': richText(type.key === 'insurance' ? input.policyNumber : ''),
     'Logged By': richText(loggedBy),
     'Logged Date': { date: { start: today } },
     'Active': { checkbox: true }
@@ -270,6 +287,36 @@ async function createService(vehicle, input, loggedBy, today) {
 
 async function removeService(serviceId) {
   await updatePage(serviceId, { 'Active': { checkbox: false } });
+}
+
+// ---- Documents (e.g. the insurance declarations page) ----
+// The browser sends the file straight to the "ASRS Vehicle Documents"
+// Zapier workflow with an encrypted ticket; the workflow trades the
+// ticket for the destination (Facility Reporting/{Location}/Vehicles)
+// and confirms back once the file is saved, which flips Pending to Saved.
+
+function safePart(s) { return String(s || '').replace(/[^a-zA-Z0-9]+/g, ''); }
+
+function documentFilename(vehicle, service, extension) {
+  const ext = String(extension || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 5).toLowerCase();
+  const what = service.typeKey === 'insurance' ? 'InsuranceDecPage' : safePart(service.typeLabel);
+  return service.date + '_' + safePart(vehicle.location) + '_' + safePart(vehicle.name) + '_' + what + (ext ? '.' + ext : '');
+}
+
+async function markDocumentPending(serviceId, filename) {
+  await updatePage(serviceId, {
+    'Document Filename': richText(filename),
+    'Document Status': { select: { name: 'Pending' } },
+    'Document Link': { url: null },
+    'Document Sent': { date: { start: new Date().toISOString() } }
+  });
+}
+
+async function markDocumentSaved(serviceId, link) {
+  await updatePage(serviceId, {
+    'Document Status': { select: { name: 'Saved' } },
+    'Document Link': { url: link || null }
+  });
 }
 
 async function getService(serviceId) {
@@ -339,6 +386,14 @@ function computeVehicleStatus(services, now) {
       text = 'Log the mileage with it to start tracking.';
     }
 
+    // Insurance: say whether proof of coverage (the dec page) is on file
+    // for the current policy. Wording only; it doesn't change the light.
+    if (type.key === 'insurance') {
+      text += last.documentStatus === 'Saved' ? ' · Dec page on file'
+        : last.documentStatus === 'Pending' ? ' · Dec page saving to Drive'
+        : ' · Dec page not uploaded';
+    }
+
     return {
       key: type.key,
       label: type.label,
@@ -370,6 +425,10 @@ module.exports = {
   allActiveVehicles,
   getVehicle,
   vehicleForSession,
+  sessionLocations,
+  documentFilename,
+  markDocumentPending,
+  markDocumentSaved,
   cleanVehicleFields,
   createVehicle,
   updateVehicle,

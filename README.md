@@ -2306,6 +2306,44 @@ adds the items the report needed that weren't captured anywhere yet.
   free-text community question stays for the details. Notes signed before
   this change have no Community answers.
 
+Round 1, follow-up changes:
+
+- **Admin dashboard, MAR Review tab:** each resident card shows the last
+  finalized medication storage check ("all OK", or which items were No and
+  the note). Read-only; sponsors answer it in the sponsor app.
+- **Sponsor app home:** the "For your information (view only)" section
+  (Annual Planning / Quarterly Reporting / Staff Training lights) is gone;
+  My Home's Compliance covers it.
+- **Vehicles in the sponsor app:** a Vehicles button on the home screen
+  (dot = worst status of the location's vehicles). Sponsors add the
+  vehicles they drive residents in, log services and mileage, edit or
+  retire them, and see the same tracked items as the admin Vehicles tab.
+  Same functions as the admin dashboard (`get-vehicles`, `get-vehicle`,
+  `save-vehicle`, `save-vehicle-service`), now open to sponsor app
+  sessions for their own location only (`sessionLocations` in
+  `lib/vehicles.js`); a sponsor's new vehicle always gets their location.
+  Reminder texts still go to the location's admins.
+- **Insurance coverage (both apps):** Insurance Renewal entries take the
+  insurance company, policy number and the **declarations page** (photo or
+  PDF). The file goes straight from the browser to the
+  **asrs-vehicle-documents** Zapier workflow
+  (`zapier/vehicle-documents.workflow.ts`, Catch Hook in `lib/ids.js` as
+  `VEHICLE_DOCUMENT_WEBHOOK_URL`) with an encrypted 2-hour ticket from
+  `get-vehicle-document-upload-config`. The workflow asks
+  `vehicle-document-resolve` where it goes
+  (`Facility Reporting/{Location}/Vehicles/`, folder created on first use,
+  filename like `2026-11-09_Janeway_SilverCamry_InsuranceDecPage.pdf`),
+  saves it, and confirms back, which sets the entry's `Document Status`
+  from Pending to Saved with a `Document Link`. A late confirmation for a
+  file that has since been replaced is ignored. Each insurance entry in
+  the history shows the dec page status with a picker to upload or replace
+  it, and the Insurance item's status line says "Dec page on file / saving
+  to Drive / not uploaded" (wording only; it doesn't change the light).
+  New Vehicle Services columns: `Insurer`, `Policy Number`,
+  `Document Filename`, `Document Status`, `Document Link`, `Document Sent`.
+- **ASRS People:** new `Driver License Exp Date` column (not shown in the
+  apps yet).
+
 The rest of the report's resident items come from Annual Planning, Medical
 Appointments and the Monthly QI/RM report; they stay as a manual checklist at
 the end of the generated report until confirmed.

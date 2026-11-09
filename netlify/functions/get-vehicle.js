@@ -7,7 +7,6 @@ exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method not allowed' };
   try {
     const session = requireSession(event);
-    if (session.accountType !== 'admin-dashboard') throw vh.httpError(403, 'Not authorized for the admin dashboard.');
     const id = (event.queryStringParameters || {}).id;
     if (!id) throw vh.httpError(400, 'Choose a vehicle.');
     const vehicle = await vh.vehicleForSession(session, id);

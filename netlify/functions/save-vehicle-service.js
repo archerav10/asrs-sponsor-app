@@ -9,7 +9,6 @@ exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
   try {
     const session = requireSession(event);
-    if (session.accountType !== 'admin-dashboard') throw vh.httpError(403, 'Not authorized for the admin dashboard.');
     const body = JSON.parse(event.body || '{}');
 
     if (body.serviceId && body.remove) {
@@ -29,7 +28,9 @@ exports.handler = async function (event) {
       mileage: num(body.mileage),
       expirationDate: body.expirationDate || '',
       cost: num(body.cost),
-      note: String(body.note || '').trim().slice(0, 1000)
+      note: String(body.note || '').trim().slice(0, 1000),
+      insurer: String(body.insurer || '').trim().slice(0, 100),
+      policyNumber: String(body.policyNumber || '').trim().slice(0, 60)
     };
     // One day of slack for an admin west of Eastern late in the evening.
     const tomorrow = vh.todayISO(new Date(Date.now() + 86400000));

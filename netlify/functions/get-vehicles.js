@@ -1,15 +1,14 @@
 const { requireSession } = require('./lib/session');
 const vh = require('./lib/vehicles');
 
-// The Vehicles tab: every active vehicle at the admin's granted
-// locations, with its overall status, latest mileage and the tracked
+// The Vehicles tab (admin dashboard) and Vehicles screen (sponsor app):
+// every active vehicle at the session's locations, with its overall status, latest mileage and the tracked
 // items that need attention.
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') return { statusCode: 405, body: 'Method not allowed' };
   try {
     const session = requireSession(event);
-    if (session.accountType !== 'admin-dashboard') throw vh.httpError(403, 'Not authorized for the admin dashboard.');
-    const locations = session.grantedLocations || [];
+    const locations = vh.sessionLocations(session);
     const vehicles = await vh.vehiclesForLocations(locations);
     const services = await vh.servicesByVehicle(vehicles);
     const rows = vehicles.map(function (v) {
@@ -22,7 +21,8 @@ exports.handler = async function (event) {
         plate: v.plate,
         overall: status.overall,
         currentMileage: status.currentMileage,
-        attention: status.items.filter(function (i) { return i.status === 'red' || i.status === 'yellow'; })
+        attention: status.items.filter(function (i) { return i.status === 'red' || i.status === 'yellow'; }),
+        insuranceText: (status.items.filter(function (i) { return i.key === 'insurance'; })[0] || {}).text || ''
       };
     });
     return { statusCode: 200, body: JSON.stringify({ locations: locations, vehicles: rows }) };
