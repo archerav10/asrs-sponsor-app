@@ -2254,6 +2254,100 @@ don't show up (… → Connections); fill in Phone Number, Email and SMS
 Consent Status on ASRS People; add `ZAPIER_MODULE_CERTIFICATE_WEBHOOK_URL`
 in Netlify (see below for making room under the 4 KB limit).
 
+### Monthly Location Compliance Report: capture additions (round 1)
+
+The ASRS-520-03 Monthly Location Compliance Report will be generated as a
+**current-status snapshot** (what is true today), not a report about the
+previous month. That means it reads the latest answer on each screen, so
+screens that keep only their latest answer are fine as they are. This round
+adds the items the report needed that weren't captured anywhere yet.
+
+- **Physical Environment walkthrough (sponsor app):** 12 new rows per
+  location in the Physical Environment Master List (data only, no code):
+  carbon monoxide detectors, fire extinguisher charged/accessible/tagged,
+  fire extinguisher next annual inspection (a date item, labelled "Due
+  Date"), exits and hallways clear, emergency contact list, cleaning
+  chemicals, heating/cooling/lighting, leaks or pests, beds and bedding,
+  repairs from the last safety inspection, medical equipment, and first aid
+  supply use written in the communication log. Items that don't apply in
+  every home say "(or none ...)" so a checked box still means compliant.
+  A new location needs these rows added along with the rest of its list.
+  Until a sponsor does the walkthrough, unchecked new items show as missing
+  in the weekly admin digest, same as any unchecked item.
+- **Medication storage check (sponsor app, MAR Review):** five questions at
+  the end of each resident's monthly MAR Review: medications locked / keys /
+  temperature; controlled substance counts (N/A: none prescribed); expired
+  or discontinued medications disposed of (N/A: none this month); refusals,
+  PRNs and errors documented; over-the-counter medications authorized (N/A:
+  none in use). All five must be answered to finalize, and any No needs a
+  storage check note. Stored on the resident's **MAR Review Periods** row:
+  `Checks Draft` (JSON working copy tagged with its period, so each new
+  period starts blank without wiping anything) and, written only at
+  finalize, `Check Meds Locked`, `Check Controlled Counts`,
+  `Check Expired Disposed`, `Check Refusals Documented`,
+  `Check OTC Authorized` (Yes / No / N/A) and `Check Notes`. Those columns
+  always hold the last finalized answers, which is what the report reads.
+  Code: `lib/mar-storage-checks.js`, wired into get/confirm/finalize-mar-review.
+- **Annual Planning (admin dashboard):** three new documents, Risk Protocols,
+  Care Plans and Behavior Support Plan (13 in all). New Notion columns
+  `RiskProtocols / CarePlans / BSP` `Done` + `Filename`. The Behavior Support
+  Plan can be marked **Not needed for this resident** (stored as Done with
+  Filename "Not needed"; Undo puts it back), so it never blocks Finalize for a
+  resident who doesn't have one. Steps opt in with `canBeNotNeeded` in
+  `STEPS`. Cycles already finalized are unaffected; open cycles now need the
+  new documents before they can be finalized.
+- **Daily Progress Notes (sponsor app):** a fixed **Community** block on every
+  note, outside the per-resident question templates: "Did they go out into
+  the community today?" (Yes/No), and if Yes, "Who chose the outing?"
+  (Resident chose / Chose together / Staff chose) and "Was the group 3 people
+  or fewer?" (QI Plan 1a). Required to sign. Stored on the note's row in
+  Daily Progress Notes (`Community Outing`, `Outing Chosen By`,
+  `Outing Small Group`) and printed on the note PDF. The template's own
+  free-text community question stays for the details. Notes signed before
+  this change have no Community answers.
+
+Round 1, follow-up changes:
+
+- **Admin dashboard, MAR Review tab:** each resident card shows the last
+  finalized medication storage check ("all OK", or which items were No and
+  the note). Read-only; sponsors answer it in the sponsor app.
+- **Sponsor app home:** the "For your information (view only)" section
+  (Annual Planning / Quarterly Reporting / Staff Training lights) is gone;
+  My Home's Compliance covers it.
+- **Vehicles in the sponsor app:** a Vehicles button on the home screen
+  (dot = worst status of the location's vehicles). Sponsors add the
+  vehicles they drive residents in, log services and mileage, edit or
+  retire them, and see the same tracked items as the admin Vehicles tab.
+  Same functions as the admin dashboard (`get-vehicles`, `get-vehicle`,
+  `save-vehicle`, `save-vehicle-service`), now open to sponsor app
+  sessions for their own location only (`sessionLocations` in
+  `lib/vehicles.js`); a sponsor's new vehicle always gets their location.
+  Reminder texts still go to the location's admins.
+- **Insurance coverage (both apps):** Insurance Renewal entries take the
+  insurance company, policy number and the **declarations page** (photo or
+  PDF). The file goes straight from the browser to the
+  **asrs-vehicle-documents** Zapier workflow
+  (`zapier/vehicle-documents.workflow.ts`, Catch Hook in `lib/ids.js` as
+  `VEHICLE_DOCUMENT_WEBHOOK_URL`) with an encrypted 2-hour ticket from
+  `get-vehicle-document-upload-config`. The workflow asks
+  `vehicle-document-resolve` where it goes
+  (`Facility Reporting/{Location}/Vehicles/`, folder created on first use,
+  filename like `2026-11-09_Janeway_SilverCamry_InsuranceDecPage.pdf`),
+  saves it, and confirms back, which sets the entry's `Document Status`
+  from Pending to Saved with a `Document Link`. A late confirmation for a
+  file that has since been replaced is ignored. Each insurance entry in
+  the history shows the dec page status with a picker to upload or replace
+  it, and the Insurance item's status line says "Dec page on file / saving
+  to Drive / not uploaded" (wording only; it doesn't change the light).
+  New Vehicle Services columns: `Insurer`, `Policy Number`,
+  `Document Filename`, `Document Status`, `Document Link`, `Document Sent`.
+- **ASRS People:** new `Driver License Exp Date` column (not shown in the
+  apps yet).
+
+The rest of the report's resident items come from Annual Planning, Medical
+Appointments and the Monthly QI/RM report; they stay as a manual checklist at
+the end of the generated report until confirmed.
+
 ## Weekly admin email digest
 
 Separate from the SMS reports above — one email per admin (not

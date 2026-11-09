@@ -33,6 +33,10 @@ const IDS = {
   PATHS_DB_ID: '72dfc838-d9bc-4cf4-9d8c-d23f0720fe78',
   PATH_STEPS_DB_ID: '6119b077-c8bf-4819-8b29-358b915bf9cb',
   PATH_ASSIGNMENTS_DB_ID: '02b6083f-6255-47b2-a579-1930e3034bf4',
+  // Catch Hook of the "asrs-vehicle-documents" Zapier workflow. Not a
+  // secret: it's handed to the browser for the direct upload, and the
+  // workflow trusts nothing but the encrypted ticket sent with the file.
+  VEHICLE_DOCUMENT_WEBHOOK_URL: 'https://hooks.zapier.com/hooks/catch/27672979/kjm7wHbEamjVqlc4/',
   // A Google OAuth client ID is public by design (it's sent to browsers in
   // sign-in links); the client secret and refresh token stay in Netlify.
   GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'

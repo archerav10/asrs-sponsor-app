@@ -103,6 +103,20 @@ async function buildDailyProgressNotePdf(data) {
     y -= 8;
   });
 
+  // Fixed Community questions (on every note since they were added;
+  // older notes have none and skip this block).
+  const community = data.community || {};
+  if (community.outing) {
+    newPageIfNeeded(20);
+    drawLine('Community', { size: 11, bold: true });
+    drawLine('   • Went out into the community today: ' + community.outing, { size: 10 });
+    if (community.outing === 'Yes') {
+      drawLine('   • Who chose the outing: ' + (community.chosenBy || '—'), { size: 10 });
+      drawLine('   • Group of 3 people or fewer: ' + (community.smallGroup || '—'), { size: 10 });
+    }
+    y -= 8;
+  }
+
   y -= 10;
   newPageIfNeeded(110);
   if (data.enteredBy) {

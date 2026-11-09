@@ -189,6 +189,10 @@
   .checkmark { color: #1B7A3D; font-weight: 700; margin-left: 4px; }
   .ap-step-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .ap-step-actions input[type="file"] { flex: 1; font-size: 13px; min-width: 160px; }
+  .ap-step-actions button.nn-btn {
+    width: auto; margin: 0; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    background: #fff; color: #555; border: 1px solid #999; border-radius: 6px; cursor: pointer;
+  }
   .ap-step-actions a.form-link {
     display: inline-block;
     padding: 8px 12px;
@@ -523,7 +527,7 @@
     </div>
 
     <div id="vehicles-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Group home vehicles. Log each service with its date and mileage. Inspection, tags, insurance, oil, tire rotation, tune-up, brakes and alignment are tracked: the location's admins get a text 30 days (or 500 miles) before one is due and again when it's due.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Group home vans and sponsors' own vehicles (sponsors add and update theirs in the sponsor app). Log each service with its date and mileage, and upload the insurance declarations page with each Insurance Renewal. Inspection, tags, insurance, oil, tire rotation, tune-up, brakes and alignment are tracked: the location's admins get a text 30 days (or 500 miles) before one is due and again when it's due.</p>
       <p class="error-text" id="vehicles-dashboard-error"></p>
       <div id="vehicles-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
       <details class="ap-step" id="vehicle-add" style="margin-top: 18px;">
@@ -733,6 +737,14 @@
       <div id="vehicle-log-expiration-wrap" style="display:none;">
         <label for="vehicle-log-expiration">New expiration date</label>
         <input type="date" id="vehicle-log-expiration">
+      </div>
+      <div id="vehicle-log-insurance-wrap" style="display:none;">
+        <label for="vehicle-log-insurer">Insurance company</label>
+        <input type="text" id="vehicle-log-insurer" placeholder="e.g. State Farm">
+        <label for="vehicle-log-policy">Policy number</label>
+        <input type="text" id="vehicle-log-policy">
+        <label for="vehicle-log-decpage">Declarations page (photo or PDF)</label>
+        <input type="file" id="vehicle-log-decpage" accept="image/*,application/pdf">
       </div>
       <label for="vehicle-log-cost">Cost (optional)</label>
       <input type="text" id="vehicle-log-cost" inputmode="decimal" placeholder="e.g. 59.99">
@@ -1133,6 +1145,17 @@
     wrap.appendChild(historyP);
     wrap.appendChild(currentP);
 
+    // Medication storage check from the last finalized review.
+    const sc = row.storageCheck;
+    if (sc) {
+      const scP = document.createElement('p');
+      scP.className = 'resident-line' + (sc.no.length ? ' flagged' : '');
+      scP.textContent = !sc.answered ? 'Medication storage check: not done yet'
+        : sc.no.length ? 'Medication storage check — No: ' + sc.no.join('; ') + (sc.notes ? ' (' + sc.notes + ')' : '')
+        : 'Medication storage check: all OK';
+      wrap.appendChild(scP);
+    }
+
     return wrap;
   }
 
@@ -1463,7 +1486,9 @@
 
     const status = document.createElement('p');
     status.className = 'ap-step-status' + (stepState.done ? ' done' : '');
-    status.textContent = stepState.done ? ('Uploaded: ' + (stepState.filename || 'document')) : 'Not yet uploaded';
+    const markedNotNeeded = stepState.done && stepState.filename === 'Not needed';
+    status.textContent = markedNotNeeded ? 'Marked not needed for this resident'
+      : stepState.done ? ('Uploaded: ' + (stepState.filename || 'document')) : 'Not yet uploaded';
     wrap.appendChild(status);
 
     const actions = document.createElement('div');
@@ -1509,6 +1534,36 @@
         setError('annual-detail-error', e.message);
       }
     });
+
+    // Steps like the Behavior Support Plan don't apply to every resident:
+    // "Not needed" records that, so it doesn't block Finalize. Undo puts
+    // the step back to not uploaded.
+    if (stepDef.canBeNotNeeded && (!stepState.done || markedNotNeeded)) {
+      const nnBtn = document.createElement('button');
+      nnBtn.type = 'button';
+      nnBtn.className = 'nn-btn';
+      nnBtn.textContent = markedNotNeeded ? 'Undo not needed' : 'Not needed for this resident';
+      nnBtn.addEventListener('click', async function () {
+        setError('annual-detail-error', '');
+        nnBtn.disabled = true;
+        try {
+          await apiFetch('/save-annual-planning-step', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(markedNotNeeded
+              ? { location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, filename: '', done: false }
+              : { location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, notNeeded: true, done: true })
+          });
+          const scrollY = window.scrollY;
+          await loadAnnualDetail();
+          window.scrollTo(0, scrollY);
+        } catch (e) {
+          setError('annual-detail-error', e.message);
+          nnBtn.disabled = false;
+        }
+      });
+      actions.appendChild(nnBtn);
+    }
 
     if (stepDef.formUrl) {
       const formLink = document.createElement('a');
@@ -3061,13 +3116,14 @@
   function resetVehicleLogForm() {
     document.getElementById('vehicle-log-type').value = '';
     document.getElementById('vehicle-log-date').value = localTodayISO();
-    ['vehicle-log-mileage', 'vehicle-log-expiration', 'vehicle-log-cost', 'vehicle-log-note'].forEach(function (id) { document.getElementById(id).value = ''; });
+    ['vehicle-log-mileage', 'vehicle-log-expiration', 'vehicle-log-cost', 'vehicle-log-note', 'vehicle-log-insurer', 'vehicle-log-policy', 'vehicle-log-decpage'].forEach(function (id) { document.getElementById(id).value = ''; });
     refreshVehicleLogForm();
   }
 
   function refreshVehicleLogForm() {
     const type = vehicleServiceTypes.filter(function (t) { return t.key === document.getElementById('vehicle-log-type').value; })[0];
     document.getElementById('vehicle-log-expiration-wrap').style.display = type && type.needsExpiration ? '' : 'none';
+    document.getElementById('vehicle-log-insurance-wrap').style.display = type && type.key === 'insurance' ? '' : 'none';
     document.getElementById('vehicle-log-mileage-label').textContent = type && type.needsMileage ? 'Mileage' : 'Mileage (optional)';
   }
   document.getElementById('vehicle-log-type').addEventListener('change', refreshVehicleLogForm);
@@ -3178,6 +3234,8 @@
       const details = [];
       if (s.mileage != null) details.push(miles(s.mileage));
       if (s.expirationDate) details.push('Expires ' + formatDate(s.expirationDate));
+      if (s.insurer) details.push(s.insurer);
+      if (s.policyNumber) details.push('Policy ' + s.policyNumber);
       if (s.cost != null) details.push('$' + s.cost.toFixed(2));
       if (s.loggedBy) details.push('logged by ' + s.loggedBy);
       const meta = document.createElement('p');
@@ -3193,6 +3251,7 @@
         note.textContent = s.note;
         wrap.appendChild(note);
       }
+      if (s.typeKey === 'insurance') wrap.appendChild(vehicleDocumentBlock(s));
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'link-button';
@@ -3218,14 +3277,65 @@
     });
   }
 
+  // Sends one file to the Vehicle Documents workflow for a service entry.
+  async function uploadVehicleDocument(serviceId, file) {
+    const dot = file.name.lastIndexOf('.');
+    const extension = dot > 0 ? file.name.slice(dot + 1) : '';
+    const config = await apiFetch('/get-vehicle-document-upload-config?serviceId=' + encodeURIComponent(serviceId) + '&extension=' + encodeURIComponent(extension));
+    const formData = new FormData();
+    formData.append('file', file, config.filename);
+    formData.append('ticket', config.ticket);
+    formData.append('site', window.location.origin);
+    const res = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error('The document failed to upload. Try again.');
+  }
+
+  // Dec page status for an insurance entry, with a picker to upload or
+  // replace it.
+  function vehicleDocumentBlock(s) {
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '8px';
+    wrap.style.fontSize = '13px';
+    const status = document.createElement('div');
+    if (s.documentStatus === 'Saved') {
+      status.innerHTML = 'Dec page: <strong>on file</strong>' + (s.documentLink ? ' · <a href="' + escapeHtml(s.documentLink) + '" target="_blank" rel="noopener">Open in Drive</a>' : '');
+    } else if (s.documentStatus === 'Pending') {
+      status.textContent = 'Dec page: saving to Drive. Refresh in a minute to see it.';
+    } else {
+      status.innerHTML = '<span style="color:#9A3412;font-weight:600;">Dec page not uploaded</span>';
+    }
+    wrap.appendChild(status);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf';
+    input.style.marginTop = '6px';
+    input.setAttribute('aria-label', s.documentStatus === 'Saved' ? 'Replace dec page' : 'Upload dec page');
+    input.addEventListener('change', async function () {
+      if (!input.files[0]) return;
+      setError('vehicle-detail-error', '');
+      input.disabled = true;
+      status.textContent = 'Uploading…';
+      try {
+        await uploadVehicleDocument(s.id, input.files[0]);
+        loadVehicleDetail(false);
+      } catch (e) {
+        setError('vehicle-detail-error', e.message);
+        input.disabled = false;
+      }
+    });
+    wrap.appendChild(input);
+    return wrap;
+  }
+
   async function saveVehicleService(confirmLowerMileage) {
     const btn = document.getElementById('vehicle-log-save');
     setError('vehicle-log-error', '');
     const typeKey = document.getElementById('vehicle-log-type').value;
     if (!typeKey) { setError('vehicle-log-error', 'Choose a service.'); return; }
+    const decFile = typeKey === 'insurance' ? document.getElementById('vehicle-log-decpage').files[0] : null;
     btn.disabled = true;
     try {
-      await apiFetch('/save-vehicle-service', {
+      const res = await apiFetch('/save-vehicle-service', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3234,11 +3344,22 @@
           date: document.getElementById('vehicle-log-date').value,
           mileage: document.getElementById('vehicle-log-mileage').value.trim(),
           expirationDate: document.getElementById('vehicle-log-expiration').value,
+          insurer: document.getElementById('vehicle-log-insurer').value.trim(),
+          policyNumber: document.getElementById('vehicle-log-policy').value.trim(),
           cost: document.getElementById('vehicle-log-cost').value.trim(),
           note: document.getElementById('vehicle-log-note').value.trim(),
           confirmLowerMileage: !!confirmLowerMileage
         })
       });
+      if (decFile) {
+        try {
+          await uploadVehicleDocument(res.id, decFile);
+        } catch (e) {
+          await loadVehicleDetail(true);
+          setError('vehicle-log-error', 'Saved, but the dec page didn\u2019t upload: ' + e.message + ' Use the file picker on the entry below to try again.');
+          return;
+        }
+      }
       await loadVehicleDetail(true);
       setError('vehicle-log-error', '');
     } catch (e) {

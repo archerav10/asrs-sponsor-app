@@ -112,40 +112,23 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
-  .info-section {
-    margin: 24px 0;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #f3f2ee;
-    padding: 16px;
-  }
-  .info-section-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 0 0 12px;
-  }
-  .info-status-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fff;
-    font-size: 14px;
-    font-weight: 600;
-    color: #444;
-    margin-bottom: 8px;
-  }
-  .info-status-row:last-child { margin-bottom: 0; }
-  .info-status-text { display: flex; flex-direction: column; }
-  .info-status-reason { font-size: 12px; font-weight: 400; color: #666; margin-top: 2px; }
   .action-list { display: flex; flex-direction: column; gap: 12px; }
+  .action-list + .action-list { margin-top: 12px; } /* same gap between groups as within one */
+  .vh-card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 14px 16px; margin-bottom: 10px; }
+  .vh-card-row { display: flex; align-items: center; gap: 8px; }
+  .vh-card-name { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
+  .vh-card-date { font-size: 13px; color: #666; white-space: nowrap; }
+  .vh-card p { margin: 6px 0 0; font-size: 13px; color: #555; }
+  .vh-card p.flagged { color: var(--error); font-weight: 600; }
+  .vh-card .vh-doc { margin-top: 8px; font-size: 13px; }
+  .vh-card .vh-doc input[type="file"] { font-size: 13px; margin-top: 6px; width: 100%; }
+  button.vh-list-button { text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); margin-top: 0; margin-bottom: 10px; }
+  button.vh-list-button .sub { display: block; font-size: 13px; font-weight: 400; color: #666; margin-top: 4px; white-space: pre-line; }
+  button.vh-link { background: none; border: 0; padding: 0; margin-top: 8px; width: auto; color: #9A3412; font-size: 13px; font-weight: 400; text-decoration: underline; }
+  details.vh-details { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 14px 16px; margin-top: 18px; }
+  details.vh-details summary { cursor: pointer; font-weight: 600; }
   .action-button {
     text-align: left;
     background: #fff;
@@ -574,6 +557,17 @@
   }
   .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
   .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
+  .dpn-yn-btn.selected-na { background: #6b6b6b; color: #fff; border-color: #6b6b6b; }
+  .dpn-community .dpn-checklist-item, .dpn-community .dpn-yn-group { flex-wrap: wrap; }
+  .dpn-community .dpn-checklist-item > span { flex: 1 1 100%; }
+  .dpn-community .dpn-yn-group { flex-shrink: 1; min-width: 0; }
+  .dpn-community .dpn-yn-btn, .storage-check .dpn-yn-btn { width: auto; padding: 8px 12px; }
+  .storage-check .dpn-yn-group { flex-wrap: wrap; justify-content: flex-end; }
+  #mar-storage-notes { width: 100%; box-sizing: border-box; font: inherit; padding: 10px 12px; }
+  .storage-check { margin: 8px 0 20px; }
+  .storage-check .dpn-checklist-item { align-items: flex-start; flex-wrap: wrap; }
+  .storage-check .dpn-checklist-item > span { flex: 1 1 220px; }
+  .storage-check .dpn-yn-btn { padding: 8px 12px; }
   .dpn-signature-wrap { margin-top: 8px; }
   .dpn-signature-canvas {
     width: 100%;
@@ -786,11 +780,14 @@
         <span class="sub" id="home-pe-status"></span>
         <span class="sub" id="home-pe-due"></span>
       </button>
-    </div>
-
-    <div class="info-section">
-      <p class="info-section-label">For your information (view only)</p>
-      <div id="info-status-container"></div>
+      <button class="action-button" data-action="vehicles">
+        <span class="mar-label-row">
+          <span id="home-vh-dot" class="status-dot status-unknown"></span>
+          <span>Vehicles</span>
+        </span>
+        <span class="sub">Inspection, tags, insurance and dec page, maintenance</span>
+        <span class="sub" id="home-vh-status"></span>
+      </button>
     </div>
 
     <div class="action-list">
@@ -965,6 +962,76 @@
     </div>
   </section>
 
+  <!-- Vehicles: list for this location -->
+  <section id="screen-vehicles" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="home">&larr; Back</button>
+    </div>
+    <p class="screen-title">Vehicles</p>
+    <p class="help-text" style="margin:-8px 0 16px;">Any vehicle used to drive a resident. Log each service with its date and mileage, and upload the insurance declarations page when the policy renews. The dot turns yellow 30 days (or 500 miles) before something is due, and the office gets a reminder text.</p>
+    <p class="error-text" id="vh-list-error"></p>
+    <div id="vh-list"><p class="loading-text">Loading&hellip;</p></div>
+    <details class="vh-details" id="vh-add">
+      <summary>+ Add a vehicle</summary>
+      <div id="vh-add-fields" class="form-field"></div>
+      <p class="error-text" id="vh-add-error"></p>
+      <button type="button" id="vh-add-save">Add vehicle</button>
+    </details>
+  </section>
+
+  <!-- Vehicles: one vehicle -->
+  <section id="screen-vehicle" class="screen">
+    <div class="screen-header">
+      <button class="back-button" id="vh-back">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="vh-title"></p>
+    <p class="help-text" id="vh-meta" style="margin:6px 0 16px;"></p>
+    <p class="error-text" id="vh-error"></p>
+
+    <p class="item-section-title">Status</p>
+    <div id="vh-status"><p class="loading-text">Loading&hellip;</p></div>
+
+    <p class="item-section-title">Log a Service</p>
+    <p class="help-text" style="margin-top:0;">Use "Mileage Update" to record a reading between services, so mileage reminders stay accurate.</p>
+    <div class="form-field">
+      <label for="vh-log-type">Service</label>
+      <select id="vh-log-type"></select>
+      <label for="vh-log-date">Date</label>
+      <input type="date" id="vh-log-date" style="width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:6px;">
+      <label for="vh-log-mileage" id="vh-log-mileage-label">Mileage (optional)</label>
+      <input type="text" id="vh-log-mileage" inputmode="numeric" placeholder="e.g. 48,250">
+      <div id="vh-log-expiration-wrap" style="display:none;">
+        <label for="vh-log-expiration">New expiration date</label>
+        <input type="date" id="vh-log-expiration" style="width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:6px;">
+      </div>
+      <div id="vh-log-insurance-wrap" style="display:none;">
+        <label for="vh-log-insurer">Insurance company</label>
+        <input type="text" id="vh-log-insurer" placeholder="e.g. State Farm">
+        <label for="vh-log-policy">Policy number</label>
+        <input type="text" id="vh-log-policy">
+        <label for="vh-log-decpage">Declarations page (photo or PDF)</label>
+        <input type="file" id="vh-log-decpage" accept="image/*,application/pdf">
+      </div>
+      <label for="vh-log-cost">Cost (optional)</label>
+      <input type="text" id="vh-log-cost" inputmode="decimal" placeholder="e.g. 59.99">
+      <label for="vh-log-note">Note (optional)</label>
+      <textarea id="vh-log-note" rows="2" placeholder="e.g. Jiffy Lube, synthetic 0W-20"></textarea>
+    </div>
+    <p class="error-text" id="vh-log-error"></p>
+    <button type="button" id="vh-log-save">Save</button>
+
+    <p class="item-section-title">Service History</p>
+    <div id="vh-history"></div>
+
+    <details class="vh-details" id="vh-edit">
+      <summary>Edit vehicle details</summary>
+      <div id="vh-edit-fields" class="form-field"></div>
+      <p class="error-text" id="vh-edit-error"></p>
+      <button type="button" id="vh-edit-save">Save details</button>
+      <button type="button" class="secondary" id="vh-retire">Retire this vehicle (sold / no longer used)</button>
+    </details>
+  </section>
+
   <!-- Screen 8: Log an Event -->
   <section id="screen-log-event" class="screen">
     <div class="screen-header">
@@ -1033,6 +1100,14 @@
     </div>
 
     <div id="mar-list"></div>
+
+    <div id="mar-storage-wrap" class="storage-check" style="display:none;">
+      <p class="item-section-title">Medication Storage Check</p>
+      <p class="item-meta">Answer each one for this month. If anything is No, say what you are doing about it below.</p>
+      <div id="mar-storage-items"></div>
+      <label for="mar-storage-notes">Storage check notes</label>
+      <textarea id="mar-storage-notes" rows="3" placeholder="Required if any answer is No&hellip;"></textarea>
+    </div>
 
     <div id="mar-general-notes-wrap" class="general-notes-wrap" style="display:none;">
       <label for="mar-general-notes">Notes (optional)</label>
@@ -1216,6 +1291,8 @@
     fireDrill: document.getElementById('screen-fire-drill'),
     emergencySupplies: document.getElementById('screen-emergency-supplies'),
     physicalEnvironment: document.getElementById('screen-physical-environment'),
+    vehicles: document.getElementById('screen-vehicles'),
+    vehicle: document.getElementById('screen-vehicle'),
     logEvent: document.getElementById('screen-log-event'),
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
@@ -1252,7 +1329,9 @@
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || 'Something went wrong.');
+      const err = new Error(data.error || 'Something went wrong.');
+      err.data = data; // e.g. save-vehicle-service's lowerMileage flag
+      throw err;
     }
     return data;
   }
@@ -1399,12 +1478,12 @@
     loadHomeFireDrillStatus();
     loadHomeEmergencySuppliesStatus();
     loadHomePhysicalEnvironmentStatus();
+    loadHomeVehiclesStatus();
     loadHomeSiteVisitStatus();
     renderMarButtons(session.residentInitials);
     renderDpnButtons(session.residentInitials);
     renderGiveMedsButtons(session.residentInitials);
     renderMedicalButtons(session.residentInitials);
-    loadInfoStatuses(session);
     loadHomeWeeklyFocus(session);
     loadHomeCompliance();
   }
@@ -1430,87 +1509,6 @@
   // residentInitials can list more than one resident.
   function parseResidentInitials(residentInitialsStr) {
     return (residentInitialsStr || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  }
-
-  // Mirrors the admin dashboard's own staffPuzzleState wording — only
-  // shown for yellow/red, since a green dot needs no explanation.
-  function staffTrainingReasonText(member) {
-    if (member.status === 'green') return '';
-    if (member.isOverdue) {
-      return 'Overdue ' + formatDate(member.dueDate);
-    }
-    if (member.missingCount > 0) {
-      return 'Incomplete (' + member.doneCount + '/' + member.totalCount + ')';
-    }
-    return 'Due ' + formatDate(member.dueDate);
-  }
-
-  // Annual Planning, Quarterly Reporting, and Staff Training all have
-  // their own full workflows on the admin dashboard — sponsors only get
-  // a traffic light here, one row per resident for the first two, one
-  // row per active staff member (by name) for Staff Training. Plain
-  // divs, not buttons — nothing here is tappable. The three fetches are
-  // independent of each other, so they run concurrently rather than
-  // waiting on one another in turn.
-  async function loadInfoStatuses(session) {
-    const container = document.getElementById('info-status-container');
-    container.innerHTML = '';
-    const residents = parseResidentInitials(session.residentInitials);
-
-    function addRow(dotId, label) {
-      const row = document.createElement('div');
-      row.className = 'info-status-row';
-      row.innerHTML = '<span id="' + dotId + '" class="status-dot status-green"></span><span>' + label + '</span>';
-      container.appendChild(row);
-    }
-
-    residents.forEach(function (initials) {
-      addRow('info-ap-dot-' + initials, 'Annual Planning — ' + initials);
-    });
-    residents.forEach(function (initials) {
-      addRow('info-qr-dot-' + initials, 'Quarterly Reporting — ' + initials);
-    });
-
-    // Staff Training rows can't be pre-rendered like the ones above —
-    // the names themselves come back from the fetch, so this group
-    // gets its own sub-container built fresh once the data arrives.
-    const staffGroup = document.createElement('div');
-    container.appendChild(staffGroup);
-
-    await Promise.all([
-      apiFetch('/get-provider-annual-planning-status').then(function (data) {
-        (data.residents || []).forEach(function (r) {
-          const dot = document.getElementById('info-ap-dot-' + r.resident);
-          if (dot) dot.className = 'status-dot status-' + r.status;
-        });
-      }).catch(function (e) {
-        // leave dots at their default green rather than guessing
-      }),
-      apiFetch('/get-provider-quarterly-reporting-status').then(function (data) {
-        (data.residents || []).forEach(function (r) {
-          const dot = document.getElementById('info-qr-dot-' + r.resident);
-          if (dot) dot.className = 'status-dot status-' + r.status;
-        });
-      }).catch(function (e) {
-        // leave dots at their default green rather than guessing
-      }),
-      apiFetch('/get-provider-staff-training-status').then(function (data) {
-        staffGroup.innerHTML = '';
-        (data.staff || []).forEach(function (member) {
-          const row = document.createElement('div');
-          row.className = 'info-status-row';
-          const reason = staffTrainingReasonText(member);
-          row.innerHTML = '<span class="status-dot status-' + member.status + '"></span>' +
-            '<span class="info-status-text">' +
-              '<span>Staff Training — ' + member.name + '</span>' +
-              (reason ? '<span class="info-status-reason">' + reason + '</span>' : '') +
-            '</span>';
-          staffGroup.appendChild(row);
-        });
-      }).catch(function (e) {
-        // leave the group empty rather than guessing
-      })
-    ]);
   }
 
   // Fire-and-forget: pulls just enough from Fire Drill Reports to show
@@ -1924,6 +1922,9 @@
       } else if (action === 'physical-environment') {
         showScreen('physicalEnvironment');
         loadPhysicalEnvironment();
+      } else if (action === 'vehicles') {
+        showScreen('vehicles');
+        loadVehicles();
       } else if (action === 'log-event') {
         resetLogEventForm();
         showScreen('logEvent');
@@ -2283,7 +2284,7 @@
     wrap.dataset.itemId = item.id;
     wrap.innerHTML =
       '<p class="item-name">' + item.itemName + '</p>' +
-      '<label>Expiration Date</label>' +
+      '<label>' + (/inspection/i.test(item.itemName) ? 'Due Date' : 'Expiration Date') + '</label>' +
       '<input type="date" class="pe-exp-input" value="' + (item.currentExpDate || '') + '">' +
       '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
     return wrap;
@@ -2352,7 +2353,7 @@
       if (dateItems.length) {
         const heading = document.createElement('p');
         heading.className = 'item-section-title';
-        heading.textContent = 'Expiration Date';
+        heading.textContent = 'Dates';
         listEl.appendChild(heading);
         dateItems.forEach(function (item) { listEl.appendChild(renderPeDateRow(item)); });
       }
@@ -2361,6 +2362,10 @@
         heading.className = 'item-section-title';
         heading.textContent = 'Checklist';
         listEl.appendChild(heading);
+        const hint = document.createElement('p');
+        hint.className = 'item-meta';
+        hint.textContent = 'Check each item that is true today. Leave it unchecked if it is not, and explain in the notes below.';
+        listEl.appendChild(hint);
         checklistItems.forEach(function (item) { listEl.appendChild(renderPeCheckboxRow(item)); });
       }
 
@@ -2407,6 +2412,401 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Confirm Everything Is Correct';
+    }
+  });
+
+  // --- Vehicles (this location's vehicles; same server code as the admin
+  // dashboard's Vehicles tab, which decides every status) ---
+  const VH_FIELDS = [
+    { key: 'name', label: 'Name', placeholder: 'e.g. White Sienna' },
+    { key: 'year', label: 'Year', placeholder: 'e.g. 2019', inputmode: 'numeric' },
+    { key: 'make', label: 'Make', placeholder: 'e.g. Toyota' },
+    { key: 'model', label: 'Model', placeholder: 'e.g. Sienna' },
+    { key: 'plate', label: 'Plate', placeholder: 'e.g. ABC-1234' },
+    { key: 'vin', label: 'VIN (optional)' },
+    { key: 'notes', label: 'Notes (optional)' }
+  ];
+  let vhCurrent = null;
+  let vhTypes = [];
+
+  function vhMiles(n) { return Math.round(n).toLocaleString('en-US') + ' mi'; }
+  function vhToday() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function vhDot(status) {
+    const dot = document.createElement('span');
+    dot.className = 'status-dot status-' + (status === 'none' ? 'unknown' : status);
+    return dot;
+  }
+  function vhRenderFields(container, prefix, values) {
+    container.innerHTML = '';
+    VH_FIELDS.forEach(function (f) {
+      const label = document.createElement('label');
+      label.htmlFor = prefix + f.key;
+      label.textContent = f.label;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = prefix + f.key;
+      if (f.placeholder) input.placeholder = f.placeholder;
+      if (f.inputmode) input.inputMode = f.inputmode;
+      input.value = values && values[f.key] != null ? values[f.key] : '';
+      container.appendChild(label);
+      container.appendChild(input);
+    });
+  }
+  function vhReadFields(prefix) {
+    const out = {};
+    VH_FIELDS.forEach(function (f) { out[f.key] = document.getElementById(prefix + f.key).value.trim(); });
+    return out;
+  }
+
+  // Sends one file to the Vehicle Documents workflow for a service entry.
+  async function vhUploadDocument(serviceId, file) {
+    const dot = file.name.lastIndexOf('.');
+    const extension = dot > 0 ? file.name.slice(dot + 1) : '';
+    const config = await apiFetch('/get-vehicle-document-upload-config?serviceId=' + encodeURIComponent(serviceId) + '&extension=' + encodeURIComponent(extension));
+    const formData = new FormData();
+    formData.append('file', file, config.filename);
+    formData.append('ticket', config.ticket);
+    formData.append('site', window.location.origin);
+    const res = await fetch(config.webhookUrl, { method: 'POST', body: formData });
+    if (!res.ok) throw new Error('The document failed to upload. Try again.');
+  }
+
+  async function loadHomeVehiclesStatus() {
+    const dot = document.getElementById('home-vh-dot');
+    const status = document.getElementById('home-vh-status');
+    status.textContent = '';
+    try {
+      const data = await apiFetch('/get-vehicles');
+      const rank = { red: 3, yellow: 2, green: 1, none: 0 };
+      const worst = data.vehicles.reduce(function (w, v) { return rank[v.overall] > rank[w] ? v.overall : w; }, 'none');
+      dot.className = 'status-dot status-' + (worst === 'none' ? 'unknown' : worst);
+      status.textContent = !data.vehicles.length ? 'No vehicles added yet'
+        : data.vehicles.length + ' vehicle' + (data.vehicles.length === 1 ? '' : 's') + (worst === 'red' ? ' · something is due' : worst === 'yellow' ? ' · something is due soon' : '');
+    } catch (e) {
+      // leave it blank; the screen itself shows any real error
+    }
+  }
+
+  async function loadVehicles() {
+    const list = document.getElementById('vh-list');
+    setError('vh-list-error', '');
+    list.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    if (!document.getElementById('vh-add-name')) vhRenderFields(document.getElementById('vh-add-fields'), 'vh-add-', null);
+    try {
+      const data = await apiFetch('/get-vehicles');
+      list.innerHTML = '';
+      if (!data.vehicles.length) {
+        list.innerHTML = '<p class="empty-text">No vehicles yet. Use "+ Add a vehicle" below to add the one you drive residents in.</p>';
+        return;
+      }
+      data.vehicles.forEach(function (v) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'vh-list-button';
+        const row = document.createElement('span');
+        row.className = 'mar-label-row';
+        row.appendChild(vhDot(v.overall));
+        const name = document.createElement('span');
+        name.textContent = v.name;
+        row.appendChild(name);
+        btn.appendChild(row);
+        const sub = document.createElement('span');
+        sub.className = 'sub';
+        const attention = v.attention.map(function (i) { return (i.status === 'red' ? 'Due: ' : 'Soon: ') + i.label; });
+        const parts = [v.description, v.currentMileage ? vhMiles(v.currentMileage.mileage) : ''].filter(Boolean);
+        sub.textContent = (attention.length ? attention.join(' · ') : (v.overall === 'none' ? 'No services logged yet' : 'All current')) +
+          (v.insuranceText ? '\nInsurance: ' + v.insuranceText : '') + (parts.length ? '\n' + parts.join(' · ') : '');
+        btn.appendChild(sub);
+        btn.addEventListener('click', function () { openVehicle(v.id); });
+        list.appendChild(btn);
+      });
+    } catch (e) {
+      list.innerHTML = '';
+      setError('vh-list-error', e.message);
+    }
+  }
+
+  document.getElementById('vh-add-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('vh-add-error', '');
+    const fields = vhReadFields('vh-add-');
+    if (!fields.name) { setError('vh-add-error', 'Give the vehicle a name, e.g. "White Sienna".'); return; }
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/save-vehicle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) });
+      vhRenderFields(document.getElementById('vh-add-fields'), 'vh-add-', null);
+      document.getElementById('vh-add').open = false;
+      openVehicle(res.id);
+    } catch (e) {
+      setError('vh-add-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  function vhResetLogForm() {
+    document.getElementById('vh-log-type').value = '';
+    document.getElementById('vh-log-date').value = vhToday();
+    ['vh-log-mileage', 'vh-log-expiration', 'vh-log-cost', 'vh-log-note', 'vh-log-insurer', 'vh-log-policy', 'vh-log-decpage'].forEach(function (id) { document.getElementById(id).value = ''; });
+    vhRefreshLogForm();
+  }
+  function vhRefreshLogForm() {
+    const key = document.getElementById('vh-log-type').value;
+    const type = vhTypes.filter(function (t) { return t.key === key; })[0];
+    document.getElementById('vh-log-expiration-wrap').style.display = type && type.needsExpiration ? '' : 'none';
+    document.getElementById('vh-log-insurance-wrap').style.display = key === 'insurance' ? '' : 'none';
+    document.getElementById('vh-log-mileage-label').textContent = type && type.needsMileage ? 'Mileage' : 'Mileage (optional)';
+  }
+  document.getElementById('vh-log-type').addEventListener('change', vhRefreshLogForm);
+
+  function openVehicle(id) {
+    vhCurrent = { id: id };
+    ['vh-error', 'vh-log-error', 'vh-edit-error'].forEach(function (e) { setError(e, ''); });
+    document.getElementById('vh-edit').open = false;
+    document.getElementById('vh-title').textContent = '';
+    document.getElementById('vh-meta').textContent = '';
+    document.getElementById('vh-history').innerHTML = '';
+    showScreen('vehicle');
+    window.scrollTo(0, 0);
+    loadVehicle(true);
+  }
+
+  document.getElementById('vh-back').addEventListener('click', function () {
+    showScreen('vehicles');
+    loadVehicles();
+  });
+
+  async function loadVehicle(resetForm) {
+    const statusEl = document.getElementById('vh-status');
+    statusEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-vehicle?id=' + encodeURIComponent(vhCurrent.id));
+      vhCurrent = data.vehicle;
+      vhTypes = data.serviceTypes;
+      const v = data.vehicle;
+      document.getElementById('vh-title').textContent = v.name;
+      document.getElementById('vh-meta').textContent = [v.description, v.plate ? 'Plate ' + v.plate : '',
+        data.status.currentMileage ? vhMiles(data.status.currentMileage.mileage) + ' as of ' + formatDate(data.status.currentMileage.date) : 'Mileage not logged yet'].filter(Boolean).join(' · ');
+
+      const select = document.getElementById('vh-log-type');
+      if (!select.options.length) {
+        const pick = document.createElement('option');
+        pick.value = '';
+        pick.textContent = '— Choose a service —';
+        select.appendChild(pick);
+        [['Tracked (reminders)', true], ['History only', false]].forEach(function (g) {
+          const group = document.createElement('optgroup');
+          group.label = g[0];
+          vhTypes.filter(function (t) { return t.tracked === g[1]; }).forEach(function (t) {
+            const o = document.createElement('option');
+            o.value = t.key;
+            o.textContent = t.label;
+            group.appendChild(o);
+          });
+          select.appendChild(group);
+        });
+      }
+      if (resetForm) vhResetLogForm();
+
+      statusEl.innerHTML = '';
+      data.status.items.forEach(function (item) {
+        const card = document.createElement('div');
+        card.className = 'vh-card';
+        const row = document.createElement('div');
+        row.className = 'vh-card-row';
+        row.appendChild(vhDot(item.status));
+        const name = document.createElement('span');
+        name.className = 'vh-card-name';
+        name.textContent = item.label;
+        row.appendChild(name);
+        if (item.last) {
+          const last = document.createElement('span');
+          last.className = 'vh-card-date';
+          last.textContent = 'Last: ' + formatDate(item.last.date);
+          row.appendChild(last);
+        }
+        card.appendChild(row);
+        const due = document.createElement('p');
+        due.className = item.status === 'red' || item.status === 'yellow' ? 'flagged' : '';
+        due.textContent = item.text;
+        card.appendChild(due);
+        statusEl.appendChild(card);
+      });
+
+      vhRenderHistory(data.history);
+      vhRenderFields(document.getElementById('vh-edit-fields'), 'vh-edit-', v);
+    } catch (e) {
+      statusEl.innerHTML = '';
+      setError('vh-error', e.message);
+    }
+  }
+
+  function vhRenderHistory(history) {
+    const el = document.getElementById('vh-history');
+    el.innerHTML = '';
+    if (!history.length) { el.innerHTML = '<p class="empty-text">Nothing logged yet.</p>'; return; }
+    history.forEach(function (s) {
+      const card = document.createElement('div');
+      card.className = 'vh-card';
+      const row = document.createElement('div');
+      row.className = 'vh-card-row';
+      const name = document.createElement('span');
+      name.className = 'vh-card-name';
+      name.textContent = s.typeLabel;
+      const date = document.createElement('span');
+      date.className = 'vh-card-date';
+      date.textContent = formatDate(s.date);
+      row.appendChild(name);
+      row.appendChild(date);
+      card.appendChild(row);
+      const details = [];
+      if (s.mileage != null) details.push(vhMiles(s.mileage));
+      if (s.expirationDate) details.push('Expires ' + formatDate(s.expirationDate));
+      if (s.insurer) details.push(s.insurer);
+      if (s.policyNumber) details.push('Policy ' + s.policyNumber);
+      if (s.cost != null) details.push('$' + s.cost.toFixed(2));
+      if (s.loggedBy) details.push('logged by ' + s.loggedBy);
+      const meta = document.createElement('p');
+      meta.textContent = details.join(' · ');
+      card.appendChild(meta);
+      if (s.note) {
+        const note = document.createElement('p');
+        note.style.color = '#333';
+        note.textContent = s.note;
+        card.appendChild(note);
+      }
+      if (s.typeKey === 'insurance') card.appendChild(vhDocumentBlock(s));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'vh-link';
+      remove.textContent = 'Remove (entered by mistake)';
+      remove.addEventListener('click', async function () {
+        if (!confirm('Remove this ' + s.typeLabel + ' entry from ' + formatDate(s.date) + '?')) return;
+        remove.disabled = true;
+        try {
+          await apiFetch('/save-vehicle-service', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ serviceId: s.id, remove: true }) });
+          loadVehicle(false);
+        } catch (e) {
+          setError('vh-error', e.message);
+          remove.disabled = false;
+        }
+      });
+      card.appendChild(remove);
+      el.appendChild(card);
+    });
+  }
+
+  // Dec page status for an insurance entry, with a file picker to upload
+  // (or replace) it.
+  function vhDocumentBlock(s) {
+    const wrap = document.createElement('div');
+    wrap.className = 'vh-doc';
+    const status = document.createElement('div');
+    if (s.documentStatus === 'Saved') {
+      status.innerHTML = 'Dec page: <strong>on file</strong>' + (s.documentLink ? ' · <a href="' + escapeHtml(s.documentLink) + '" target="_blank" rel="noopener">Open in Drive</a>' : '');
+    } else if (s.documentStatus === 'Pending') {
+      status.textContent = 'Dec page: saving to Drive. Refresh in a minute to see it.';
+    } else {
+      status.innerHTML = '<span style="color:var(--error);font-weight:600;">Dec page not uploaded</span>';
+    }
+    wrap.appendChild(status);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf';
+    input.setAttribute('aria-label', s.documentStatus === 'Saved' ? 'Replace dec page' : 'Upload dec page');
+    const err = document.createElement('p');
+    err.className = 'error-text';
+    input.addEventListener('change', async function () {
+      if (!input.files[0]) return;
+      err.style.display = 'none';
+      input.disabled = true;
+      status.textContent = 'Uploading…';
+      try {
+        await vhUploadDocument(s.id, input.files[0]);
+        loadVehicle(false);
+      } catch (e) {
+        err.textContent = e.message;
+        err.style.display = 'block';
+        input.disabled = false;
+      }
+    });
+    wrap.appendChild(input);
+    wrap.appendChild(err);
+    return wrap;
+  }
+
+  async function vhSaveService(confirmLowerMileage) {
+    const btn = document.getElementById('vh-log-save');
+    setError('vh-log-error', '');
+    const typeKey = document.getElementById('vh-log-type').value;
+    if (!typeKey) { setError('vh-log-error', 'Choose a service.'); return; }
+    const decFile = typeKey === 'insurance' ? document.getElementById('vh-log-decpage').files[0] : null;
+    btn.disabled = true;
+    try {
+      const res = await apiFetch('/save-vehicle-service', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicleId: vhCurrent.id,
+          typeKey: typeKey,
+          date: document.getElementById('vh-log-date').value,
+          mileage: document.getElementById('vh-log-mileage').value.trim(),
+          expirationDate: document.getElementById('vh-log-expiration').value,
+          insurer: document.getElementById('vh-log-insurer').value.trim(),
+          policyNumber: document.getElementById('vh-log-policy').value.trim(),
+          cost: document.getElementById('vh-log-cost').value.trim(),
+          note: document.getElementById('vh-log-note').value.trim(),
+          confirmLowerMileage: !!confirmLowerMileage
+        })
+      });
+      if (decFile) {
+        try {
+          await vhUploadDocument(res.id, decFile);
+        } catch (e) {
+          await loadVehicle(true);
+          setError('vh-log-error', 'Saved, but the dec page didn’t upload: ' + e.message + ' Use the file picker on the entry below to try again.');
+          return;
+        }
+      }
+      await loadVehicle(true);
+    } catch (e) {
+      if (e.data && e.data.lowerMileage && confirm(e.message + ' Save it anyway?')) {
+        btn.disabled = false;
+        return vhSaveService(true);
+      }
+      setError('vh-log-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('vh-log-save').addEventListener('click', function () { vhSaveService(false); });
+
+  document.getElementById('vh-edit-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('vh-edit-error', '');
+    btn.disabled = true;
+    try {
+      await apiFetch('/save-vehicle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: vhCurrent.id }, vhReadFields('vh-edit-'))) });
+      document.getElementById('vh-edit').open = false;
+      loadVehicle(false);
+    } catch (e) {
+      setError('vh-edit-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('vh-retire').addEventListener('click', async function () {
+    if (!confirm('Retire ' + vhCurrent.name + '? It disappears from this list and stops sending reminders. Its history stays on file.')) return;
+    try {
+      await apiFetch('/save-vehicle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: vhCurrent.id, retire: true }) });
+      showScreen('vehicles');
+      loadVehicles();
+    } catch (e) {
+      setError('vh-edit-error', e.message);
     }
   });
 
@@ -2625,6 +3025,52 @@
   let currentMarDeliveryDate = null;
   let currentMarPeriod = null;
 
+  // Medication storage check: Yes / No / N/A buttons, one row per item.
+  // The value lives on the row's data-value so gathering is one pass.
+  function renderStorageChecks(checks, readOnly) {
+    const wrap = document.getElementById('mar-storage-wrap');
+    const list = document.getElementById('mar-storage-items');
+    const notes = document.getElementById('mar-storage-notes');
+    list.innerHTML = '';
+    if (!checks || !checks.items || !checks.items.length) { wrap.style.display = 'none'; return; }
+    const answers = checks.answers || {};
+    checks.items.forEach(function (item) {
+      const row = document.createElement('div');
+      row.className = 'dpn-checklist-item';
+      row.dataset.key = item.key;
+      if (answers[item.key]) row.dataset.value = answers[item.key];
+      const choices = [['Yes', 'selected-yes'], ['No', 'selected-no']];
+      if (item.na) choices.push(['N/A', 'selected-na']);
+      row.innerHTML = '<span>' + escapeHtml(item.label) + '</span><div class="dpn-yn-group"></div>';
+      const group = row.querySelector('.dpn-yn-group');
+      choices.forEach(function (c) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dpn-yn-btn' + (answers[item.key] === c[0] ? ' ' + c[1] : '');
+        b.textContent = c[0] === 'N/A' ? 'N/A (' + item.na.toLowerCase() + ')' : c[0];
+        b.disabled = readOnly;
+        b.addEventListener('click', function () {
+          group.querySelectorAll('.dpn-yn-btn').forEach(function (o) { o.classList.remove('selected-yes', 'selected-no', 'selected-na'); });
+          b.classList.add(c[1]);
+          row.dataset.value = c[0];
+        });
+        group.appendChild(b);
+      });
+      list.appendChild(row);
+    });
+    notes.value = checks.notes || '';
+    notes.disabled = readOnly;
+    wrap.style.display = 'block';
+  }
+
+  function gatherStorageChecks() {
+    const answers = {};
+    document.querySelectorAll('#mar-storage-items .dpn-checklist-item').forEach(function (row) {
+      if (row.dataset.value) answers[row.dataset.key] = row.dataset.value;
+    });
+    return { answers: answers, notes: document.getElementById('mar-storage-notes').value };
+  }
+
   async function loadMarReview() {
     const listEl = document.getElementById('mar-list');
     const allergyWrap = document.getElementById('mar-allergy-wrap');
@@ -2691,6 +3137,8 @@
         meds.forEach(function (med) { listEl.appendChild(renderMedRow(med, !isWindowOpen)); });
       }
 
+      renderStorageChecks(data.storageChecks, !isWindowOpen);
+
       if (currentMarGeneralNotes) {
         document.getElementById('mar-general-notes').value = currentMarGeneralNotes.notes || '';
         document.getElementById('mar-general-notes').disabled = !isWindowOpen;
@@ -2735,7 +3183,7 @@
       await apiFetch('/confirm-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue, storageChecks: gatherStorageChecks() })
       });
       alert('Progress saved. Come back anytime to keep working before finalizing.');
       loadMarReview();
@@ -2762,7 +3210,7 @@
       await apiFetch('/finalize-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue, storageChecks: gatherStorageChecks() })
       });
       alert('Report finalized.');
       const stored = getStoredSession();
@@ -2982,9 +3430,56 @@
     return wrap;
   }
 
+  // Fixed Community questions on every note (stored on the note itself,
+  // not in the resident's question template) so outings can be counted
+  // for the monthly compliance report. The follow-ups only show for Yes.
+  function renderDpnCommunity(existing) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question dpn-community';
+    wrap.innerHTML = '<p class="dpn-question-text">Community</p>';
+    const state = { outing: existing.outing || '', chosenBy: existing.chosenBy || '', smallGroup: existing.smallGroup || '' };
+    const follow = document.createElement('div');
+
+    function row(label, field, choices) {
+      const r = document.createElement('div');
+      r.className = 'dpn-checklist-item';
+      r.innerHTML = '<span>' + escapeHtml(label) + '</span><div class="dpn-yn-group"></div>';
+      const group = r.querySelector('.dpn-yn-group');
+      choices.forEach(function (c) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dpn-yn-btn';
+        b.textContent = c;
+        const selClass = c === 'No' ? 'selected-no' : 'selected-yes';
+        if (state[field] === c) b.classList.add(selClass);
+        b.addEventListener('click', function () {
+          group.querySelectorAll('.dpn-yn-btn').forEach(function (o) { o.classList.remove('selected-yes', 'selected-no'); });
+          b.classList.add(selClass);
+          state[field] = c;
+          if (field === 'outing') follow.style.display = c === 'Yes' ? '' : 'none';
+        });
+        group.appendChild(b);
+      });
+      return r;
+    }
+
+    wrap.appendChild(row('Did they go out into the community today?', 'outing', ['Yes', 'No']));
+    follow.appendChild(row('Who chose the outing?', 'chosenBy', ['Resident chose', 'Chose together', 'Staff chose']));
+    follow.appendChild(row('Was the group 3 people or fewer?', 'smallGroup', ['Yes', 'No']));
+    follow.style.display = state.outing === 'Yes' ? '' : 'none';
+    wrap.appendChild(follow);
+    wrap.getCommunity = function () { return state; };
+    return wrap;
+  }
+
+  function gatherDpnCommunity() {
+    const el = document.querySelector('#dpn-questions .dpn-community');
+    return el ? el.getCommunity() : undefined;
+  }
+
   function gatherDpnAnswers() {
     const answers = {};
-    document.querySelectorAll('#dpn-questions .dpn-question').forEach(function (wrap) {
+    document.querySelectorAll('#dpn-questions .dpn-question:not(.dpn-community)').forEach(function (wrap) {
       const key = wrap.dataset.key;
       if (wrap.dataset.type === 'Checklist') {
         const checklistAnswers = {};
@@ -3165,6 +3660,9 @@
         const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
         questionsEl.appendChild(el);
       });
+      if (currentDpnQuestions.length) {
+        questionsEl.appendChild(renderDpnCommunity((data.cover && data.cover.community) || {}));
+      }
 
       caughtUpBanner.style.display = 'none';
       if (nothingOutstanding) {
@@ -3246,7 +3744,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), community: gatherDpnCommunity(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       alert('Progress saved. Come back anytime to keep working before signing.');
     } catch (e) {
@@ -3277,7 +3775,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), community: gatherDpnCommunity(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       await apiFetch('/sign-daily-progress-note', {
         method: 'POST',

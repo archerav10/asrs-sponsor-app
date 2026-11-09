@@ -1,4 +1,5 @@
 const { queryDatabase, getPlainText } = require('./lib/notion');
+const storageChecks = require('./lib/mar-storage-checks');
 const { requireSession } = require('./lib/session');
 const { computeMarWindow, findPeriodPage } = require('./lib/mar-review-state');
 
@@ -60,7 +61,17 @@ exports.handler = async function (event) {
           lastFinalizedPeriod: lastFinalizedPeriod || '',
           lastFinalizedDate: periodPage ? getPlainText(periodPage.properties['Last Finalized Date']) : '',
           lastReviewedPeriod: periodPage ? getPlainText(periodPage.properties['Last Reviewed Period']) : '',
-          lastReviewedDate: periodPage ? getPlainText(periodPage.properties['Last Reviewed Date']) : ''
+          lastReviewedDate: periodPage ? getPlainText(periodPage.properties['Last Reviewed Date']) : '',
+          // Last finalized medication storage check (read-only here; the
+          // sponsor answers it at the end of the MAR Review).
+          storageCheck: (function () {
+            const f = storageChecks.readFinalized(periodPage);
+            return {
+              answered: Object.keys(f.answers).length,
+              no: storageChecks.CHECKS.filter(function (c) { return f.answers[c.key] === 'No'; }).map(function (c) { return c.label; }),
+              notes: f.notes
+            };
+          })()
         };
       }));
 

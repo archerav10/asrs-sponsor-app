@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { STEPS, SERVICES, DEFAULT_SERVICE, markStepDone } = require('./lib/annual-planning');
+const { STEPS, SERVICES, DEFAULT_SERVICE, NOT_NEEDED, markStepDone } = require('./lib/annual-planning');
 
 const STEP_KEYS = STEPS.map(function (s) { return s.key; });
 
@@ -23,7 +23,7 @@ exports.handler = async function (event) {
     const resident = body.resident;
     const service = body.service || DEFAULT_SERVICE;
     const stepKey = body.stepKey;
-    const filename = body.filename || '';
+    let filename = body.filename || '';
     const done = body.done !== false; // allow explicitly un-marking a step
 
     if (!location || !resident || !stepKey) {
@@ -31,6 +31,15 @@ exports.handler = async function (event) {
     }
     if (STEP_KEYS.indexOf(stepKey) === -1) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Unknown step.' }) };
+    }
+    // "Not needed" is only allowed on steps that say so (e.g. a Behavior
+    // Support Plan for a resident who doesn't have one).
+    if (body.notNeeded) {
+      const stepDef = STEPS.find(function (s) { return s.key === stepKey; });
+      if (!stepDef.canBeNotNeeded) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'That document can\u2019t be marked not needed.' }) };
+      }
+      filename = NOT_NEEDED;
     }
     if (SERVICES.indexOf(service) === -1) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Unknown service.' }) };

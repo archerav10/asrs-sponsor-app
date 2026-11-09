@@ -50,7 +50,7 @@ exports.handler = async function (event) {
           isFinalizedForTarget: windowState.isFinalizedForTarget,
           folderName: windowState.targetEffectiveDate ? computeFolderName(windowState.targetEffectiveDate) : null
         },
-        steps: STEPS.map(function (s) { return { key: s.key, label: s.label, formUrl: s.formUrl || '' }; })
+        steps: STEPS.map(function (s) { return { key: s.key, label: s.label, formUrl: s.formUrl || '', canBeNotNeeded: !!s.canBeNotNeeded }; })
       })
     };
   } catch (err) {
