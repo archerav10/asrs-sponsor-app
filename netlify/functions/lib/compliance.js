@@ -96,6 +96,30 @@ async function medicalArea(location, residents, now) {
   return area('medical', "Residents' Medical", details, 'No residents assigned');
 }
 
+// ---- Medication Review (MAR) ----
+// Same rules as the MAR Review button on the Sponsor App's Home screen:
+// each month the next month's medications are reviewed and finalized.
+// Green once that's done (or before the review window opens); yellow
+// once the window opens (7 days before it's due); red when overdue.
+async function marArea(location, residents, now) {
+  const { findPeriodPage, computeMarWindow } = require('./mar-review-state');
+  const { getPlainText } = require('./notion');
+  const details = [];
+  await Promise.all(residents.map(async function (resident) {
+    const page = await findPeriodPage(location, resident);
+    const last = page ? getPlainText(page.properties['Last Finalized Period']) : '';
+    const lastDate = page ? getPlainText(page.properties['Last Finalized Date']) : '';
+    const w = computeMarWindow(last || null, now);
+    const due = dateISO(w.dueDate);
+    const done = lastDate ? 'last finalized ' + fmt(lastDate) + (/^\d{4}-\d{2}$/.test(last) ? ' (for ' + new Date(Date.UTC(+last.slice(0, 4), +last.slice(5, 7) - 1, 15)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }) + ')' : '') : 'never finalized';
+    if (todayISO(now) > due) details.push({ label: resident, status: 'red', text: 'overdue since ' + fmt(due) + '; ' + done });
+    else if (w.isWindowOpen) details.push({ label: resident, status: 'yellow', text: 'due ' + fmt(due) + '; ' + done });
+    else details.push({ label: resident, status: 'green', text: done + '; next review opens ' + fmt(dateISO(w.windowOpenDate)) });
+  }));
+  details.sort(function (a, b) { return a.label.localeCompare(b.label); });
+  return area('mar', 'Medication Review', details, 'No residents assigned');
+}
+
 // ---- Annual Planning ----
 function annualStatus(windowState, now) {
   if (!windowState.hasCycle) return { status: 'red', text: 'not set up yet' };
@@ -210,6 +234,7 @@ async function homeCompliance(location, residents, now) {
   now = now || new Date();
   const areas = await Promise.all([
     safe('medical', "Residents' Medical", function () { return medicalArea(location, residents, now); }),
+    safe('mar', 'Medication Review', function () { return marArea(location, residents, now); }),
     safe('annual', 'Annual Planning', function () { return annualArea(location, residents, now); }),
     safe('quarterly', 'Quarterly Reporting', function () { return quarterlyArea(location, residents, now); }),
     safe('training', 'Training & Certification', function () { return trainingArea(location, now); }),
