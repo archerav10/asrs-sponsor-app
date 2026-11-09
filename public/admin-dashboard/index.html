@@ -399,6 +399,33 @@
     color: var(--error);
     border: 1px solid var(--error);
   }
+  .rp-monthbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .rp-monthbar button { width:auto; margin:0; padding:6px 12px; font-size:13px; border-radius:6px; }
+  .rp-monthbar strong { flex:1; text-align:center; font-size:16px; }
+  .rp-card { border:1px solid var(--border); border-radius:10px; background:#fff; padding:14px; }
+  .rp-card-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .rp-card-head h3 { margin:0; font-size:17px; }
+  .rp-due { font-size:13px; color:#777; white-space:nowrap; }
+  .rp-item { border-top:1px solid var(--border); padding:12px 0; }
+  .rp-item-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .rp-item-top .status-dot { flex:0 0 auto; }
+  .rp-item-label { font-weight:700; }
+  .rp-item-text { color:#555; font-size:14px; margin-left:auto; }
+  .rp-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-top:8px; }
+  .rp-actions input[type=text], .rp-actions input[type=url] { flex:1 1 200px; margin:0; padding:7px 10px; font-size:14px; }
+  .rp-actions select { width:auto; margin:0; padding:6px 8px; font-size:14px; }
+  .rp-actions button, .rp-actions a.small-btn { width:auto; margin:0; padding:7px 12px; font-size:13px; border-radius:6px; }
+  .rp-check { display:inline-flex; align-items:center; gap:6px; font-weight:400; font-size:14px; margin:0; }
+  .rp-check input { width:auto; margin:0; }
+  .rp-qi { gap:14px; }
+  .rp-home { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:8px 0 8px 24px; border-bottom:1px dashed var(--border); }
+  .rp-home:last-child { border-bottom:none; }
+  .rp-home .rp-actions { margin-top:0; }
+  .rp-home-name { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-weight:600; }
+  .rp-home-meta { font-weight:400; font-size:13px; color:#777; }
+  .rp-flag { padding:8px 0 8px 24px; border-bottom:1px dashed var(--border); }
+  .rp-flag-text { font-size:13px; color:#777; }
+  .rp-flag-concern { font-weight:600; margin-top:2px; }
 </style>
 </head>
 <body>
@@ -457,6 +484,7 @@
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
       <button class="tab-button" id="tab-sponsor-checklists" type="button">Checklists</button>
       <button class="tab-button" id="tab-modules" type="button">Training Modules</button>
+      <button class="tab-button" id="tab-reports" type="button">Reports</button>
     </div>
 
     <div id="mar-tab-content">
@@ -610,6 +638,17 @@
       <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Each location, with every resident there &mdash; exactly what its sponsor sees in the app under My Home's Compliance. Tap a location for details.</p>
       <p class="error-text" id="compliance-dashboard-error"></p>
       <div id="compliance-dashboard-body"><p class="loading-text">Loading&hellip;</p></div>
+    </div>
+
+    <div id="reports-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Month-end close for the QI &amp; RM work, and each home's Monthly Location Compliance Report (ASRS-520-03) to download and file in Drive.</p>
+      <div class="rp-monthbar">
+        <button type="button" class="small secondary" id="reports-prev">&larr; Previous</button>
+        <strong id="reports-month-label"></strong>
+        <button type="button" class="small secondary" id="reports-next">Next &rarr;</button>
+      </div>
+      <p class="error-text" id="reports-error"></p>
+      <div id="reports-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <button class="logout-link" id="logout-link">Log out</button>
@@ -1222,7 +1261,8 @@
     compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
     vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
     sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard },
-    modules: { button: document.getElementById('tab-modules'), content: document.getElementById('modules-tab-content'), load: loadModulesDashboard }
+    modules: { button: document.getElementById('tab-modules'), content: document.getElementById('modules-tab-content'), load: loadModulesDashboard },
+    reports: { button: document.getElementById('tab-reports'), content: document.getElementById('reports-tab-content'), load: loadReportsDashboard }
   };
   Object.keys(tabs).forEach(function (key) {
     tabs[key].button.addEventListener('click', function () {
@@ -5872,6 +5912,214 @@
       btn.textContent = 'Publish New Version';
     }
   });
+
+
+  // --- Reports tab: Month-end close + Monthly Location Compliance Reports ---
+  // Month-end close is the QI & RM work for one month (due the 15th of the
+  // next one); the location reports (ASRS-520-03) download as PDFs: a
+  // month-to-date preview for the current month, the Final for an ended
+  // month (saved the first time, so it downloads the same every time).
+  let rpMonth = null;
+  let rpLoadId = 0;
+
+  function rpThisMonth() {
+    const t = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit' }).format(new Date());
+    return t.slice(0, 7);
+  }
+  function rpShift(month, n) {
+    const d = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 1 + n, 1));
+    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+  }
+  function rpLabel(month) {
+    return new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7) - 1, 15)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  }
+  function rpDot(status) {
+    return wfEl('span', 'status-dot status-' + ({ green: 'green', yellow: 'yellow', red: 'red' }[status] || 'unknown'));
+  }
+
+  async function rpDownload(btn, location, month, mode, regenerate) {
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Building…';
+    setError('reports-error', '');
+    try {
+      const stored = getStoredSession();
+      const res = await fetch(FN_BASE + '/admin-location-report?location=' + encodeURIComponent(location) + '&month=' + month + '&mode=' + mode + (regenerate ? '&regenerate=1' : ''), {
+        headers: { 'Authorization': 'Bearer ' + (stored ? stored.sessionToken : '') }
+      });
+      if (!res.ok) {
+        let msg = 'Couldn’t build the report.';
+        try { msg = (await res.json()).error || msg; } catch (e) { /* not JSON */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const m = /filename="([^"]+)"/.exec(cd);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'ASRS-520-03 ' + location + ' ' + month + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      if (mode === 'final') loadReportsDashboard();
+    } catch (e) {
+      setError('reports-error', location + ': ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  async function rpSave(body) {
+    setError('reports-error', '');
+    try {
+      await apiFetch('/admin-month-end-close', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ month: rpMonth }, body)) });
+      loadReportsDashboard();
+    } catch (e) {
+      setError('reports-error', e.message);
+    }
+  }
+
+  function rpQiRow(data) {
+    const box = wfEl('div', 'rp-actions rp-qi');
+    [['drafted', 'Drafted'], ['reviewed', 'Reviewed at leadership'], ['signed', 'Signed']].forEach(function (s) {
+      const lab = wfEl('label', 'rp-check');
+      const cb = wfEl('input');
+      cb.type = 'checkbox';
+      cb.checked = !!data.qi[s[0]];
+      cb.addEventListener('change', function () { cb.disabled = true; rpSave({ action: 'qiStep', step: s[0], done: cb.checked }); });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(' ' + s[1] + (data.qi[s[0]] ? ' ' + formatDate(data.qi[s[0]]) : '')));
+      box.appendChild(lab);
+    });
+    const link = wfEl('input');
+    link.type = 'url';
+    link.placeholder = 'Drive link to the signed report';
+    link.value = data.qi.link || '';
+    const save = wfEl('button', 'small secondary', 'Save link');
+    save.type = 'button';
+    save.addEventListener('click', function () { save.disabled = true; rpSave({ action: 'qiLink', link: link.value }); });
+    const row = wfEl('div', 'rp-actions');
+    row.appendChild(link);
+    row.appendChild(save);
+    if (data.qi.link) { const a = wfEl('a', 'small-btn', 'Open'); a.href = data.qi.link; a.target = '_blank'; a.rel = 'noopener'; row.appendChild(a); }
+    const wrap = wfEl('div');
+    wrap.appendChild(box);
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  function rpFlags(data) {
+    const box = wfEl('div', 'rp-flags');
+    data.flags.forEach(function (f) {
+      const row = wfEl('div', 'rp-flag');
+      row.appendChild(wfEl('div', 'rp-flag-text', f.location + (f.resident ? ' · ' + f.resident : '') + ' · ' + formatDate(f.flaggedOn) + ' · ' + f.source + (f.flaggedBy ? ' · ' + f.flaggedBy : '')));
+      row.appendChild(wfEl('div', 'rp-flag-concern', f.concern));
+      const sel = wfEl('select');
+      [['', 'Escalation not decided'], ['Escalated to QA/Issues log', 'Escalated to QA/Issues log'], ['Not needed', 'Not needed']].forEach(function (o) {
+        const op = wfEl('option', null, o[1]); op.value = o[0]; if (f.escalation === o[0]) op.selected = true; sel.appendChild(op);
+      });
+      sel.addEventListener('change', function () { sel.disabled = true; rpSave({ action: 'flag', flagId: f.id, escalation: sel.value }); });
+      const res = wfEl('label', 'rp-check');
+      const cb = wfEl('input'); cb.type = 'checkbox'; cb.checked = f.resolved;
+      cb.addEventListener('change', function () { cb.disabled = true; rpSave({ action: 'flag', flagId: f.id, resolved: cb.checked }); });
+      res.appendChild(cb); res.appendChild(document.createTextNode(' Resolved'));
+      const act = wfEl('div', 'rp-actions');
+      act.appendChild(sel); act.appendChild(res);
+      row.appendChild(act);
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  function rpHomes(data, month, current) {
+    const box = wfEl('div', 'rp-homes');
+    data.homes.forEach(function (h) {
+      const row = wfEl('div', 'rp-home');
+      const left = wfEl('div', 'rp-home-name');
+      if (h.generated) left.appendChild(rpDot(h.overall));
+      left.appendChild(wfEl('span', null, h.location));
+      const meta = current ? 'Month in progress: preview only' : h.generated ? 'Final generated ' + formatDate(String(h.generatedAt).slice(0, 10)) + (h.generatedBy ? ' by ' + h.generatedBy : '') : 'Final not generated yet';
+      left.appendChild(wfEl('span', 'rp-home-meta', meta));
+      row.appendChild(left);
+      const act = wfEl('div', 'rp-actions');
+      if (current) {
+        const p = wfEl('button', 'small', 'Preview (month to date)'); p.type = 'button';
+        p.addEventListener('click', function () { rpDownload(p, h.location, month, 'mtd'); });
+        act.appendChild(p);
+      } else {
+        const f = wfEl('button', 'small', h.generated ? 'Download Final' : 'Generate Final'); f.type = 'button';
+        f.addEventListener('click', function () { rpDownload(f, h.location, month, 'final'); });
+        act.appendChild(f);
+        if (h.generated) {
+          const r = wfEl('button', 'small secondary', 'Regenerate'); r.type = 'button';
+          r.addEventListener('click', function () {
+            if (confirm('Rebuild the ' + rpLabel(month) + ' Final for ' + h.location + ' from today’s data? The saved copy is replaced.')) rpDownload(r, h.location, month, 'final', true);
+          });
+          act.appendChild(r);
+          const lab = wfEl('label', 'rp-check');
+          const cb = wfEl('input'); cb.type = 'checkbox'; cb.checked = h.filed;
+          cb.addEventListener('change', function () { cb.disabled = true; rpSave({ action: 'filed', location: h.location, filed: cb.checked }); });
+          lab.appendChild(cb); lab.appendChild(document.createTextNode(' Filed in Drive' + (h.filed && h.filedOn ? ' ' + formatDate(h.filedOn) : '')));
+          act.appendChild(lab);
+        }
+      }
+      row.appendChild(act);
+      box.appendChild(row);
+    });
+    return box;
+  }
+
+  async function loadReportsDashboard() {
+    const loadId = ++rpLoadId;
+    const current = rpThisMonth();
+    if (!rpMonth) rpMonth = rpShift(current, -1);
+    const month = rpMonth;
+    const isCurrent = month === current;
+    document.getElementById('reports-month-label').textContent = rpLabel(month) + (isCurrent ? ' (in progress)' : '');
+    document.getElementById('reports-next').disabled = month >= current;
+    const body = document.getElementById('reports-body');
+    setError('reports-error', '');
+    if (!body.children.length || body.dataset.month !== month) body.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    let data;
+    try {
+      data = await apiFetch('/admin-month-end-close?month=' + month);
+    } catch (e) {
+      if (loadId === rpLoadId) { body.innerHTML = ''; setError('reports-error', e.message); }
+      return;
+    }
+    if (loadId !== rpLoadId) return;
+    body.innerHTML = '';
+    body.dataset.month = month;
+
+    const card = wfEl('div', 'rp-card');
+    const head = wfEl('div', 'rp-card-head');
+    head.appendChild(wfEl('h3', null, 'Month-end close · ' + data.monthLabel));
+    head.appendChild(wfEl('span', 'rp-due', 'Due ' + formatDate(data.due)));
+    card.appendChild(head);
+    if (isCurrent) card.appendChild(wfEl('p', 'meta', 'This month is still going. These items are done after it ends, by the 15th of next month.'));
+    data.items.forEach(function (it) {
+      const row = wfEl('div', 'rp-item');
+      const top = wfEl('div', 'rp-item-top');
+      top.appendChild(rpDot(it.status));
+      top.appendChild(wfEl('span', 'rp-item-label', it.label));
+      top.appendChild(wfEl('span', 'rp-item-text', it.text));
+      row.appendChild(top);
+      if (it.key === 'reports') row.appendChild(rpHomes(data, month, isCurrent));
+      if (it.key === 'flags' && data.flags.length) row.appendChild(rpFlags(data));
+      if (it.key === 'qiReport') row.appendChild(rpQiRow(data));
+      if (it.key === 'checklist' && data.checklist) {
+        const a = wfEl('a', 'small-btn', 'Open checklist in Notion'); a.href = data.checklist.url; a.target = '_blank'; a.rel = 'noopener';
+        const act = wfEl('div', 'rp-actions'); act.appendChild(a); row.appendChild(act);
+      }
+      card.appendChild(row);
+    });
+    card.appendChild(wfEl('p', 'meta', 'Green: done. Gray: not due yet. Yellow from the 10th, red after the 15th. Download each home’s Final, upload it to Drive, then tick Filed in Drive.'));
+    body.appendChild(card);
+  }
+
+  document.getElementById('reports-prev').addEventListener('click', function () { rpMonth = rpShift(rpMonth, -1); loadReportsDashboard(); });
+  document.getElementById('reports-next').addEventListener('click', function () { rpMonth = rpShift(rpMonth, 1); loadReportsDashboard(); });
 
   // --- Boot ---
   const stored = getStoredSession();
