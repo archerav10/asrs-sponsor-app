@@ -112,9 +112,10 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
   .action-list { display: flex; flex-direction: column; gap: 12px; }
+  .action-list + .action-list { margin-top: 12px; } /* same gap between groups as within one */
   .vh-card { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 14px 16px; margin-bottom: 10px; }
   .vh-card-row { display: flex; align-items: center; gap: 8px; }
   .vh-card-name { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; }
