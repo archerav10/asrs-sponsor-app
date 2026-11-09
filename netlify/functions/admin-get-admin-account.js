@@ -38,7 +38,8 @@ exports.handler = async function (event) {
         email: getPlainText(page.properties['Email']),
         phoneNumber: getPlainText(page.properties['Phone Number']),
         grantedLocations: grantedLocations,
-        enabled: getPlainText(page.properties['Admin App Enabled'])
+        enabled: getPlainText(page.properties['Admin App Enabled']),
+        liaisonEnabled: !!getPlainText(page.properties['Liaison App Enabled'])
       })
     };
   } catch (err) {

@@ -33,10 +33,19 @@ const IDS = {
   PATHS_DB_ID: '72dfc838-d9bc-4cf4-9d8c-d23f0720fe78',
   PATH_STEPS_DB_ID: '6119b077-c8bf-4819-8b29-358b915bf9cb',
   PATH_ASSIGNMENTS_DB_ID: '02b6083f-6255-47b2-a579-1930e3034bf4',
+  LIAISON_VISITS_DB_ID: 'a9f3aeff-47ec-49df-b249-cc61c3de6ab0',
+  VISIT_CHECKLIST_DB_ID: '30300019-3a67-40e8-b4ca-5d89d8a9a173',
+  QUESTIONNAIRE_LINKS_DB_ID: 'd451cc84-043a-4c3a-b3a8-2fd9989fa889',
+  QUESTIONNAIRE_RESPONSES_DB_ID: 'ff8e2740-cd3e-4ed1-8c64-fbbc801242f3',
+  LOCATION_CODES_DB_ID: '4bf686f3-056b-49c3-925c-a321a2c78591',
   // Catch Hook of the "asrs-vehicle-documents" Zapier workflow. Not a
   // secret: it's handed to the browser for the direct upload, and the
   // workflow trusts nothing but the encrypted ticket sent with the file.
   VEHICLE_DOCUMENT_WEBHOOK_URL: 'https://hooks.zapier.com/hooks/catch/27672979/kjm7wHbEamjVqlc4/',
+  // Catch Hook of the "asrs-document-filing" Zapier workflow (Liaison app
+  // visit and questionnaire PDFs into Drive). Not a secret: the workflow
+  // trusts only the encrypted ticket sent with each file.
+  DOCUMENT_FILING_WEBHOOK_URL: 'https://hooks.zapier.com/hooks/catch/27672979/Ce0hxzHOqlN0ZMfqq/',
   // A Google OAuth client ID is public by design (it's sent to browsers in
   // sign-in links); the client secret and refresh token stay in Netlify.
   GOOGLE_OAUTH_CLIENT_ID: '650411460927-99qvctvtjq2nc8883mmvr8ddgij850gh.apps.googleusercontent.com'

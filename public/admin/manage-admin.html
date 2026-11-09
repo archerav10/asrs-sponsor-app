@@ -51,6 +51,8 @@
     <label class="checkbox-row"><input type="checkbox" value="Philray"> Philray</label>
   </div>
 
+  <label class="checkbox-row" style="margin-top:18px;"><input type="checkbox" id="liaison-enabled"> Liaison app access (on-site visits, check-in calls and questionnaires for the locations above)</label>
+
   <button id="submit">Save Admin Access</button>
   <p class="msg" id="msg"></p>
 </main>
@@ -71,6 +73,7 @@ document.getElementById('lookup-btn').addEventListener('click', async function (
     const res = await adminFetch('/.netlify/functions/admin-get-admin-account?email=' + encodeURIComponent(email));
     const data = await res.json();
     document.querySelectorAll('#location-checks input').forEach(function (cb) { cb.checked = false; });
+    document.getElementById('liaison-enabled').checked = !!(data.found && data.liaisonEnabled);
     if (data.found) {
       document.getElementById('name').value = data.name || '';
       document.getElementById('phone').value = data.phoneNumber || '';
@@ -109,7 +112,7 @@ document.getElementById('submit').addEventListener('click', async function () {
     const res = await adminFetch('/.netlify/functions/admin-manage-admin-account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, newAdminEmail, phoneNumber, grantedLocations })
+      body: JSON.stringify({ name, newAdminEmail, phoneNumber, grantedLocations, liaisonEnabled: document.getElementById('liaison-enabled').checked })
     });
     const data = await res.json();
     msg.style.display = 'block';
@@ -118,7 +121,8 @@ document.getElementById('submit').addEventListener('click', async function () {
       msg.textContent = data.error || 'Something went wrong.';
     } else {
       msg.classList.add('ok');
-      msg.textContent = (data.updated ? 'Updated ' : 'Created ') + newAdminEmail + ' — access now: ' + (grantedLocations.join(', ') || '(none — disabled)');
+      msg.textContent = (data.updated ? 'Updated ' : 'Created ') + newAdminEmail + ' — access now: ' + (grantedLocations.join(', ') || '(none — disabled)') +
+        (grantedLocations.length && document.getElementById('liaison-enabled').checked ? ' · Liaison app: on' : ' · Liaison app: off');
     }
   } catch (e) {
     msg.style.display = 'block';
