@@ -34,8 +34,23 @@ function linkFromPage(page) {
     audience: getPlainText(p['Audience']),
     location: getPlainText(p['Location']),
     formUrl: getPlainText(p['Form URL']),
-    formId: getPlainText(p['Form ID'])
+    formId: getPlainText(p['Form ID']) || formIdFromUrl(getPlainText(p['Form URL'])),
+    prefillNames: parsePrefillNames(getPlainText(p['Prefill Names']))
   };
+}
+
+function formIdFromUrl(url) { const m = /(\d{10,})/.exec(String(url || '')); return m ? m[1] : ''; }
+
+// "app_tracking=q26_textbox24; location=q3_textbox1" -> { app_tracking: 'q26_textbox24', ... }
+// A form built by Jotform's AI keeps generated field names (q26_textbox24),
+// so the Questionnaire Links row can name them.
+function parsePrefillNames(text) {
+  const out = {};
+  String(text || '').split(/[;\n,]+/).forEach(function (part) {
+    const m = /^\s*([A-Za-z_]+)\s*=\s*([A-Za-z0-9_]+)\s*$/.exec(part);
+    if (m) out[m[1]] = m[2];
+  });
+  return out;
 }
 
 async function activeLinks() {
@@ -76,19 +91,23 @@ function verifyTracking(value) {
 }
 
 // The URL the liaison opens: the form with its prefilled fields.
-function buildFormUrl(link, payload) {
+function buildFormUrl(link, payload, tracking) {
   // Jotform prefills a field by its unique name. The forms set these names
   // (app_tracking, location, resident, liaison, spokeWith); the extra
   // spellings cover a copied or newly made form that kept Jotform's
   // automatic names. Unknown parameters are ignored.
   const u = new URL(link.formUrl);
-  const tracking = signTracking(payload);
-  const set = function (names, value) { if (value) names.forEach(function (n) { u.searchParams.set(n, value); }); };
-  set(['app_tracking', 'apptracking', 'appTracking'], tracking);
-  set(['location'], payload.l);
-  set(['resident', 'residentinitials', 'residentInitials'], payload.r);
-  set(['liaison'], payload.n);
-  set(['spokeWith', 'sponsor', 'dsp'], payload.s);
+  tracking = tracking || signTracking(payload);
+  const own = link.prefillNames || {};
+  const set = function (key, names, value) {
+    if (!value) return;
+    (own[key] ? [own[key]] : []).concat(names).forEach(function (n) { u.searchParams.set(n, value); });
+  };
+  set('app_tracking', ['app_tracking', 'apptracking', 'appTracking'], tracking);
+  set('location', ['location'], payload.l);
+  set('resident', ['resident', 'residentinitials', 'residentInitials'], payload.r);
+  set('liaison', ['liaison'], payload.n);
+  set('spokeWith', ['spokeWith', 'sponsor', 'dsp'], payload.s);
   return u.toString();
 }
 
@@ -142,6 +161,70 @@ async function createResponse(payload, info) {
     'PDF Status': { select: { name: 'Pending' } },
     'Active': { checkbox: true }
   });
+}
+
+// ---- Opened links ----
+// When a liaison opens a questionnaire the app keeps a row (PDF Status
+// Opened, not Active) holding the signed tracking value. A submission that
+// arrives without its hidden tracking field (a form whose field names
+// don't match) is matched back to that row: same form, opened in the last
+// 14 days, and the home / resident typed on the form when it has them.
+
+async function recordOpened(payload, link, tracking) {
+  return createPage(RESPONSES_DB_ID, {
+    'Record Title': { title: [{ text: { content: payload.l + ' - ' + payload.a + (payload.r ? ' - ' + payload.r : '') + ' - opened' } }] },
+    'Audience': { select: { name: payload.a } },
+    'Location': { select: { name: payload.l } },
+    'Resident Initials': richText(payload.r || ''),
+    'Spoke With': richText(payload.s || ''),
+    'Liaison': richText(payload.n || ''),
+    'Period': richText(payload.p),
+    'Submitted At': { date: { start: new Date(payload.t || Date.now()).toISOString() } },
+    'Form ID': richText(link.formId || ''),
+    'Tracking': richText(tracking),
+    'PDF Status': { select: { name: 'Opened' } },
+    'Active': { checkbox: false }
+  });
+}
+
+function answerFor(answers, re) {
+  const a = (answers || []).filter(function (x) { return re.test(String(x.question || '')); })[0];
+  return a ? String(a.answer || '').trim() : '';
+}
+
+async function findOpened(formId, answers, now) {
+  if (!formId) return null;
+  const result = await queryDatabase(RESPONSES_DB_ID, {
+    and: [
+      { property: 'Form ID', rich_text: { equals: String(formId) } },
+      { property: 'PDF Status', select: { equals: 'Opened' } }
+    ]
+  });
+  const cutoff = (now || Date.now()) - 14 * 86400000;
+  const loc = answerFor(answers, /^location/i).toLowerCase();
+  const res = answerFor(answers, /^resident/i).toUpperCase();
+  const rows = (result.results || []).map(function (page) {
+    return { page: page, payload: verifyTracking(getPlainText(page.properties['Tracking'])), openedAt: Date.parse(getPlainText(page.properties['Submitted At'])) || 0 };
+  }).filter(function (r) { return r.payload && r.openedAt >= cutoff; })
+    .filter(function (r) { return (!loc || r.payload.l.toLowerCase() === loc) && (!res || !r.payload.r || r.payload.r.toUpperCase() === res); })
+    .sort(function (a, b) { return b.openedAt - a.openedAt; });
+  return rows[0] || null;
+}
+
+// The opened row for a tracking value that did come back on the form.
+async function openedByTracking(tracking) {
+  if (!tracking) return null;
+  const result = await queryDatabase(RESPONSES_DB_ID, {
+    and: [
+      { property: 'Tracking', rich_text: { equals: String(tracking) } },
+      { property: 'PDF Status', select: { equals: 'Opened' } }
+    ]
+  });
+  return (result.results || [])[0] || null;
+}
+
+async function markOpenedUsed(pageId) {
+  return updatePage(pageId, { 'PDF Status': { select: { name: 'Used' } } });
 }
 
 // Status for one resident and audience this month: green done this month,
@@ -198,6 +281,7 @@ async function buildResponsePdf(payload, info) {
 
 module.exports = {
   AUDIENCES, httpError, activeLinks, pickLink, signTracking, verifyTracking, buildFormUrl,
+  parsePrefillNames, recordOpened, findOpened, openedByTracking, markOpenedUsed,
   responsesForLocation, responseBySubmission, createResponse, responseFromPage, monthStatus, buildResponsePdf,
   RESPONSES_DB_ID
 };

@@ -15,20 +15,30 @@ exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
   try {
     const body = JSON.parse(event.body || '{}');
-    const payload = qn.verifyTracking(body.tracking);
-    if (!payload) return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'not from the Liaison app' }) };
     if (!body.submissionId) return { statusCode: 400, body: JSON.stringify({ error: 'submissionId is required.' }) };
-
-    const existing = await qn.responseBySubmission(body.submissionId);
-    if (existing) return { statusCode: 200, body: JSON.stringify({ success: true, duplicate: true }) };
 
     let rawAnswers = body.answers;
     if (typeof rawAnswers === 'string') { try { rawAnswers = JSON.parse(rawAnswers); } catch (e) { rawAnswers = []; } }
     const answers = (Array.isArray(rawAnswers) ? rawAnswers : []).slice(0, 200).map(function (a) {
       return { question: String(a.question || '').slice(0, 500), answer: String(a.answer == null ? '' : a.answer).slice(0, 3000) };
-    }).filter(function (a) { return a.question; });
+    }).filter(function (a) { return a.question && !/^app_?tracking$/i.test(a.question); });
+
+    // The signed value from the form's hidden field; failing that, the
+    // link the app opened for this form (see questionnaires.findOpened).
+    let payload = qn.verifyTracking(body.tracking);
+    let opened = null;
+    if (!payload) {
+      opened = await qn.findOpened(body.formId, answers);
+      if (opened) payload = opened.payload;
+    }
+    if (!payload) return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'not from the Liaison app' }) };
+
+    const existing = await qn.responseBySubmission(body.submissionId);
+    if (existing) return { statusCode: 200, body: JSON.stringify({ success: true, duplicate: true }) };
     const info = { formId: String(body.formId || ''), formTitle: String(body.formTitle || ''), submissionId: String(body.submissionId), submittedAt: body.submittedAt || new Date().toISOString(), answers: answers };
     const page = await qn.createResponse(payload, info);
+    const openedPage = opened ? opened.page : await qn.openedByTracking(body.tracking).catch(function () { return null; });
+    if (openedPage) await qn.markOpenedUsed(openedPage.id).catch(function () {});
 
     let folders = [{ name: payload.l, create: false }, { name: 'Liaison Visits', create: true }, { name: 'Questionnaires', create: true }];
     if (payload.a === 'Resident' && payload.r) {

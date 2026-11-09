@@ -14,7 +14,7 @@ exports.handler = async function (event) {
     if (q.resident && residents.indexOf(q.resident) === -1) throw lz.httpError(403, 'That resident isn\'t at this home.');
     const link = qn.pickLink(await qn.activeLinks(), session.location, q.audience);
     if (!link) throw lz.httpError(404, 'No ' + q.audience.toLowerCase() + ' questionnaire is set up for ' + session.location + ' yet. Add one in the Questionnaire Links table in Notion.');
-    const url = qn.buildFormUrl(link, {
+    const payload = {
       a: q.audience,
       l: session.location,
       r: q.resident || '',
@@ -23,7 +23,12 @@ exports.handler = async function (event) {
       e: session.email,
       p: lz.periodOf(lz.easternDate()),
       t: Date.now()
-    });
+    };
+    const tracking = qn.signTracking(payload);
+    const url = qn.buildFormUrl(link, payload, tracking);
+    // Kept so a submission whose hidden tracking field came back empty can
+    // still be matched to this home and resident.
+    await qn.recordOpened(payload, link, tracking).catch(function (e) { console.error('recordOpened failed', e); });
     return { statusCode: 200, body: JSON.stringify({ url: url, name: link.name }) };
   } catch (err) {
     if (!err.statusCode) console.error(err);
