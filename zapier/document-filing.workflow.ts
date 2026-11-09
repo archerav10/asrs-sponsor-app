@@ -26,7 +26,7 @@ const SITE_RE = /^https:\/\/([a-z0-9-]+--)?asrs-sponsor-app\.netlify\.app$/;
 const InputSchema = z
   .object({
     file: z.unknown().nullable().optional(),
-    ticket: z.string(),
+    ticket: z.string().nullable().optional(),
     site: z.string().nullable().optional(),
   })
   .loose();
@@ -64,6 +64,9 @@ const workflow = defineDurable<Input, unknown>(
   "asrs-document-filing",
   async (ctx, rawInput) => {
     const input = InputSchema.parse(normalizeInput(rawInput));
+    // An empty or test request (no ticket) is skipped, not an error.
+    if (!input.ticket) return { skipped: true, reason: "no-ticket" };
+    const ticket = input.ticket;
     const site = (input.site ?? "https://asrs-sponsor-app.netlify.app").replace(/\/+$/, "");
     if (!SITE_RE.test(site)) return { skipped: true, reason: "untrusted-site", site };
     const file = fileUrl(input.file);
@@ -75,7 +78,7 @@ const workflow = defineDurable<Input, unknown>(
         appKey: WEBHOOKS_APP_KEY,
         actionType: "write",
         actionKey: "post",
-        inputs: { url: resolveUrl, payload_type: "json", data: { action: "resolve", ticket: input.ticket } },
+        inputs: { url: resolveUrl, payload_type: "json", data: { action: "resolve", ticket } },
       }),
     );
     const dest = ResolvedSchema.parse(resolved.data[0]);
@@ -131,7 +134,7 @@ const workflow = defineDurable<Input, unknown>(
         appKey: WEBHOOKS_APP_KEY,
         actionType: "write",
         actionKey: "post",
-        inputs: { url: resolveUrl, payload_type: "json", data: { action: "saved", ticket: input.ticket, link: out?.alternateLink ?? "" } },
+        inputs: { url: resolveUrl, payload_type: "json", data: { action: "saved", ticket, link: out?.alternateLink ?? "" } },
       }),
     );
 
