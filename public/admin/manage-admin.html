@@ -53,6 +53,15 @@
 
   <label class="checkbox-row" style="margin-top:18px;"><input type="checkbox" id="liaison-enabled"> Liaison app access (on-site visits, check-in calls and questionnaires for the locations above)</label>
 
+  <p style="margin:18px 0 4px; font-weight:600;">Roles</p>
+  <p style="margin:0 0 6px; font-size:13px; color:#777;">Risk Manager gets the month-end close reminders. Report findings suggest Program Director and Residential Liaison holders as owners; the Residential Liaison and Executive Director sign the monthly location reports.</p>
+  <div class="checkbox-grid" id="role-checks">
+    <label class="checkbox-row"><input type="checkbox" value="Executive Director"> Executive Director</label>
+    <label class="checkbox-row"><input type="checkbox" value="Risk Manager"> Risk Manager</label>
+    <label class="checkbox-row"><input type="checkbox" value="Program Director"> Program Director</label>
+    <label class="checkbox-row"><input type="checkbox" value="Residential Liaison"> Residential Liaison</label>
+  </div>
+
   <button id="submit">Save Admin Access</button>
   <p class="msg" id="msg"></p>
 </main>
@@ -74,6 +83,7 @@ document.getElementById('lookup-btn').addEventListener('click', async function (
     const data = await res.json();
     document.querySelectorAll('#location-checks input').forEach(function (cb) { cb.checked = false; });
     document.getElementById('liaison-enabled').checked = !!(data.found && data.liaisonEnabled);
+    document.querySelectorAll('#role-checks input').forEach(function (cb) { cb.checked = !!(data.found && (data.roles || []).indexOf(cb.value) !== -1); });
     if (data.found) {
       document.getElementById('name').value = data.name || '';
       document.getElementById('phone').value = data.phoneNumber || '';
@@ -112,7 +122,7 @@ document.getElementById('submit').addEventListener('click', async function () {
     const res = await adminFetch('/.netlify/functions/admin-manage-admin-account', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, newAdminEmail, phoneNumber, grantedLocations, liaisonEnabled: document.getElementById('liaison-enabled').checked })
+      body: JSON.stringify({ name, newAdminEmail, phoneNumber, grantedLocations, liaisonEnabled: document.getElementById('liaison-enabled').checked, roles: Array.from(document.querySelectorAll('#role-checks input:checked')).map(function (el) { return el.value; }) })
     });
     const data = await res.json();
     msg.style.display = 'block';

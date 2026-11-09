@@ -39,7 +39,8 @@ exports.handler = async function (event) {
         phoneNumber: getPlainText(page.properties['Phone Number']),
         grantedLocations: grantedLocations,
         enabled: getPlainText(page.properties['Admin App Enabled']),
-        liaisonEnabled: !!getPlainText(page.properties['Liaison App Enabled'])
+        liaisonEnabled: !!getPlainText(page.properties['Liaison App Enabled']),
+        roles: require('./lib/roles').rolesOf(page)
       })
     };
   } catch (err) {

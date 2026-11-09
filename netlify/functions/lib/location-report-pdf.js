@@ -170,6 +170,8 @@ async function buildLocationReportPdf(report) {
     ['Residential Liaison', 'Executive Director'].forEach(function (role) {
       y -= 30;
       text(page, role, M, y + 4, { size: 9, bold: true });
+      const who = report.signers && report.signers[role] && report.signers[role].length ? report.signers[role].join(', ') : '';
+      if (who) text(page, who, M, y - 7, { size: 7.5, color: 'muted' });
       page.drawLine({ start: { x: M + 150, y: y }, end: { x: M + 400, y: y }, thickness: 0.8, color: C('ink') });
       page.drawLine({ start: { x: M + 420, y: y }, end: { x: W - M, y: y }, thickness: 0.8, color: C('ink') });
       text(page, 'Signature', M + 150, y - 9, { size: 6.5, color: 'muted' });

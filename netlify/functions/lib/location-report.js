@@ -477,13 +477,17 @@ async function build(location, month, mode, now) {
   const asOf = final || today > b.end ? b.end : today;
   const med = require('./medical-appointments');
   const lz = require('./liaison');
-  const [residents, home, pe, flags, sponsors] = await Promise.all([
+  const roles = require('./roles');
+  const roleNames = function (role) { return roles.adminsWithRole(role, location).then(function (a) { return a.map(function (x) { return x.name; }); }).catch(function () { return []; }); };
+  const [residents, home, pe, flags, sponsors, programDirectors, liaisonRole, directors] = await Promise.all([
     med.residentsForLocation(location),
     lz.homeInfo(location).catch(function () { return { homeType: 'Sponsored Residential' }; }),
     activeRows(PHYSICAL_ENV_DB_ID, location).catch(function () { return []; }),
     flagsForMonth(month, location).catch(function () { return []; }),
-    require('./weekly-focus').activeSponsors().then(function (s) { return s.filter(function (x) { return x.location === location; }).map(function (x) { return x.name; }); }).catch(function () { return []; })
+    require('./weekly-focus').activeSponsors().then(function (s) { return s.filter(function (x) { return x.location === location; }).map(function (x) { return x.name; }); }).catch(function () { return []; }),
+    roleNames('Program Director'), roleNames('Residential Liaison'), roleNames('Executive Director')
   ]);
+  const holders = { 'Sponsor': sponsors, 'Program Director': programDirectors, 'Residential Liaison': liaisonRole };
   const ctx = { location: location, month: month, b: b, final: final, asOf: asOf, today: today, monthName: monthLabel(month).split(' ')[0], residents: residents, homeType: home.homeType, pe: pe, flags: flags };
 
   const areas = await Promise.all(AREAS.map(async function (a) {
@@ -501,7 +505,7 @@ async function build(location, month, mode, now) {
     a.items.forEach(function (i) {
       if (i.s !== 'r') return;
       const flag = i.src === 'Liaison flag';
-      findings.push({ area: a.key, finding: i.req.replace(/ \([0-9.,A-Z ]+\)$/, '') + ': ' + i.found, raisedBy: flag ? 'Liaison' : 'App', owner: OWNER[a.key] === 'Sponsor' && sponsors.length ? sponsors.join(', ') : OWNER[a.key], fixBy: fixBy, escalated: flag && /Escalated to the QA\/Issues log/.test(i.found) });
+      findings.push({ area: a.key, finding: i.req.replace(/ \([0-9.,A-Z ]+\)$/, '') + ': ' + i.found, raisedBy: flag ? 'Liaison' : 'App', owner: (holders[OWNER[a.key]] || []).length ? holders[OWNER[a.key]].join(', ') : OWNER[a.key], fixBy: fixBy, escalated: flag && /Escalated to the QA\/Issues log/.test(i.found) });
     });
   });
 
@@ -522,7 +526,8 @@ async function build(location, month, mode, now) {
     homeType: home.homeType || 'Sponsored Residential',
     residents: residents,
     sponsors: sponsors,
-    liaisons: Object.keys(liaisons),
+    liaisons: Object.keys(liaisons).length ? Object.keys(liaisons) : liaisonRole,
+    signers: { 'Residential Liaison': liaisonRole, 'Executive Director': directors },
     overall: overall,
     areas: areas,
     findings: findings

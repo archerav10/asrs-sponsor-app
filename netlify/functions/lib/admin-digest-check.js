@@ -389,7 +389,9 @@ async function runAdminDigestCheck(options) {
 
   for (const digest of digests) {
     const subject = 'ASRS Weekly Compliance Check \u2014 ' + dateLabel;
-    const message = digestToText(digest, dateLabel);
+    let monthEnd = '';
+    try { monthEnd = await require('./month-end-reminders').digestSection(digest.email, today); } catch (e) { console.error('month-end digest section', e); }
+    const message = monthEnd + digestToText(digest, dateLabel);
 
     if (options.dryRun) {
       results.push({ admin: digest.name, email: digest.email, subject: subject, message: message });

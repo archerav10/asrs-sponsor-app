@@ -97,3 +97,9 @@
   # each location's admins when a group home vehicle's inspection, tags,
   # insurance, oil change, rotation or tune-up comes up or falls due.
   schedule = "30 13 * * *"
+
+[functions."check-month-end-close"]
+  # 9:30am US/Eastern daily (EDT-pinned like check-report-status); only
+  # acts on the 10th and 16th — texts the Risk Manager (Admin Accounts →
+  # Roles) when last month's month-end close still has open items.
+  schedule = "30 13 * * *"

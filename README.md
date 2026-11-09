@@ -2715,6 +2715,16 @@ Reviewed / Signed On, QI Report By, QI Report Link):
 - QI & RM report (ASRS-620-06): drafted → reviewed at leadership → signed, and its Drive link
 - The Notion QI & RM monthly checklist's own Status (due the end of the month)
 
+**Roles** (Admin Accounts → **Roles**, set on the super admin Manage Admin
+page): Executive Director, Risk Manager, Program Director, Residential
+Liaison. The **Risk Manager** gets a text on the 10th and 16th
+(`check-month-end-close`, scheduled) when last month's close has open
+items, and a month-end section at the top of the Friday digest. Report
+findings name the home's Program Director / Residential Liaison holders as
+suggested owners (sponsors for home items), and the sign-off lines show the
+Residential Liaison and Executive Director holders. Handing a job to someone
+else is ticking the role on their account.
+
 ## What's intentionally not built yet
 
 - **PWA icons.** `manifest.json` has an empty `icons` array — add 192px

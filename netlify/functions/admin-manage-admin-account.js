@@ -17,6 +17,7 @@ exports.handler = async function (event) {
     const phoneNumber = body.phoneNumber;
     const grantedLocations = body.grantedLocations || []; // full replacement list
     const liaisonEnabled = !!body.liaisonEnabled; // Liaison app access (same granted locations)
+    const roles = require('./lib/roles').cleanRoles(body.roles);
 
     if (!name || !newAdminEmail || !phoneNumber) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Name, email, and phone number are required.' }) };
@@ -53,7 +54,8 @@ exports.handler = async function (event) {
       'Phone Number': { phone_number: normalizedPhone },
       'Granted Locations': { rich_text: [{ text: { content: locationsText } }] },
       'Admin App Enabled': { checkbox: grantedLocations.length > 0 },
-      'Liaison App Enabled': { checkbox: liaisonEnabled && grantedLocations.length > 0 }
+      'Liaison App Enabled': { checkbox: liaisonEnabled && grantedLocations.length > 0 },
+      'Roles': { multi_select: roles.map(function (r) { return { name: r }; }) }
     };
 
     if (existing) {
