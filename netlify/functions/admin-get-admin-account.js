@@ -40,6 +40,7 @@ exports.handler = async function (event) {
         grantedLocations: grantedLocations,
         enabled: getPlainText(page.properties['Admin App Enabled']),
         liaisonEnabled: !!getPlainText(page.properties['Liaison App Enabled']),
+        liaisonLocations: require('./lib/access').liaisonLocationsOf(page),
         roles: require('./lib/roles').rolesOf(page)
       })
     };

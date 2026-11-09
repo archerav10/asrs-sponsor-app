@@ -21,8 +21,8 @@ exports.handler = async function (event) {
 
     const result = await queryDatabase(ADMIN_ACCOUNTS_DB_ID, { property: 'Email', rich_text: { equals: payload.email } });
     const admin = (result.results || [])[0];
-    if (!admin || !getPlainText(admin.properties['Liaison App Enabled'])) return { statusCode: 401, body: JSON.stringify({ error: 'Account not found.' }) };
-    const granted = (getPlainText(admin.properties['Granted Locations']) || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    const granted = admin ? require('./lib/access').liaisonLocationsOf(admin) : [];
+    if (!admin || !granted.length) return { statusCode: 401, body: JSON.stringify({ error: 'Account not found.' }) };
     if (granted.indexOf(payload.location) === -1) return { statusCode: 401, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
 
     const session = await lz.sessionForLocation({ email: payload.email, name: getPlainText(admin.properties['Name']), grantedLocations: granted }, payload.location);

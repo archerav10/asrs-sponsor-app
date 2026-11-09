@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Access by Location — ASRS Admin</title>
+<style>
+  :root { --forest: #16332B; --cream: #F6F3EC; --ink: #1C1C1A; --border: #D8D2C2; --error: #B3261E; --ok: #1B5E20; --muted: #666; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--cream); color: var(--ink); }
+  header { background: var(--forest); color: var(--cream); padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 18px; }
+  header a { color: var(--cream); font-size: 13px; text-decoration: underline; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 20px 60px; }
+  .intro { font-size: 14px; color: #444; line-height: 1.5; }
+  .key { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0 6px; }
+  .key div { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; line-height: 1.4; }
+  .key b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 0; }
+  .tabs button { padding: 8px 14px; font-size: 14px; font-weight: 600; border: 1px solid var(--forest); border-radius: 999px; background: #fff; color: var(--forest); cursor: pointer; }
+  .tabs button.active { background: var(--forest); color: var(--cream); }
+  .home { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 14px; }
+  .home h2 { margin: 0 0 2px; font-size: 19px; }
+  .home .sub { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  .section { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+  .section h3 { margin: 0; font-size: 15px; }
+  .section .help { font-size: 13px; color: var(--muted); margin: 2px 0 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font-size: 14px; cursor: pointer; background: #fff; }
+  .chip.on { border-color: var(--forest); background: #E7EFEA; font-weight: 600; }
+  .chip input { margin: 0; }
+  .chip small { font-weight: 400; color: var(--muted); }
+  .sponsor { display: grid; grid-template-columns: 1fr 110px auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .sponsor:last-child { border-bottom: none; }
+  .sponsor .who b { display: block; }
+  .sponsor .who span { font-size: 12px; color: var(--muted); }
+  .sponsor input[type=text], select { width: 100%; padding: 7px 9px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+  .sponsor label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; white-space: nowrap; }
+  .warn { color: var(--error); font-size: 12px; }
+  .warn a { color: var(--error); }
+  .add { margin-top: 8px; max-width: 360px; }
+  .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .msg.error { color: var(--error); }
+  .msg.ok { color: var(--ok); }
+  @media (max-width: 600px) { .key { grid-template-columns: 1fr; } .sponsor { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<header><h1>Access by Location</h1><a href="/admin/login.html">Admin Tools</a></header>
+<main>
+  <p class="intro">Pick a home to see and change everyone who can get into it. Changes save as soon as you tick or untick.</p>
+  <div class="key">
+    <div><b>Sponsor App: sponsors</b>Each sponsor belongs to one home and logs in with their own password. Their home comes from this page, not from the password.</div>
+    <div><b>Admin Dashboard</b>Admins see the dashboard for these homes. The same homes let them into the Sponsor App with that home's password.</div>
+    <div><b>Liaison App</b>Visits, calls, questionnaires and flags for these homes, logging in with the home's password. Set separately from Admin.</div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <p class="msg" id="msg"></p>
+  <div id="home"></div>
+</main>
+
+<script src="/admin/admin-auth.js"></script>
+<script>
+(function () {
+  requireAdminSession();
+  let data = null;
+  let current = null;
+  const msg = document.getElementById('msg');
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function say(text, ok) { msg.textContent = text || ''; msg.className = 'msg' + (text ? (ok ? ' ok' : ' error') : ''); }
+
+  async function load() {
+    try {
+      const res = await adminFetch('/.netlify/functions/admin-access');
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Couldn’t load access.');
+      data = body;
+      const homes = data.homes.filter(function (h) { return h.active; });
+      if (!current || !homes.some(function (h) { return h.location === current; })) {
+        let saved = null; try { saved = localStorage.getItem('asrs_access_home'); } catch (e) { /* none */ }
+        current = homes.some(function (h) { return h.location === saved; }) ? saved : (homes[0] && homes[0].location);
+      }
+      render();
+    } catch (e) { say(e.message); }
+  }
+
+  async function post(change, okText) {
+    say('Saving…', true);
+    try {
+      const res = await adminFetch('/.netlify/functions/admin-access', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(change) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Couldn’t save.');
+      say(okText, true);
+    } catch (e) { say(e.message); }
+    await load();
+  }
+
+  function toggleAdmin(admin, field, on) {
+    const list = admin[field].filter(function (l) { return l !== current; });
+    if (on) list.push(current);
+    const change = { kind: 'admin', id: admin.id, adminLocations: admin.adminLocations, liaisonLocations: admin.liaisonLocations };
+    change[field] = list;
+    post(change, (on ? 'Gave ' : 'Removed ') + (admin.name || admin.email) + (field === 'adminLocations' ? ' Admin Dashboard' : ' Liaison App') + ' access ' + (on ? 'to ' : 'from ') + current + '.');
+  }
+
+  function adminChips(field) {
+    const box = el('div', 'chips');
+    data.admins.forEach(function (a) {
+      const on = a[field].indexOf(current) !== -1;
+      const lab = el('label', 'chip' + (on ? ' on' : ''));
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = on;
+      cb.addEventListener('change', function () { cb.disabled = true; toggleAdmin(a, field, cb.checked); });
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(a.name || a.email));
+      const dup = data.admins.filter(function (x) { return x.name === a.name; }).length > 1;
+      if (dup) lab.appendChild(el('small', null, a.email));
+      box.appendChild(lab);
+    });
+    return box;
+  }
+
+  function sponsorRow(s) {
+    const row = el('div', 'sponsor');
+    const who = el('div', 'who');
+    who.appendChild(el('b', null, s.name || '(no name)'));
+    who.appendChild(el('span', null, s.email || 'no email'));
+    if (!s.hasPassword) {
+      const w = el('div', 'warn');
+      w.appendChild(document.createTextNode('No password yet. '));
+      const a = el('a', null, 'Set one'); a.href = '/admin/set-provider-password.html'; w.appendChild(a);
+      who.appendChild(w);
+    }
+    row.appendChild(who);
+    const res = el('input'); res.type = 'text'; res.value = s.residentInitials; res.placeholder = 'Residents'; res.title = 'Resident initials, comma-separated';
+    res.addEventListener('change', function () { post({ kind: 'sponsor', id: s.id, residentInitials: res.value }, 'Saved residents for ' + s.name + '.'); });
+    row.appendChild(res);
+    const lab = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.checked = s.enabled;
+    cb.addEventListener('change', function () { cb.disabled = true; post({ kind: 'sponsor', id: s.id, enabled: cb.checked }, (cb.checked ? 'Turned on' : 'Turned off') + ' Sponsor App access for ' + s.name + '.'); });
+    lab.appendChild(cb); lab.appendChild(document.createTextNode('App access'));
+    row.appendChild(lab);
+    const move = el('select');
+    const o0 = el('option', null, 'Move to…'); o0.value = ''; move.appendChild(o0);
+    data.homes.filter(function (h) { return h.active && h.location !== current; }).forEach(function (h) { const o = el('option', null, h.location); o.value = h.location; move.appendChild(o); });
+    const none = el('option', null, 'No home (remove)'); none.value = '__none'; move.appendChild(none);
+    move.addEventListener('change', function () {
+      if (!move.value) return;
+      const to = move.value === '__none' ? '' : move.value;
+      if (!confirm('Move ' + s.name + (to ? ' to ' + to : ' out of ' + current) + '? Their Sponsor App will open ' + (to || 'no home') + ' from now on.')) { move.value = ''; return; }
+      post({ kind: 'sponsor', id: s.id, location: to }, s.name + (to ? ' moved to ' + to : ' removed from ' + current) + '.');
+    });
+    row.appendChild(move);
+    return row;
+  }
+
+  function render() {
+    const tabs = document.getElementById('tabs');
+    tabs.innerHTML = '';
+    data.homes.filter(function (h) { return h.active; }).forEach(function (h) {
+      const b = el('button', h.location === current ? 'active' : '', h.location); b.type = 'button';
+      b.addEventListener('click', function () { current = h.location; try { localStorage.setItem('asrs_access_home', current); } catch (e) { /* none */ } say(''); render(); });
+      tabs.appendChild(b);
+    });
+    const wrap = document.getElementById('home');
+    wrap.innerHTML = '';
+    if (!current) { wrap.textContent = 'No active homes.'; return; }
+    const home = data.homes.filter(function (h) { return h.location === current; })[0];
+    const card = el('div', 'home');
+    card.appendChild(el('h2', null, current));
+    const sponsors = data.sponsors.filter(function (s) { return s.location === current; });
+    const admins = data.admins.filter(function (a) { return a.adminLocations.indexOf(current) !== -1; });
+    const liaisons = data.admins.filter(function (a) { return a.liaisonLocations.indexOf(current) !== -1; });
+    const withApp = sponsors.filter(function (s) { return s.enabled; }).length;
+    card.appendChild(el('p', 'sub', withApp + ' sponsor' + (withApp === 1 ? '' : 's') + ' with app access · ' + admins.length + ' admin' + (admins.length === 1 ? '' : 's') + ' · ' + liaisons.length + ' liaison' + (liaisons.length === 1 ? '' : 's') + (home.hasPassword ? '' : ' · no home password set yet')));
+
+    const s1 = el('div', 'section');
+    s1.appendChild(el('h3', null, 'Sponsor App: sponsors'));
+    s1.appendChild(el('p', 'help', 'Their own password. Residents are the initials they record for.'));
+    if (!sponsors.length) s1.appendChild(el('p', 'help', 'No sponsors at ' + current + ' yet.'));
+    sponsors.forEach(function (s) { s1.appendChild(sponsorRow(s)); });
+    const others = data.sponsors.filter(function (s) { return s.location !== current; });
+    if (others.length) {
+      const add = el('select', 'add');
+      const o0 = el('option', null, '+ Add a sponsor to ' + current + '…'); o0.value = ''; add.appendChild(o0);
+      others.forEach(function (s) { const o = el('option', null, s.name + (s.location ? ' (now at ' + s.location + ')' : ' (no home)')); o.value = s.id; add.appendChild(o); });
+      add.addEventListener('change', function () {
+        const s = others.filter(function (x) { return x.id === add.value; })[0];
+        if (!s) return;
+        if (s.location && !confirm('Move ' + s.name + ' from ' + s.location + ' to ' + current + '? A sponsor belongs to one home.')) { add.value = ''; return; }
+        post({ kind: 'sponsor', id: s.id, location: current }, s.name + ' added to ' + current + '.');
+      });
+      s1.appendChild(add);
+    }
+    card.appendChild(s1);
+
+    const s2 = el('div', 'section');
+    s2.appendChild(el('h3', null, 'Admin Dashboard (and Sponsor App with the home password)'));
+    s2.appendChild(el('p', 'help', 'Tick everyone who should see ' + current + ' on the admin dashboard.'));
+    s2.appendChild(adminChips('adminLocations'));
+    card.appendChild(s2);
+
+    const s3 = el('div', 'section');
+    s3.appendChild(el('h3', null, 'Liaison App'));
+    s3.appendChild(el('p', 'help', 'Tick who does ' + current + '’s visits, calls, interviews and questionnaires.'));
+    s3.appendChild(adminChips('liaisonLocations'));
+    const add = el('p', 'help'); add.innerHTML = 'Someone missing? Add them on <a href="/admin/manage-admin.html">Manage Admin Access</a> first.';
+    s3.appendChild(add);
+    card.appendChild(s3);
+    wrap.appendChild(card);
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

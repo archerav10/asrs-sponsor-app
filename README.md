@@ -2722,6 +2722,27 @@ suggested owners (sponsors for home items), and the sign-off lines show the
 Residential Liaison and Executive Director holders. Handing a job to someone
 else is ticking the role on their account.
 
+## Access by Location (super admin)
+
+`/admin/access.html` (linked first on Admin Tools): pick a home and see and
+change everyone who can get into it. Changes save on tick.
+
+- **Sponsor App: sponsors.** A sponsor belongs to one home: the Sponsors row's
+  **Location**. They log in with their own password (Set Provider Password);
+  the home comes from the row, not the password. **App access** = Provider
+  App Enabled (can't be turned on before a password is set). Residents = the
+  initials they record for. *Move to…* / *+ Add a sponsor* change the home.
+- **Admin Dashboard.** Admin Accounts → Granted Locations. The same homes let
+  the admin into the Sponsor App with that home's password (the password
+  picks the home).
+- **Liaison App.** Admin Accounts → **Liaison Locations**, set per home and
+  independent of the admin homes; the liaison logs in with one of those
+  homes' passwords. Older rows with no Liaison Locations but Liaison App
+  Enabled fall back to Granted Locations.
+
+Manage Admin Access has the same per-home checkboxes (admin homes, Liaison
+homes, roles) for one person at a time, and is where new admins are added.
+
 ## What's intentionally not built yet
 
 - **PWA icons.** `manifest.json` has an empty `icons` array — add 192px

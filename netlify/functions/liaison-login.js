@@ -28,16 +28,17 @@ exports.handler = async function (event) {
     const admin = (adminResult.results || []).find(function (p) { return getPlainText(p.properties['Email']).trim().toLowerCase() === email; });
     if (!admin) { console.log('liaison-login: no admin account for', email); return genericError; }
 
-    const granted = (getPlainText(admin.properties['Granted Locations']) || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    const granted = require('./lib/access').liaisonLocationsOf(admin);
     const codes = await queryDatabase(configId('LOCATION_CODES_DB_ID'), { property: 'Active', checkbox: { equals: true } });
     const match = (codes.results || []).find(function (p) {
       const h = getPlainText(p.properties['Password Hash']);
-      return h && h === hash && granted.indexOf(getPlainText(p.properties['Location'])) !== -1;
+      return h && h === hash;
     });
-    if (!match) { console.log('liaison-login: password matched none of', granted.join(', ')); return genericError; }
+    if (!match) { console.log('liaison-login: password matched no home'); return genericError; }
     // Only said once the password is right, so it reveals nothing to a guesser.
-    if (!getPlainText(admin.properties['Liaison App Enabled'])) {
-      return { statusCode: 403, body: JSON.stringify({ error: 'This account isn\u2019t set up for the Liaison app. Ask the super admin to turn on Liaison access.' }) };
+    const home = getPlainText(match.properties['Location']);
+    if (granted.indexOf(home) === -1) {
+      return { statusCode: 403, body: JSON.stringify({ error: granted.length ? 'You don\u2019t have Liaison access to ' + home + '. Use the password of one of your homes (' + granted.join(', ') + '), or ask the super admin.' : 'This account isn\u2019t set up for the Liaison app. Ask the super admin to give you Liaison access to a home.' }) };
     }
 
     const phone = getPlainText(admin.properties['Phone Number']);
