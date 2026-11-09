@@ -1,6 +1,7 @@
 const { queryDatabase, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
 const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
+const storageChecks = require('./lib/mar-storage-checks');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 
@@ -116,7 +117,8 @@ exports.handler = async function (event) {
         allergyInfo: allergyRow ? { id: allergyRow.id, notes: allergyRow.notes } : null,
         generalNotes: generalNotesRow ? { id: generalNotesRow.id, notes: generalNotesRow.notes } : null,
         deliveryDate: deliveryDateRow ? { id: deliveryDateRow.id, date: deliveryDateRow.dateDelivered } : null,
-        period: period
+        period: period,
+        storageChecks: storageChecks.forScreen(periodPage, windowState, period.lastFinalizedPeriod)
       })
     };
   } catch (err) {

@@ -1,6 +1,7 @@
 const { queryDatabase, updatePage, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
 const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
+const storageChecks = require('./lib/mar-storage-checks');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 
@@ -117,10 +118,14 @@ exports.handler = async function (event) {
       uncaptured.push('Medication Delivery Date');
     }
 
-    if (uncaptured.length || expired.length) {
+    const submittedChecks = body.storageChecks || {};
+    const checkProblems = storageChecks.missingForFinalize(submittedChecks.answers, submittedChecks.notes);
+
+    if (uncaptured.length || expired.length || checkProblems.length) {
       const parts = [];
       if (uncaptured.length) parts.push(uncaptured.length + ' not captured (' + uncaptured.join(', ') + ')');
       if (expired.length) parts.push(expired.length + ' expired (' + expired.join(', ') + ')');
+      checkProblems.forEach(function (p) { parts.push(p); });
       return {
         statusCode: 400,
         body: JSON.stringify({ error: 'Cannot finalize — ' + parts.join('; ') + '.' })
@@ -186,6 +191,7 @@ exports.handler = async function (event) {
       'Last Reviewed Date': { date: { start: today } },
       'Medications Delivered Date': { date: { start: deliveryDate } }
     };
+    Object.assign(periodProperties, storageChecks.finalizedProperties(targetPeriod, submittedChecks.answers, (submittedChecks.notes || '').trim()));
     await updatePage(periodPage.id, periodProperties);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, count: updatedCount, finalizedPeriod: targetPeriod, date: today }) };

@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { resolveDayOptions, findQuestionsForDate, findAnswers, missingQuestions, signAndFinalize } = require('./lib/daily-progress-notes');
+const { resolveDayOptions, findQuestionsForDate, findAnswers, findCover, missingQuestions, missingCommunity, signAndFinalize } = require('./lib/daily-progress-notes');
 
 // Validates first: every question must have a real value — mirrors every
 // other process's Finalize gate. Failing blocks signing with a message
@@ -78,6 +78,9 @@ exports.handler = async function (event) {
         missing.push('Times Covered');
       }
     }
+    // The fixed Community questions live on the cover row (saved by the
+    // last Save Progress), read fresh here rather than from the day walk.
+    missingCommunity(await findCover(session.location, resident, date)).forEach(function (m) { missing.push(m); });
     if (missing.length) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Still needs: ' + missing.join(', ') }) };
     }

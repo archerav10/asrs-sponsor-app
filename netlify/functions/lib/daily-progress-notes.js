@@ -237,9 +237,52 @@ async function findQuestionsForDate(location, resident, date) {
   return [];
 }
 
+// Fixed "Community" questions asked on every note, outside the
+// per-resident question templates, so outings can be counted for the
+// Monthly Location Compliance Report (QI Plan 1a: outings of the
+// person's choosing, in a group of 3 or fewer). Stored on the note's
+// cover row. The template's own free-text community question stays for
+// the details.
+const COMMUNITY_CHOSEN_BY = ['Resident chose', 'Chose together', 'Staff chose'];
+
+function cleanCommunity(raw) {
+  raw = raw || {};
+  const out = { outing: '', chosenBy: '', smallGroup: '' };
+  if (raw.outing === 'Yes' || raw.outing === 'No') out.outing = raw.outing;
+  if (out.outing === 'Yes') {
+    if (COMMUNITY_CHOSEN_BY.indexOf(raw.chosenBy) !== -1) out.chosenBy = raw.chosenBy;
+    if (raw.smallGroup === 'Yes' || raw.smallGroup === 'No') out.smallGroup = raw.smallGroup;
+  }
+  return out;
+}
+
+function communityProperties(community) {
+  const c = cleanCommunity(community);
+  const sel = function (v) { return v ? { select: { name: v } } : { select: null }; };
+  return { 'Community Outing': sel(c.outing), 'Outing Chosen By': sel(c.chosenBy), 'Outing Small Group': sel(c.smallGroup) };
+}
+
+// What still needs answering before the note can be signed.
+function missingCommunity(cover) {
+  const c = (cover && cover.community) || {};
+  if (!c.outing) return ['Did they go out into the community today?'];
+  if (c.outing === 'Yes') {
+    const missing = [];
+    if (!c.chosenBy) missing.push('Who chose the outing?');
+    if (!c.smallGroup) missing.push('Was the group 3 people or fewer?');
+    return missing;
+  }
+  return [];
+}
+
 function coverFromPage(page) {
   if (!page) return null;
   return {
+    community: {
+      outing: page.properties['Community Outing'] ? getPlainText(page.properties['Community Outing']) : '',
+      chosenBy: page.properties['Outing Chosen By'] ? getPlainText(page.properties['Outing Chosen By']) : '',
+      smallGroup: page.properties['Outing Small Group'] ? getPlainText(page.properties['Outing Small Group']) : ''
+    },
     id: page.id,
     location: getPlainText(page.properties['Location']),
     residentInitials: getPlainText(page.properties['Resident Initials']),
@@ -476,7 +519,7 @@ async function findAnswers(location, resident, date) {
 // Entered By, since who covered which hours can change from one save to
 // the next. When it's off, the cover keeps its fixed value from the
 // template, snapshotted once at cover creation as before.
-async function saveAnswers(location, resident, date, questions, answers, enteredBy, timesCovered) {
+async function saveAnswers(location, resident, date, questions, answers, enteredBy, timesCovered, community) {
   const byKey = {};
   questions.forEach(function (q) { byKey[q.key] = q; });
   const existing = await findAnswers(location, resident, date);
@@ -518,7 +561,7 @@ async function saveAnswers(location, resident, date, questions, answers, entered
   if (!cover) {
     const templateEffectiveDate = questions.length ? questions[0].effectiveDate : '';
     const residentFullName = questions.length ? questions[0].residentFullName : '';
-    await createPage(NOTES_DB_ID, {
+    await createPage(NOTES_DB_ID, Object.assign(community ? communityProperties(community) : {}, {
       'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + date } }] },
       'Location': { select: { name: location } },
       'Resident Initials': { rich_text: [{ text: { content: resident } }] },
@@ -529,9 +572,9 @@ async function saveAnswers(location, resident, date, questions, answers, entered
       'Entered By': { rich_text: enteredBy ? [{ text: { content: enteredBy } }] : [] },
       'Active': { checkbox: true },
       'PDF Generated': { checkbox: false }
-    });
+    }));
   } else {
-    const props = {};
+    const props = community ? communityProperties(community) : {};
     if (enteredBy) props['Entered By'] = { rich_text: [{ text: { content: enteredBy } }] };
     if (templateTimesCoveredEditable) props['Times Covered'] = { rich_text: [{ text: { content: effectiveTimesCovered } }] };
     if (Object.keys(props).length) await updatePage(cover.id, props);
@@ -574,6 +617,9 @@ async function signAndFinalize(location, resident, date, signedBy, strokes) {
 }
 
 module.exports = {
+  COMMUNITY_CHOSEN_BY,
+  cleanCommunity,
+  missingCommunity,
   findQuestionsForDate,
   findAllQuestionRows,
   findResidentsForLocation,

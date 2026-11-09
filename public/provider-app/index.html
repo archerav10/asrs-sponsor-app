@@ -574,6 +574,17 @@
   }
   .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
   .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
+  .dpn-yn-btn.selected-na { background: #6b6b6b; color: #fff; border-color: #6b6b6b; }
+  .dpn-community .dpn-checklist-item, .dpn-community .dpn-yn-group { flex-wrap: wrap; }
+  .dpn-community .dpn-checklist-item > span { flex: 1 1 100%; }
+  .dpn-community .dpn-yn-group { flex-shrink: 1; min-width: 0; }
+  .dpn-community .dpn-yn-btn, .storage-check .dpn-yn-btn { width: auto; padding: 8px 12px; }
+  .storage-check .dpn-yn-group { flex-wrap: wrap; justify-content: flex-end; }
+  #mar-storage-notes { width: 100%; box-sizing: border-box; font: inherit; padding: 10px 12px; }
+  .storage-check { margin: 8px 0 20px; }
+  .storage-check .dpn-checklist-item { align-items: flex-start; flex-wrap: wrap; }
+  .storage-check .dpn-checklist-item > span { flex: 1 1 220px; }
+  .storage-check .dpn-yn-btn { padding: 8px 12px; }
   .dpn-signature-wrap { margin-top: 8px; }
   .dpn-signature-canvas {
     width: 100%;
@@ -1033,6 +1044,14 @@
     </div>
 
     <div id="mar-list"></div>
+
+    <div id="mar-storage-wrap" class="storage-check" style="display:none;">
+      <p class="item-section-title">Medication Storage Check</p>
+      <p class="item-meta">Answer each one for this month. If anything is No, say what you are doing about it below.</p>
+      <div id="mar-storage-items"></div>
+      <label for="mar-storage-notes">Storage check notes</label>
+      <textarea id="mar-storage-notes" rows="3" placeholder="Required if any answer is No&hellip;"></textarea>
+    </div>
 
     <div id="mar-general-notes-wrap" class="general-notes-wrap" style="display:none;">
       <label for="mar-general-notes">Notes (optional)</label>
@@ -2283,7 +2302,7 @@
     wrap.dataset.itemId = item.id;
     wrap.innerHTML =
       '<p class="item-name">' + item.itemName + '</p>' +
-      '<label>Expiration Date</label>' +
+      '<label>' + (/inspection/i.test(item.itemName) ? 'Due Date' : 'Expiration Date') + '</label>' +
       '<input type="date" class="pe-exp-input" value="' + (item.currentExpDate || '') + '">' +
       '<p class="item-meta">Last updated ' + formatDate(item.lastUpdatedDate) + (item.lastUpdatedBy ? ' by ' + item.lastUpdatedBy : '') + '</p>';
     return wrap;
@@ -2352,7 +2371,7 @@
       if (dateItems.length) {
         const heading = document.createElement('p');
         heading.className = 'item-section-title';
-        heading.textContent = 'Expiration Date';
+        heading.textContent = 'Dates';
         listEl.appendChild(heading);
         dateItems.forEach(function (item) { listEl.appendChild(renderPeDateRow(item)); });
       }
@@ -2361,6 +2380,10 @@
         heading.className = 'item-section-title';
         heading.textContent = 'Checklist';
         listEl.appendChild(heading);
+        const hint = document.createElement('p');
+        hint.className = 'item-meta';
+        hint.textContent = 'Check each item that is true today. Leave it unchecked if it is not, and explain in the notes below.';
+        listEl.appendChild(hint);
         checklistItems.forEach(function (item) { listEl.appendChild(renderPeCheckboxRow(item)); });
       }
 
@@ -2625,6 +2648,52 @@
   let currentMarDeliveryDate = null;
   let currentMarPeriod = null;
 
+  // Medication storage check: Yes / No / N/A buttons, one row per item.
+  // The value lives on the row's data-value so gathering is one pass.
+  function renderStorageChecks(checks, readOnly) {
+    const wrap = document.getElementById('mar-storage-wrap');
+    const list = document.getElementById('mar-storage-items');
+    const notes = document.getElementById('mar-storage-notes');
+    list.innerHTML = '';
+    if (!checks || !checks.items || !checks.items.length) { wrap.style.display = 'none'; return; }
+    const answers = checks.answers || {};
+    checks.items.forEach(function (item) {
+      const row = document.createElement('div');
+      row.className = 'dpn-checklist-item';
+      row.dataset.key = item.key;
+      if (answers[item.key]) row.dataset.value = answers[item.key];
+      const choices = [['Yes', 'selected-yes'], ['No', 'selected-no']];
+      if (item.na) choices.push(['N/A', 'selected-na']);
+      row.innerHTML = '<span>' + escapeHtml(item.label) + '</span><div class="dpn-yn-group"></div>';
+      const group = row.querySelector('.dpn-yn-group');
+      choices.forEach(function (c) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dpn-yn-btn' + (answers[item.key] === c[0] ? ' ' + c[1] : '');
+        b.textContent = c[0] === 'N/A' ? 'N/A (' + item.na.toLowerCase() + ')' : c[0];
+        b.disabled = readOnly;
+        b.addEventListener('click', function () {
+          group.querySelectorAll('.dpn-yn-btn').forEach(function (o) { o.classList.remove('selected-yes', 'selected-no', 'selected-na'); });
+          b.classList.add(c[1]);
+          row.dataset.value = c[0];
+        });
+        group.appendChild(b);
+      });
+      list.appendChild(row);
+    });
+    notes.value = checks.notes || '';
+    notes.disabled = readOnly;
+    wrap.style.display = 'block';
+  }
+
+  function gatherStorageChecks() {
+    const answers = {};
+    document.querySelectorAll('#mar-storage-items .dpn-checklist-item').forEach(function (row) {
+      if (row.dataset.value) answers[row.dataset.key] = row.dataset.value;
+    });
+    return { answers: answers, notes: document.getElementById('mar-storage-notes').value };
+  }
+
   async function loadMarReview() {
     const listEl = document.getElementById('mar-list');
     const allergyWrap = document.getElementById('mar-allergy-wrap');
@@ -2691,6 +2760,8 @@
         meds.forEach(function (med) { listEl.appendChild(renderMedRow(med, !isWindowOpen)); });
       }
 
+      renderStorageChecks(data.storageChecks, !isWindowOpen);
+
       if (currentMarGeneralNotes) {
         document.getElementById('mar-general-notes').value = currentMarGeneralNotes.notes || '';
         document.getElementById('mar-general-notes').disabled = !isWindowOpen;
@@ -2735,7 +2806,7 @@
       await apiFetch('/confirm-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue, storageChecks: gatherStorageChecks() })
       });
       alert('Progress saved. Come back anytime to keep working before finalizing.');
       loadMarReview();
@@ -2762,7 +2833,7 @@
       await apiFetch('/finalize-mar-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue })
+        body: JSON.stringify({ resident: currentMarResidentInitials, items: items, allergyInfo: allergyValue, generalNotes: generalNotesValue, deliveryDate: deliveryDateValue, storageChecks: gatherStorageChecks() })
       });
       alert('Report finalized.');
       const stored = getStoredSession();
@@ -2982,9 +3053,56 @@
     return wrap;
   }
 
+  // Fixed Community questions on every note (stored on the note itself,
+  // not in the resident's question template) so outings can be counted
+  // for the monthly compliance report. The follow-ups only show for Yes.
+  function renderDpnCommunity(existing) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question dpn-community';
+    wrap.innerHTML = '<p class="dpn-question-text">Community</p>';
+    const state = { outing: existing.outing || '', chosenBy: existing.chosenBy || '', smallGroup: existing.smallGroup || '' };
+    const follow = document.createElement('div');
+
+    function row(label, field, choices) {
+      const r = document.createElement('div');
+      r.className = 'dpn-checklist-item';
+      r.innerHTML = '<span>' + escapeHtml(label) + '</span><div class="dpn-yn-group"></div>';
+      const group = r.querySelector('.dpn-yn-group');
+      choices.forEach(function (c) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'dpn-yn-btn';
+        b.textContent = c;
+        const selClass = c === 'No' ? 'selected-no' : 'selected-yes';
+        if (state[field] === c) b.classList.add(selClass);
+        b.addEventListener('click', function () {
+          group.querySelectorAll('.dpn-yn-btn').forEach(function (o) { o.classList.remove('selected-yes', 'selected-no'); });
+          b.classList.add(selClass);
+          state[field] = c;
+          if (field === 'outing') follow.style.display = c === 'Yes' ? '' : 'none';
+        });
+        group.appendChild(b);
+      });
+      return r;
+    }
+
+    wrap.appendChild(row('Did they go out into the community today?', 'outing', ['Yes', 'No']));
+    follow.appendChild(row('Who chose the outing?', 'chosenBy', ['Resident chose', 'Chose together', 'Staff chose']));
+    follow.appendChild(row('Was the group 3 people or fewer?', 'smallGroup', ['Yes', 'No']));
+    follow.style.display = state.outing === 'Yes' ? '' : 'none';
+    wrap.appendChild(follow);
+    wrap.getCommunity = function () { return state; };
+    return wrap;
+  }
+
+  function gatherDpnCommunity() {
+    const el = document.querySelector('#dpn-questions .dpn-community');
+    return el ? el.getCommunity() : undefined;
+  }
+
   function gatherDpnAnswers() {
     const answers = {};
-    document.querySelectorAll('#dpn-questions .dpn-question').forEach(function (wrap) {
+    document.querySelectorAll('#dpn-questions .dpn-question:not(.dpn-community)').forEach(function (wrap) {
       const key = wrap.dataset.key;
       if (wrap.dataset.type === 'Checklist') {
         const checklistAnswers = {};
@@ -3165,6 +3283,9 @@
         const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
         questionsEl.appendChild(el);
       });
+      if (currentDpnQuestions.length) {
+        questionsEl.appendChild(renderDpnCommunity((data.cover && data.cover.community) || {}));
+      }
 
       caughtUpBanner.style.display = 'none';
       if (nothingOutstanding) {
@@ -3246,7 +3367,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), community: gatherDpnCommunity(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       alert('Progress saved. Come back anytime to keep working before signing.');
     } catch (e) {
@@ -3277,7 +3398,7 @@
       await apiFetch('/save-daily-progress-note', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
+        body: JSON.stringify({ resident: currentDpnResidentInitials, date: currentDpnDate, answers: gatherDpnAnswers(), community: gatherDpnCommunity(), timesCovered: document.getElementById('dpn-times-covered').value.trim() })
       });
       await apiFetch('/sign-daily-progress-note', {
         method: 'POST',

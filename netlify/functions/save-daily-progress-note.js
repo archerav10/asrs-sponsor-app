@@ -61,7 +61,7 @@ exports.handler = async function (event) {
     }
     const enteredBy = session.name || session.email;
     const timesCovered = typeof body.timesCovered === 'string' ? body.timesCovered.trim() : '';
-    await saveAnswers(session.location, resident, date, questions, answers, enteredBy, timesCovered);
+    await saveAnswers(session.location, resident, date, questions, answers, enteredBy, timesCovered, body.community);
 
     return { statusCode: 200, body: JSON.stringify({ success: true, date: date }) };
   } catch (err) {

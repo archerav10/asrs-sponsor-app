@@ -1,6 +1,7 @@
 const { queryDatabase, updatePage, getPlainText } = require('./lib/notion');
 const { requireSession } = require('./lib/session');
 const { computeMarWindow, findPeriodPage, wipeIfWindowJustOpened } = require('./lib/mar-review-state');
+const storageChecks = require('./lib/mar-storage-checks');
 
 const MAR_DB_ID = process.env.MAR_DB_ID;
 
@@ -152,6 +153,11 @@ exports.handler = async function (event) {
     };
     if (deliveryDate) {
       periodProperties['Medications Delivered Date'] = { date: { start: deliveryDate } };
+    }
+    // Medication storage check: saved as a draft for this period only —
+    // the readable Check columns keep the last finalized answers.
+    if (body.storageChecks) {
+      Object.assign(periodProperties, storageChecks.draftProperties(targetPeriod, body.storageChecks.answers, body.storageChecks.notes));
     }
     await updatePage(periodPage.id, periodProperties);
 

@@ -19,14 +19,23 @@ const DEFAULT_SERVICE = SERVICES[0];
 // likely to get tuned later — same reasoning as MAR's WINDOW_DAYS_BEFORE_DUE.
 const WINDOW_WEEKS_BEFORE_DUE = 6;
 
-// The 10 document steps, in checklist order. `formUrl` is only set for
+// The document steps, in checklist order. `formUrl` is only set for
 // steps that have a preconfigured form today — every step still allows a
 // plain upload regardless. Add a formUrl here later to light up the
 // "Complete Form" option for another step; no other code changes needed.
+// A new step also needs its "{key} Done" (checkbox) and "{key} Filename"
+// (text) columns in the Resident Annual Planning database.
+// `canBeNotNeeded` steps can be marked not needed for a resident instead
+// of uploaded (stored as Done with Filename = NOT_NEEDED), so they never
+// block Finalize for a resident who doesn't have one.
+const NOT_NEEDED = 'Not needed';
 const STEPS = [
   { key: 'MeetingNotes', label: 'Annual Planning Meeting Notes' },
   { key: 'CompAssessment', label: 'Comprehensive Assessment' },
   { key: 'ISP', label: 'Individualized Service Plan' },
+  { key: 'RiskProtocols', label: 'Risk Protocols' },
+  { key: 'CarePlans', label: 'Care Plans' },
+  { key: 'BSP', label: 'Behavior Support Plan', canBeNotNeeded: true },
   { key: 'AuthRelease', label: 'Authorization for Release of Information', formUrl: process.env.ANNUAL_PLANNING_AUTH_RELEASE_FORM_URL || '' },
   { key: 'FallRisk', label: 'Fall Risk Assessment' },
   { key: 'HealthHistory', label: 'Consumer Health History' },
@@ -306,6 +315,7 @@ async function createRecord(location, resident, service, effectiveDate, folderUr
 
 module.exports = {
   STEPS,
+  NOT_NEEDED,
   SERVICES,
   DEFAULT_SERVICE,
   WINDOW_WEEKS_BEFORE_DUE,

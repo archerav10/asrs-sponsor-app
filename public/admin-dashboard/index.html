@@ -189,6 +189,10 @@
   .checkmark { color: #1B7A3D; font-weight: 700; margin-left: 4px; }
   .ap-step-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .ap-step-actions input[type="file"] { flex: 1; font-size: 13px; min-width: 160px; }
+  .ap-step-actions button.nn-btn {
+    width: auto; margin: 0; padding: 8px 12px; font-size: 13px; font-weight: 600;
+    background: #fff; color: #555; border: 1px solid #999; border-radius: 6px; cursor: pointer;
+  }
   .ap-step-actions a.form-link {
     display: inline-block;
     padding: 8px 12px;
@@ -1463,7 +1467,9 @@
 
     const status = document.createElement('p');
     status.className = 'ap-step-status' + (stepState.done ? ' done' : '');
-    status.textContent = stepState.done ? ('Uploaded: ' + (stepState.filename || 'document')) : 'Not yet uploaded';
+    const markedNotNeeded = stepState.done && stepState.filename === 'Not needed';
+    status.textContent = markedNotNeeded ? 'Marked not needed for this resident'
+      : stepState.done ? ('Uploaded: ' + (stepState.filename || 'document')) : 'Not yet uploaded';
     wrap.appendChild(status);
 
     const actions = document.createElement('div');
@@ -1509,6 +1515,36 @@
         setError('annual-detail-error', e.message);
       }
     });
+
+    // Steps like the Behavior Support Plan don't apply to every resident:
+    // "Not needed" records that, so it doesn't block Finalize. Undo puts
+    // the step back to not uploaded.
+    if (stepDef.canBeNotNeeded && (!stepState.done || markedNotNeeded)) {
+      const nnBtn = document.createElement('button');
+      nnBtn.type = 'button';
+      nnBtn.className = 'nn-btn';
+      nnBtn.textContent = markedNotNeeded ? 'Undo not needed' : 'Not needed for this resident';
+      nnBtn.addEventListener('click', async function () {
+        setError('annual-detail-error', '');
+        nnBtn.disabled = true;
+        try {
+          await apiFetch('/save-annual-planning-step', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(markedNotNeeded
+              ? { location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, filename: '', done: false }
+              : { location: currentAnnualLocation, resident: currentAnnualResident, service: currentAnnualService, stepKey: stepDef.key, notNeeded: true, done: true })
+          });
+          const scrollY = window.scrollY;
+          await loadAnnualDetail();
+          window.scrollTo(0, scrollY);
+        } catch (e) {
+          setError('annual-detail-error', e.message);
+          nnBtn.disabled = false;
+        }
+      });
+      actions.appendChild(nnBtn);
+    }
 
     if (stepDef.formUrl) {
       const formLink = document.createElement('a');
