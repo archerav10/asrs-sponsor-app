@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ASRS Provider App</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="/provider-app/manifest.json">
 <meta name="theme-color" content="#16332B">
 <style>
   :root {
@@ -684,13 +684,31 @@
   .drive-item .drive-meta { display: block; font-size: 13px; color: var(--muted, #5E5B52); margin-top: 2px; }
   .drive-opening { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-top: 8px; font-size: 14px; }
   .drive-opening a { color: var(--forest); font-weight: 600; }
+  .lz-section { margin: 12px 0; }
+  .lz-section select, #screen-liaison-visit select, #screen-liaison-visit textarea {
+    width: 100%; box-sizing: border-box; padding: 12px 14px; font: inherit; font-size: 16px;
+    border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--ink);
+  }
+  #screen-liaison-visit .lz-check { display: flex; }
+  #screen-liaison-visit .lz-check input { width: auto; margin-top: 3px; }
+  .lz-section .action-button { margin-top: 12px; }
+  .lz-qlist .action-button { margin-top: 8px; }
+  .lz-qlist .action-button:disabled { opacity: .6; }
+  .lz-prefill { background: #F4F1E8; border-radius: 8px; padding: 8px 10px; font-size: 13px; margin: 4px 0 8px; white-space: pre-wrap; }
+  .lz-q textarea, .lz-q input.lz-note { width: 100%; box-sizing: border-box; margin-top: 8px; }
+  .lz-res-label { display: block; font-weight: 600; margin-top: 10px; }
+  .lz-check { display: flex; gap: 8px; align-items: flex-start; font-weight: normal; margin: 6px 0; }
+  .lz-location { border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+  .lz-location.ok { background: #E6F2EA; }
+  .lz-location.warn { background: #FDF0D5; }
+  #screen-liaison-visit .item-section-title { margin-top: 20px; }
 </style>
 </head>
 <body>
 
 <header>
   <p class="wordmark">Arch Support Residential Services</p>
-  <h1>Provider App</h1>
+  <h1 id="app-title">Provider App</h1>
 </header>
 
 <main>
@@ -726,6 +744,25 @@
       <p class="name" id="home-name"></p>
       <p class="meta" id="home-meta"></p>
       <p class="meta site-visit" id="home-site-visit"></p>
+    </div>
+
+    <div id="lz-section" class="lz-section" style="display:none;">
+      <label for="lz-location">Home</label>
+      <select id="lz-location"></select>
+      <p class="error-text" id="lz-error"></p>
+      <button type="button" class="action-button" id="lz-visit-start">
+        <span class="mar-label-row"><span id="lz-visit-dot" class="status-dot status-unknown"></span><span id="lz-visit-title">Start On-site Visit</span></span>
+        <span class="sub">Once a month &middot; your location is checked at the start and when you submit</span>
+        <span class="sub" id="lz-visit-status"></span>
+      </button>
+      <button type="button" class="action-button" id="lz-call-start">
+        <span class="mar-label-row"><span id="lz-call-dot" class="status-dot status-unknown"></span><span id="lz-call-title">Weekly Check-in Call</span></span>
+        <span class="sub">About 5 minutes with the sponsor or house manager</span>
+        <span class="sub" id="lz-call-status"></span>
+      </button>
+      <p class="item-section-title">Interviews &amp; questionnaires</p>
+      <div id="lz-questionnaires" class="lz-qlist"></div>
+      <p class="item-section-title">Sponsor app</p>
     </div>
 
     <button type="button" class="action-button wf-home-button" id="home-compliance">
@@ -1276,12 +1313,45 @@
     <div id="medical-by-type-list"></div>
   </section>
 
+  <!-- Liaison: on-site visit / check-in call -->
+  <section id="screen-liaison-visit" class="screen">
+    <button type="button" class="secondary" id="lz-v-back">&larr; Home</button>
+    <h2 id="lz-v-title">On-site Visit</h2>
+    <p class="help-text" id="lz-v-meta"></p>
+    <p class="lz-location" id="lz-v-location"></p>
+
+    <label for="lz-v-spoke" id="lz-v-spoke-label">Who did you speak with?</label>
+    <select id="lz-v-spoke"></select>
+    <div id="lz-v-mode-wrap">
+      <label for="lz-v-mode">How</label>
+      <select id="lz-v-mode"><option>Phone</option><option>Video</option><option>In person</option></select>
+    </div>
+
+    <div id="lz-v-questions"></div>
+
+    <label for="lz-v-notes">Notes</label>
+    <textarea id="lz-v-notes" rows="4"></textarea>
+    <label for="lz-v-followups">Follow-ups</label>
+    <textarea id="lz-v-followups" rows="3"></textarea>
+
+    <p class="error-text" id="lz-v-error"></p>
+    <button type="button" id="lz-v-submit">Submit</button>
+    <button type="button" class="secondary" id="lz-v-save">Save and finish later</button>
+    <button type="button" class="secondary" id="lz-v-discard">Discard</button>
+  </section>
+
 </main>
 
 <script>
 (function () {
   const FN_BASE = '/.netlify/functions';
-  const SESSION_KEY = 'asrs_provider_session';
+  // The Liaison app is this page opened at /liaison-app/.
+  const IS_LIAISON = window.location.pathname.indexOf('/liaison-app') === 0;
+  const SESSION_KEY = IS_LIAISON ? 'asrs_liaison_session' : 'asrs_provider_session';
+  if (IS_LIAISON) {
+    document.title = 'ASRS Liaison App';
+    document.getElementById('app-title').textContent = 'Liaison App';
+  }
 
   const screens = {
     login: document.getElementById('screen-login'),
@@ -1301,7 +1371,8 @@
     medical: document.getElementById('screen-medical'),
     weeklyFocus: document.getElementById('screen-weekly-focus'),
     compliance: document.getElementById('screen-compliance'),
-    drive: document.getElementById('screen-drive')
+    drive: document.getElementById('screen-drive'),
+    liaisonVisit: document.getElementById('screen-liaison-visit')
   };
 
   function getStoredSession() {
@@ -1363,7 +1434,7 @@
     const btn = this;
     btn.disabled = true;
     try {
-      const res = await fetch(FN_BASE + '/provider-login', {
+      const res = await fetch(FN_BASE + (IS_LIAISON ? '/liaison-login' : '/provider-login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email, password: password })
@@ -1402,7 +1473,7 @@
     const btn = this;
     btn.disabled = true;
     try {
-      const res = await fetch(FN_BASE + '/provider-verify-otp', {
+      const res = await fetch(FN_BASE + (IS_LIAISON ? '/liaison-verify-otp' : '/provider-verify-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otpToken: pendingOtpToken, code: code })
@@ -1486,6 +1557,7 @@
     renderMedicalButtons(session.residentInitials);
     loadHomeWeeklyFocus(session);
     loadHomeCompliance();
+    loadLiaisonHome(session);
   }
 
   // Last/Next Site Visit come from the admin dashboard's Monthly
@@ -4836,6 +4908,346 @@
     });
     body.appendChild(wfEl('p', 'help-text', 'Green: up to date · Yellow: coming due · Red: overdue, expired or missing. Tap an area for details.'));
   }
+
+
+  // --- Liaison app (same page, opened at /liaison-app/) ---
+  // A liaison session is a location session (every sponsor app screen
+  // works for the selected home) plus liaison: true and the granted
+  // locations. The Liaison section on Home has the home picker, the
+  // on-site visit, the weekly check-in call and the questionnaire links.
+  let lzHome = null;      // last liaison-home response
+  let lzVisit = null;     // the visit/call being worked on
+  let lzScreen = null;    // { questions, residents, prefill, noteOptions, saved }
+
+  function lzStatusClass(s) { return 'status-dot status-' + (s || 'unknown'); }
+
+  // The phone's location, or null when it isn't shared or takes too long.
+  function lzGetCoords() {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) return resolve(null);
+      let done = false;
+      const finish = function (v) { if (!done) { done = true; resolve(v); } };
+      setTimeout(function () { finish(null); }, 20000);
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        finish({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: Math.round(pos.coords.accuracy) });
+      }, function () { finish(null); }, { enableHighAccuracy: true, timeout: 18000, maximumAge: 0 });
+    });
+  }
+
+  async function loadLiaisonHome(session) {
+    const wrap = document.getElementById('lz-section');
+    if (!session || !session.liaison) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    const select = document.getElementById('lz-location');
+    select.innerHTML = '';
+    (session.grantedLocations || []).forEach(function (l) {
+      const o = document.createElement('option');
+      o.value = l; o.textContent = l;
+      if (l === session.location) o.selected = true;
+      select.appendChild(o);
+    });
+    setError('lz-error', '');
+    document.getElementById('lz-visit-status').textContent = 'Checking…';
+    document.getElementById('lz-call-status').textContent = 'Checking…';
+    const qList = document.getElementById('lz-questionnaires');
+    qList.innerHTML = '';
+    try {
+      const data = await apiFetch('/liaison-home');
+      lzHome = data;
+      document.getElementById('lz-visit-dot').className = lzStatusClass(data.visit.status);
+      document.getElementById('lz-visit-title').textContent = data.visit.draftId ? 'Continue On-site Visit' : 'Start On-site Visit';
+      document.getElementById('lz-visit-status').textContent = data.visit.text + (data.homeLocationSet ? '' : ' · Home location not set up yet');
+      document.getElementById('lz-call-dot').className = lzStatusClass(data.call.status);
+      document.getElementById('lz-call-title').textContent = data.call.draftId ? 'Continue Weekly Check-in Call' : 'Weekly Check-in Call';
+      document.getElementById('lz-call-status').textContent = data.call.text;
+      if (!data.questionnaires.length) {
+        qList.innerHTML = '<p class="help-text">No residents on file for this home yet.</p>';
+      }
+      data.questionnaires.forEach(function (q) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'action-button';
+        const label = q.audience === 'Resident' ? 'Resident Interview' : q.audience + ' Questionnaire';
+        btn.innerHTML = '<span class="mar-label-row"><span class="' + lzStatusClass(q.status) + '"></span><span>' + escapeHtml(label + ' — ' + q.resident) + '</span></span>' +
+          '<span class="sub">' + escapeHtml(q.last ? 'Last done ' + formatDate(q.last.date) + (q.last.spokeWith ? ' with ' + q.last.spokeWith : '') : 'Not done yet') + (q.status === 'green' ? ' · done this month' : ' · due this month') + '</span>' +
+          (q.available ? '' : '<span class="sub">No form set up yet (Questionnaire Links in Notion)</span>');
+        btn.disabled = !q.available;
+        btn.addEventListener('click', function () { openQuestionnaire(q); });
+        qList.appendChild(btn);
+      });
+    } catch (e) {
+      setError('lz-error', e.message);
+    }
+  }
+
+  document.getElementById('lz-location').addEventListener('change', async function () {
+    const sel = this;
+    setError('lz-error', '');
+    sel.disabled = true;
+    try {
+      const data = await apiFetch('/liaison-switch-location', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location: sel.value })
+      });
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ sessionToken: data.sessionToken, session: data.session }));
+      renderHome(data.session);
+      window.scrollTo(0, 0);
+    } catch (e) {
+      setError('lz-error', e.message);
+    } finally {
+      sel.disabled = false;
+    }
+  });
+
+  // Questionnaire: the sponsor/DSP one asks who the liaison is with first.
+  async function openQuestionnaire(q) {
+    let spokeWith = '';
+    if (q.audience !== 'Resident') {
+      const staff = (lzHome && lzHome.staff) || [];
+      const names = staff.map(function (p) { return p.name; });
+      spokeWith = window.prompt('Who are you completing this with?' + (names.length ? ' (' + names.join(', ') + ')' : ''), names.length === 1 ? names[0] : '') || '';
+      if (!spokeWith.trim()) return;
+    }
+    setError('lz-error', '');
+    // Open the window first (inside the tap) so phones don't block it.
+    const win = window.open('', '_blank');
+    try {
+      const data = await apiFetch('/liaison-questionnaire-link?audience=' + encodeURIComponent(q.audience) + '&resident=' + encodeURIComponent(q.resident) + '&spokeWith=' + encodeURIComponent(spokeWith.trim()));
+      if (win) win.location.href = data.url; else window.location.href = data.url;
+    } catch (e) {
+      if (win) win.close();
+      setError('lz-error', e.message);
+    }
+  }
+
+  document.getElementById('lz-visit-start').addEventListener('click', function () { startLiaisonVisit('visit'); });
+  document.getElementById('lz-call-start').addEventListener('click', function () { startLiaisonVisit('call'); });
+
+  async function startLiaisonVisit(type) {
+    setError('lz-error', '');
+    const draftId = lzHome && (type === 'visit' ? lzHome.visit.draftId : lzHome.call.draftId);
+    const btn = document.getElementById(type === 'visit' ? 'lz-visit-start' : 'lz-call-start');
+    btn.disabled = true;
+    try {
+      let data;
+      if (draftId) {
+        data = await apiFetch('/liaison-visit?id=' + encodeURIComponent(draftId));
+      } else {
+        let coords = null;
+        if (type === 'visit') {
+          document.getElementById('lz-visit-status').textContent = 'Getting your location… (allow location when your phone asks)';
+          coords = await lzGetCoords();
+        }
+        data = await apiFetch('/liaison-visit', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'start', type: type, coords: coords })
+        });
+      }
+      openLiaisonVisitScreen(data);
+    } catch (e) {
+      setError('lz-error', e.message);
+      loadLiaisonHome(getStoredSession() && getStoredSession().session);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function lzYesNo(container, value, onChange) {
+    const group = document.createElement('div');
+    group.className = 'dpn-yn-group';
+    ['Yes', 'No', 'N/A'].forEach(function (c) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'dpn-yn-btn' + (value === c ? (c === 'No' ? ' selected-no' : c === 'N/A' ? ' selected-na' : ' selected-yes') : '');
+      b.textContent = c;
+      b.addEventListener('click', function () {
+        group.querySelectorAll('.dpn-yn-btn').forEach(function (o) { o.classList.remove('selected-yes', 'selected-no', 'selected-na'); });
+        b.classList.add(c === 'No' ? 'selected-no' : c === 'N/A' ? 'selected-na' : 'selected-yes');
+        onChange(c);
+      });
+      group.appendChild(b);
+    });
+    container.appendChild(group);
+  }
+
+  function lzPrefillBox(text) {
+    const p = document.createElement('p');
+    p.className = 'lz-prefill';
+    p.textContent = 'From the app: ' + text;
+    return p;
+  }
+
+  function openLiaisonVisitScreen(data) {
+    lzVisit = data.visit;
+    lzScreen = data;
+    const isCall = data.visit.type === 'Check-in Call';
+    document.getElementById('lz-v-title').textContent = isCall ? 'Weekly Check-in Call' : 'On-site Visit';
+    document.getElementById('lz-v-meta').textContent = data.visit.location + ' · ' + data.visit.template + ' · started ' + new Date(data.visit.startedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const loc = document.getElementById('lz-v-location');
+    if (isCall) {
+      loc.style.display = 'none';
+    } else {
+      loc.style.display = '';
+      loc.textContent = data.visit.start ? 'Location captured at the start (±' + (data.visit.start.accuracy || '?') + ' m). It will be captured again when you submit.' : 'Location was not shared at the start. This visit will be flagged unless you allow location when you submit.';
+      loc.className = 'lz-location ' + (data.visit.start ? 'ok' : 'warn');
+    }
+    // Who you spoke with / how
+    const staff = (lzHome && lzHome.staff) || [];
+    const sw = document.getElementById('lz-v-spoke');
+    sw.innerHTML = '<option value="">' + (isCall ? '— Choose —' : '— Optional —') + '</option>';
+    staff.forEach(function (p) { const o = document.createElement('option'); o.value = p.name; o.textContent = p.name + (p.role ? ' (' + p.role + ')' : ''); sw.appendChild(o); });
+    const other = document.createElement('option'); other.value = '__other'; other.textContent = 'Someone else…'; sw.appendChild(other);
+    const current = data.visit.spokeWith || '';
+    if (current && !staff.some(function (p) { return p.name === current; })) {
+      const o = document.createElement('option'); o.value = current; o.textContent = current; sw.insertBefore(o, other);
+    }
+    sw.value = current;
+    document.getElementById('lz-v-spoke-label').textContent = isCall ? 'Who did you speak with? (sponsor or house manager)' : 'Who was there? (optional)';
+    document.getElementById('lz-v-mode-wrap').style.display = isCall ? '' : 'none';
+    document.getElementById('lz-v-mode').value = data.visit.mode || 'Phone';
+
+    const qEl = document.getElementById('lz-v-questions');
+    qEl.innerHTML = '';
+    let section = null;
+    data.questions.forEach(function (q) {
+      if (q.section && q.section !== section) {
+        section = q.section;
+        const h = document.createElement('p'); h.className = 'item-section-title'; h.textContent = section; qEl.appendChild(h);
+      }
+      const saved = data.saved[q.key] || {};
+      const box = document.createElement('div');
+      box.className = 'dpn-question lz-q';
+      box.dataset.key = q.key;
+      box.dataset.type = q.type;
+      const title = document.createElement('p'); title.className = 'dpn-question-text'; title.textContent = q.question; box.appendChild(title);
+      if (q.help) { const hp = document.createElement('p'); hp.className = 'help-text'; hp.style.marginTop = '0'; hp.textContent = q.help; box.appendChild(hp); }
+      const appText = q.fromApp && data.prefill.text[q.fromApp];
+      if (appText && q.type !== 'Per resident') box.appendChild(lzPrefillBox(appText));
+      if (q.type === 'Yes/No') {
+        box.dataset.value = saved.value || '';
+        lzYesNo(box, saved.value, function (v) { box.dataset.value = v; });
+        const note = document.createElement('input'); note.type = 'text'; note.className = 'lz-note'; note.placeholder = 'Note (optional)'; note.value = saved.note || '';
+        box.appendChild(note);
+      } else if (q.type === 'Per resident') {
+        data.residents.forEach(function (r) {
+          const lab = document.createElement('label'); lab.textContent = r; lab.className = 'lz-res-label'; box.appendChild(lab);
+          if (q.fromApp === 'Medical dates' && data.prefill.byResident[r]) box.appendChild(lzPrefillBox(data.prefill.byResident[r]));
+          const ta = document.createElement('textarea'); ta.rows = 2; ta.dataset.resident = r; ta.value = (saved.perResident && saved.perResident[r]) || '';
+          box.appendChild(ta);
+        });
+        if (!data.residents.length) { const p = document.createElement('p'); p.className = 'help-text'; p.textContent = 'No residents on file for this home.'; box.appendChild(p); }
+      } else if (q.type === 'Daily notes') {
+        const picked = (saved.notes || []).map(function (n) { return n.id; });
+        if (!data.noteOptions.length) { const p = document.createElement('p'); p.className = 'help-text'; p.textContent = 'No signed daily notes in the last three weeks.'; box.appendChild(p); }
+        data.noteOptions.forEach(function (n) {
+          const lab = document.createElement('label'); lab.className = 'lz-check';
+          const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = n.id; cb.checked = picked.indexOf(n.id) !== -1;
+          lab.appendChild(cb); lab.appendChild(document.createTextNode(' ' + n.label));
+          box.appendChild(lab);
+        });
+        const note = document.createElement('input'); note.type = 'text'; note.className = 'lz-note'; note.placeholder = 'What you found (optional)'; note.value = saved.note || '';
+        box.appendChild(note);
+      } else {
+        const ta = document.createElement('textarea'); ta.rows = 3; ta.value = saved.value || '';
+        box.appendChild(ta);
+      }
+      qEl.appendChild(box);
+    });
+    document.getElementById('lz-v-notes').value = data.visit.notes || '';
+    document.getElementById('lz-v-followups').value = data.visit.followUps || '';
+    setError('lz-v-error', '');
+    showScreen('liaisonVisit');
+    window.scrollTo(0, 0);
+  }
+
+  function lzGather() {
+    const answers = {};
+    document.querySelectorAll('#lz-v-questions .lz-q').forEach(function (box) {
+      const key = box.dataset.key, type = box.dataset.type;
+      if (type === 'Yes/No') answers[key] = { value: box.dataset.value || '', note: box.querySelector('.lz-note').value };
+      else if (type === 'Per resident') {
+        const per = {};
+        box.querySelectorAll('textarea[data-resident]').forEach(function (t) { per[t.dataset.resident] = t.value; });
+        answers[key] = { perResident: per };
+      } else if (type === 'Daily notes') {
+        answers[key] = { notes: Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function (c) { return c.value; }), note: box.querySelector('.lz-note').value };
+      } else answers[key] = { value: box.querySelector('textarea').value };
+    });
+    let spoke = document.getElementById('lz-v-spoke').value;
+    if (spoke === '__other') spoke = (window.prompt('Name of the person you spoke with') || '').trim();
+    return {
+      id: lzVisit.id,
+      answers: answers,
+      notes: document.getElementById('lz-v-notes').value,
+      followUps: document.getElementById('lz-v-followups').value,
+      spokeWith: spoke,
+      mode: document.getElementById('lz-v-mode').value
+    };
+  }
+
+  document.getElementById('lz-v-spoke').addEventListener('change', function () {
+    if (this.value !== '__other') return;
+    const name = (window.prompt('Name of the person you spoke with') || '').trim();
+    if (!name) { this.value = ''; return; }
+    const o = document.createElement('option'); o.value = name; o.textContent = name;
+    this.insertBefore(o, this.lastElementChild);
+    this.value = name;
+  });
+
+  document.getElementById('lz-v-save').addEventListener('click', async function () {
+    const btn = this;
+    setError('lz-v-error', '');
+    btn.disabled = true;
+    try {
+      await apiFetch('/liaison-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ action: 'save' }, lzGather())) });
+      alert('Saved. You can come back to it from Home.');
+    } catch (e) {
+      setError('lz-v-error', e.message);
+    } finally { btn.disabled = false; }
+  });
+
+  document.getElementById('lz-v-submit').addEventListener('click', async function () {
+    const btn = this;
+    setError('lz-v-error', '');
+    btn.disabled = true;
+    const isVisit = lzVisit.type === 'On-site Visit';
+    btn.textContent = isVisit ? 'Checking your location…' : 'Submitting…';
+    try {
+      const body = Object.assign({ action: 'submit' }, lzGather());
+      if (isVisit) body.coords = await lzGetCoords();
+      btn.textContent = 'Submitting…';
+      const res = await apiFetch('/liaison-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      let msg = isVisit ? 'Visit submitted. Location check: ' + res.locationCheck + (res.distanceText && res.locationCheck === 'Too far away' ? ' (' + res.distanceText + ' from the home)' : '') + '.' : 'Check-in call saved.';
+      if (res.checklistUpdated) msg += ' The Monthly Checklist’s Last Site Visit was updated.';
+      msg += res.pdfSent ? ' The PDF is on its way to Drive.' : ' The PDF couldn’t be sent to Drive; the office can see it in Notion.';
+      alert(msg);
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
+    } catch (e) {
+      setError('lz-v-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit';
+    }
+  });
+
+  document.getElementById('lz-v-discard').addEventListener('click', async function () {
+    if (!confirm('Discard this ' + (lzVisit.type === 'On-site Visit' ? 'visit' : 'call') + '? What you entered is removed.')) return;
+    try {
+      await apiFetch('/liaison-visit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'discard', id: lzVisit.id }) });
+      const stored = getStoredSession();
+      if (stored) renderHome(stored.session);
+      showScreen('home');
+    } catch (e) { setError('lz-v-error', e.message); }
+  });
+
+  document.getElementById('lz-v-back').addEventListener('click', function () {
+    const stored = getStoredSession();
+    if (stored) renderHome(stored.session);
+    showScreen('home');
+  });
+
 
   // --- Restore existing session on load ---
   (function init() {

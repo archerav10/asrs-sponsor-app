@@ -2587,6 +2587,73 @@ database to your Notion integration the same way you did for Sponsors
 and First Aid Supplies Master List ("..." menu -> Connections -> add
 the integration matching your NOTION_TOKEN).
 
+## Liaison App
+
+The Liaison app is the provider app page opened at **`/liaison-app/`** (a
+`netlify.toml` rewrite serves `public/provider-app/index.html`; the page
+switches to liaison mode from its path and keeps its own session). A liaison
+is an Admin Accounts row with **Liaison App Enabled** checked (super admin →
+Manage admin account). They log in with their email and the password of any
+home they are granted, get a text code, and can switch between their granted
+homes from the **Home** picker. Every sponsor app screen works for the
+selected home; the Liaison section above it adds:
+
+- **On-site Visit** (once a month, covers the whole home). The phone's
+  location is captured at the start and on submit and compared with the
+  home's coordinates (Haversine, default 150 m radius, up to 75 m GPS
+  accuracy credit, the farther reading decides). The result is recorded as
+  Verified on site / Too far away / Location not shared / Home location not
+  set up. Visits are never blocked, only flagged. A submitted visit sets the
+  Monthly Checklist's Last Site Visit (unless that month is finalized).
+- **Weekly Check-in Call** (one per home, with the sponsor or house manager):
+  the short Q&A, no location check.
+- **Resident Interview** and **Sponsor / DSP Questionnaire** links (one per
+  resident, monthly). DSP for group homes, Sponsor otherwise.
+
+Status lights: visit green this month / yellow if last month was done / red;
+call green within 7 days / yellow on day 8 / red after; questionnaires green
+this month / yellow if done last month / red.
+
+Visits and calls can be saved and finished later. Submitted ones generate a
+PDF filed to Drive under `{Location}/Liaison Visits/`.
+
+### Notion
+
+| Database | Purpose |
+| --- | --- |
+| Liaison Visits | One row per visit/call: type, spoke with, mode, answers, start/end coordinates, distance, Location Check, notes, follow-ups, PDF status/link |
+| Visit Checklist Items | The questions, by Template (Sponsor Site Visit, Group Home Site Visit, Weekly Check-in Call). Type: Yes/No, Text, Per resident, Daily notes. *From App* shows app data under the question (Medical dates, Monthly reports, Training, Annual planning, Compliance overview, Medications). Edit or untick Active to change the checklist. |
+| Questionnaire Links | Which Jotform opens per Audience (Resident, Sponsor, DSP). A row for a home wins over the All Homes row, so a home can have its own sponsor questionnaire. |
+| Questionnaire Responses | One row per submitted questionnaire (written by the app, de-duplicated on Submission ID). |
+
+Location Access Codes has **Home Type**, **Address**, **Latitude**,
+**Longitude** and **On-site Radius (m)**. Set them on the super admin
+**Home Locations** page (`/admin/home-locations.html`). "Use my current
+location" while standing at the home is the easiest way, or paste
+`lat, lng` from Google Maps.
+
+### Questionnaires (Jotform → Zapier → app)
+
+The app opens the form with a signed hidden `app_tracking` value (home,
+resident, who the liaison is with, liaison, month) plus prefilled location,
+resident and liaison. Each form needs a webhook (Jotform → Settings →
+Integrations → Webhooks) pointing to the **asrs-questionnaires** Zap's Catch
+Hook. The Zap reads the submission from the Jotform API and posts it to
+`questionnaire-submitted`, which checks the signature, records the response
+and files a PDF (resident interviews under
+`{Location}/Residents/{Name}/Resident Interviews`, others under
+`{Location}/Liaison Visits/Questionnaires`). A form opened outside the app
+has no tracking value and is skipped. A copied per-home form must keep the
+webhook and the hidden `app_tracking` field.
+
+### Filing (asrs-document-filing Zap)
+
+The app POSTs each PDF with an encrypted ticket to
+`DOCUMENT_FILING_WEBHOOK_URL` (in `lib/ids.js`). The Zap trades the ticket at
+`document-filing-resolve` for the folder path and filename, finds/creates the
+folders under Facility Reporting, uploads, then reports back so PDF Status
+becomes Saved. Workflow sources are in `zapier/`.
+
 ## What's intentionally not built yet
 
 - **PWA icons.** `manifest.json` has an empty `icons` array — add 192px

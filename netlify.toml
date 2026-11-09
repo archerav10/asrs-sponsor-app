@@ -7,6 +7,17 @@
   to = "/provider-app/"
   status = 302
 
+# The Liaison app is the provider app page opened at /liaison-app/; the
+# page switches to liaison mode from its path.
+[[redirects]]
+  from = "/liaison-app"
+  to = "/liaison-app/"
+  status = 301
+[[redirects]]
+  from = "/liaison-app/*"
+  to = "/provider-app/index.html"
+  status = 200
+
 # Training module links (/m/{token}) open the module page; the page reads
 # the token from the path.
 [[redirects]]
