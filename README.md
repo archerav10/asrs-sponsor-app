@@ -2705,14 +2705,11 @@ report.
 
 **Month-end close** (due the 15th of the next month; lights gray until the
 10th, yellow the 10th–15th, red after; green when done). Kept on the existing
-**QI & RM Monthly Checklists** row for the month (new columns: Issues Log
-Reviewed On/By/Note, Risk Tool Updated On/By/Note, QI Report Drafted /
-Reviewed / Signed On, QI Report By, QI Report Link):
+**QI & RM Monthly Checklists** row for the month (new columns: QI Report
+Drafted / Reviewed / Signed On, QI Report By, QI Report Link):
 - Location reports filed (Finals ticked Filed in Drive)
 - Liaison flags decided (each escalated or marked not needed)
-- QA/Issues Log reviewed
-- Risk Tracking Tool updated
-- QI & RM report (ASRS-620-06): drafted → reviewed at leadership → signed, and its Drive link
+- QI & RM report (ASRS-620-06): drafted → reviewed at leadership → signed, and its Drive link (the QA/Issues Log review and the Risk Tracking Tool update are part of that report and its checklist)
 - The Notion QI & RM monthly checklist's own Status (due the end of the month)
 
 **Roles** (Admin Accounts → **Roles**, set on the super admin Manage Admin

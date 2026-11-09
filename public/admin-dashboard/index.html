@@ -5980,21 +5980,6 @@
     }
   }
 
-  function rpMarkRow(item, action) {
-    const box = wfEl('div', 'rp-actions');
-    const done = item.status === 'green';
-    const note = wfEl('input');
-    note.type = 'text';
-    note.placeholder = 'Note (optional)';
-    note.value = item.note || '';
-    const b = wfEl('button', 'small' + (done ? ' secondary' : ''), done ? 'Undo' : (action === 'issuesLog' ? 'Mark reviewed' : 'Mark updated'));
-    b.type = 'button';
-    b.addEventListener('click', function () { b.disabled = true; rpSave({ action: action, done: !done, note: note.value }); });
-    box.appendChild(note);
-    box.appendChild(b);
-    return box;
-  }
-
   function rpQiRow(data) {
     const box = wfEl('div', 'rp-actions rp-qi');
     [['drafted', 'Drafted'], ['reviewed', 'Reviewed at leadership'], ['signed', 'Signed']].forEach(function (s) {
@@ -6122,7 +6107,6 @@
       row.appendChild(top);
       if (it.key === 'reports') row.appendChild(rpHomes(data, month, isCurrent));
       if (it.key === 'flags' && data.flags.length) row.appendChild(rpFlags(data));
-      if (it.key === 'issuesLog' || it.key === 'riskTool') row.appendChild(rpMarkRow(it, it.key));
       if (it.key === 'qiReport') row.appendChild(rpQiRow(data));
       if (it.key === 'checklist' && data.checklist) {
         const a = wfEl('a', 'small-btn', 'Open checklist in Notion'); a.href = data.checklist.url; a.target = '_blank'; a.rel = 'noopener';

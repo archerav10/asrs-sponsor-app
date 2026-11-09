@@ -4,8 +4,8 @@ const { queryDatabase, getPlainText } = require('./notion');
 // be handed to someone else by ticking a box instead of changing code:
 //
 //   Risk Manager         month-end close reminders (text on the 10th and
-//                        16th, section in the Friday digest); owns QA/Issues
-//                        Log, Risk Tracking Tool and the ASRS-620-06 report
+//                        16th, section in the Friday digest); owns the
+//                        ASRS-620-06 report (incl. QA/Issues Log, Risk Tracking Tool)
 //   Executive Director   signs the monthly location reports
 //   Program Director     suggested owner for plan, health and staff findings
 //   Residential Liaison  suggested owner for liaison findings; signs the

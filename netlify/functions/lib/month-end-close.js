@@ -8,9 +8,9 @@ const lr = require('./location-report');
 //
 //   Location reports filed   Final generated and "Filed in Drive" ticked, every home
 //   Liaison flags decided    every flag in the month escalated or marked not needed
-//   QA/Issues Log reviewed   date and who
-//   Risk Tracking Tool       updated for the month: date and who
-//   QI & RM report (620-06)  drafted -> reviewed at leadership -> signed
+//   QI & RM report (620-06)  drafted -> reviewed at leadership -> signed (the
+//                            QA/Issues Log review and Risk Tracking Tool update
+//                            are part of that report)
 //   Notion monthly checklist the checklist row's own Status
 //
 // Lights: green when done; for open items gray until the 10th of the next
@@ -58,8 +58,6 @@ async function load(month, locations, now) {
   const items = [
     { key: 'reports', label: 'Location reports (ASRS-520-03) filed', status: st(homes.length && filedCount === homes.length), text: filedCount + ' of ' + homes.length + ' filed in Drive', due: due },
     { key: 'flags', label: 'Liaison flags decided', status: st(decided === mine.length), text: mine.length ? decided + ' of ' + mine.length + ' escalated or marked not needed' : 'No flags this month', due: due },
-    { key: 'issuesLog', label: 'QA/Issues Log reviewed', status: st(!!val('Issues Log Reviewed On')), text: val('Issues Log Reviewed On') ? 'Reviewed ' + fmt(val('Issues Log Reviewed On')) + (val('Issues Log Reviewed By') ? ' by ' + val('Issues Log Reviewed By') : '') : 'Not yet', note: val('Issues Log Note'), due: due },
-    { key: 'riskTool', label: 'Risk Tracking Tool updated', status: st(!!val('Risk Tool Updated On')), text: val('Risk Tool Updated On') ? 'Updated ' + fmt(val('Risk Tool Updated On')) + (val('Risk Tool Updated By') ? ' by ' + val('Risk Tool Updated By') : '') : 'Not yet', note: val('Risk Tool Note'), due: due },
     { key: 'qiReport', label: 'QI & RM report (ASRS-620-06)', status: st(!!qi.signed), text: qi.signed ? 'Signed ' + fmt(qi.signed) : qi.reviewed ? 'Reviewed at leadership ' + fmt(qi.reviewed) + '; not signed yet' : qi.drafted ? 'Drafted ' + fmt(qi.drafted) + '; not reviewed yet' : 'Not started', due: due },
     { key: 'checklist', label: 'Notion QI & RM monthly checklist', status: checklistStatus === 'Complete' ? 'green' : today > lr.monthBounds(month).end ? 'red' : today >= lr.monthBounds(month).end.slice(0, 8) + '25' ? 'yellow' : 'gray', text: row ? checklistStatus : 'No checklist page for this month', due: lr.monthBounds(month).end }
   ];
@@ -88,9 +86,7 @@ async function save(month, input, who, locations) {
   if (!row) throw httpError(400, 'There’s no QI & RM Monthly Checklist page for ' + lr.monthLabel(month) + ' in Notion yet.');
   const on = input.done === false ? null : today;
   let props;
-  if (input.action === 'issuesLog') props = { 'Issues Log Reviewed On': dateProp(on), 'Issues Log Reviewed By': richText(on ? who : ''), 'Issues Log Note': richText(input.note || '') };
-  else if (input.action === 'riskTool') props = { 'Risk Tool Updated On': dateProp(on), 'Risk Tool Updated By': richText(on ? who : ''), 'Risk Tool Note': richText(input.note || '') };
-  else if (input.action === 'qiStep') {
+  if (input.action === 'qiStep') {
     const prop = { drafted: 'QI Report Drafted On', reviewed: 'QI Report Reviewed On', signed: 'QI Report Signed On' }[input.step];
     if (!prop) throw httpError(400, 'Unknown step.');
     const date = /^\d{4}-\d{2}-\d{2}$/.test(input.date || '') ? input.date : on;
