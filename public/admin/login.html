@@ -19,7 +19,10 @@
   button:disabled { opacity: 0.55; }
   .error-text { font-size: 14px; color: var(--error); margin-top: 14px; display: none; }
   .help { font-size: 13px; color: #555; margin-top: 4px; }
-  ul.tool-links { list-style: none; padding: 0; margin: 20px 0 0; }
+  ul.tool-links { list-style: none; padding: 0; margin: 8px 0 0; }
+  ul.tool-links li a span { display: block; font-weight: 400; font-size: 13px; color: #555; margin-top: 3px; }
+  h2.tool-group { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #666; margin: 22px 0 0; }
+  .group-help { font-size: 13px; color: #555; margin: 4px 0 0; }
   ul.tool-links li a {
     display: block; padding: 14px 16px; margin-bottom: 10px;
     border: 1px solid var(--border); border-radius: 8px; background: #fff;
@@ -50,14 +53,25 @@
 
   <section id="screen-menu" class="screen">
     <p>Logged in. Choose a tool:</p>
+
+    <h2 class="tool-group">Who can get in</h2>
     <ul class="tool-links">
-      <li><a href="/admin/access.html"><strong>Access by Location</strong> (who can get into each home)</a></li>
-      <li><a href="/admin/set-provider-password.html">Set Provider Password</a></li>
-      <li><a href="/admin/set-location-password.html">Set Location Password</a></li>
-      <li><a href="/admin/manage-admin.html">Manage Admin Access</a></li>
-      <li><a href="/admin/manage-medications.html">Manage Medications</a></li>
-      <li><a href="/admin/list-admins.html">View Admin Access &amp; Location Status</a></li>
-      <li><a href="/admin/home-locations.html">Home Locations (Liaison on-site check)</a></li>
+      <li><a href="/admin/access.html">Access by Location<span>Pick a home: its sponsors, its admins, its liaisons. Tick to give or remove access.</span></a></li>
+      <li><a href="/admin/manage-admin.html">Manage Admin Access<span>One person at a time: add a new admin, their homes, Liaison homes and roles.</span></a></li>
+      <li><a href="/admin/list-admins.html">View Admin Access &amp; Location Status<span>Read-only list of every admin and which homes have a password set.</span></a></li>
+    </ul>
+
+    <h2 class="tool-group">Passwords</h2>
+    <p class="group-help">A password only opens a door the person already has access to above.</p>
+    <ul class="tool-links">
+      <li><a href="/admin/set-location-password.html">Set Location Password<span>The shared key for one home, used by admins and liaisons who cover it.</span></a></li>
+      <li><a href="/admin/set-provider-password.html">Set Provider Password<span>A sponsor's own Sponsor App password.</span></a></li>
+    </ul>
+
+    <h2 class="tool-group">Homes</h2>
+    <ul class="tool-links">
+      <li><a href="/admin/home-locations.html">Home Locations<span>Address and map position, for the Liaison on-site visit check.</span></a></li>
+      <li><a href="/admin/manage-medications.html">Manage Medications<span>Each resident's medication list for the MAR.</span></a></li>
     </ul>
     <button id="logout" style="background:transparent;color:#666;border:1px solid #ccc;">Log Out</button>
   </section>
