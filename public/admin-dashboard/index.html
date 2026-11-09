@@ -4348,8 +4348,8 @@
   // --- Compliance (by location) ---
   // Lists the granted locations, then loads each one separately so a slow
   // home never holds up (or times out) the whole tab.
-  const CP_SHORT = { medical: 'Medical', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
-  const CP_ORDER = ['medical', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
+  const CP_SHORT = { medical: 'Medical', mar: 'Med review', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
+  const CP_ORDER = ['medical', 'mar', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
   let cpLoadId = 0;
 
   function cpRenderCard(card, location, data) {
@@ -4390,7 +4390,7 @@
     // Details: exactly what the sponsor sees under My Home's Compliance —
     // every item, same groups, same order.
     const groups = [
-      { label: 'Residents', keys: ['medical', 'annual', 'quarterly'] },
+      { label: 'Residents', keys: ['medical', 'mar', 'annual', 'quarterly'] },
       { label: 'Training', keys: ['training'] },
       { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
     ];
