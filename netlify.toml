@@ -9,10 +9,12 @@
 
 # The Liaison app is the provider app page opened at /liaison-app/; the
 # page switches to liaison mode from its path.
+# (Netlify matches /liaison-app and /liaison-app/ alike, so no slash
+# redirect: that would loop.)
 [[redirects]]
   from = "/liaison-app"
-  to = "/liaison-app/"
-  status = 301
+  to = "/provider-app/index.html"
+  status = 200
 [[redirects]]
   from = "/liaison-app/*"
   to = "/provider-app/index.html"
