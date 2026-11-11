@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { ROLES, loadRequirements, staffInfoById, staffTrainingStatus } = require('./lib/staff-training');
+const { ROLES, loadRequirements, staffInfoById, staffTrainingStatus, syncFromDrive } = require('./lib/staff-training');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -24,6 +24,16 @@ exports.handler = async function (event) {
     }
 
     const checklist = await loadRequirements({ fresh: true });
+
+    // Documents put straight into the person's Training folder count too.
+    // A Drive problem never stops the screen from loading.
+    let drive;
+    try {
+      drive = await syncFromDrive(staff, checklist.requirements);
+    } catch (e) {
+      console.error('Staff Training Drive check failed', e);
+      drive = { checked: false, added: [], unrecognized: [], error: 'Couldn\'t check the Training folder just now.' };
+    }
     const status = await staffTrainingStatus(staff.location, staff, checklist.requirements);
     const windowState = status.window;
 
@@ -39,6 +49,7 @@ exports.handler = async function (event) {
           folderUrl: staff.trainingFolderUrl || ''
         },
         roles: ROLES,
+        drive: drive,
         steps: status.steps,
         window: {
           hasStarted: windowState.hasStarted,

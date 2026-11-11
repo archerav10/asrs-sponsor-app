@@ -1,5 +1,6 @@
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPlainText, getPage, driveFolderIdFromUrl } = require('./notion');
 const { id: configId } = require('./ids');
+const driveDocs = require('./drive-documents');
 
 const STAFF_TRAINING_DB_ID = configId('STAFF_TRAINING_DB_ID');
 const ASRS_PEOPLE_DB_ID = configId('ASRS_PEOPLE_DB_ID');
@@ -176,6 +177,17 @@ async function staffListForLocation(location) {
   });
   return (result.results || []).map(personFromPage)
     .sort(function (a, b) { return a.name.localeCompare(b.name); });
+}
+
+// Every active staff member at every location (the nightly Drive check).
+async function allActiveStaff() {
+  const pages = await queryDatabaseAll(ASRS_PEOPLE_DB_ID, {
+    and: [
+      { property: 'Type', select: { equals: 'Staff' } },
+      { property: 'Active', checkbox: { equals: true } }
+    ]
+  });
+  return pages.map(personFromPage);
 }
 
 function itemFromPage(page) {
@@ -364,6 +376,79 @@ async function copyFromIntake(location, person, requirements, intakeItemsByKey, 
   return result;
 }
 
+// The Eastern date a Drive file was last changed (≈ when it was put
+// there), for one-time items whose name has no date.
+function driveDate(file, now) {
+  const when = file.modifiedTime ? new Date(file.modifiedTime) : (now || new Date());
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(when);
+}
+
+// Picks up documents put straight into a person's Training folder (or a
+// folder inside it) by hand rather than uploaded through the app
+// (lib/drive-documents.js has the naming convention). The name must start
+// with a requirement's Key and include the date it was completed, which
+// sets the next due date. A file is recorded when the item isn't on file
+// yet, or, for a renewing item, when its date is newer than the one on
+// file (a renewal). A one-time item's name can leave the date off. Training-module certificates ("Module_…", filed by the
+// training modules) are left alone. Returns
+// { checked, added: [{ label, file, date }], unrecognized: [{ name, reason }] }.
+async function syncFromDrive(member, requirements, now) {
+  const result = { checked: false, added: [], unrecognized: [] };
+  const folderId = driveFolderIdFromUrl(member.trainingFolderUrl);
+  if (!folderId) return result;
+
+  const files = await driveDocs.listFiles(folderId, 1);
+  result.checked = true;
+  const existing = {};
+  (await itemsForStaff(member.location, member.name)).forEach(function (i) { existing[i.stepKey] = i; });
+  const mine = requirementsForRole(requirements, member.role);
+  const allCodes = requirements.map(function (r) { return r.key; });
+
+  // Oldest first, so when several files name the same item the newest
+  // one ends up on file.
+  const candidates = [];
+  files.forEach(function (file) {
+    if (/^Module_/i.test(file.name)) return;
+    if (Object.keys(existing).some(function (k) { return driveDocs.sameFile(existing[k].filename, file.name); })) return;
+    const parsed = driveDocs.parseDocName(file.name, allCodes);
+    const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
+    if (!parsed.code) {
+      result.unrecognized.push({ name: shown, reason: 'The name doesn\'t start with a training item code.' });
+      return;
+    }
+    const req = mine.find(function (r) { return r.key === parsed.code; });
+    if (!req) {
+      result.unrecognized.push({ name: shown, reason: parsed.code + ' isn\'t on the checklist for a ' + member.role + '.' });
+      return;
+    }
+    // A renewing item's date sets its next due date, so it has to be in
+    // the name; a one-time item can go without (the day the file was
+    // added to Drive is used).
+    if (!parsed.date && req.renewYears) {
+      result.unrecognized.push({ name: shown, reason: 'Add the date it was completed to the name, e.g. ' + req.key + '_2026-10-15.' });
+      return;
+    }
+    candidates.push({ file: file, req: req, date: parsed.date || driveDate(file, now) });
+  });
+  candidates.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+
+  for (const c of candidates) {
+    const item = existing[c.req.key];
+    if (item && item.done) {
+      // One-time items stay as they are; a renewing item only moves
+      // forward to a newer completion date.
+      if (!c.req.renewYears) continue;
+      const onFile = item.completedDate || (item.expDate ? addYears(item.expDate, -c.req.renewYears) : '');
+      if (onFile && c.date <= onFile) continue;
+    }
+    await markItemDone(member.location, member.name, c.req, c.file.name, c.date, driveDocs.DRIVE_SOURCE);
+    existing[c.req.key] = { stepKey: c.req.key, done: true, filename: c.file.name, completedDate: c.date, expDate: '' };
+    result.added = result.added.filter(function (a) { return a.key !== c.req.key; });
+    result.added.push({ key: c.req.key, label: c.req.label, file: c.file.name, date: c.date });
+  }
+  return result;
+}
+
 module.exports = {
   ROLES,
   PARTS,
@@ -375,6 +460,7 @@ module.exports = {
   parseFilename,
   staffInfoById,
   staffListForLocation,
+  allActiveStaff,
   itemsForStaff,
   fullStepList,
   computeStaffTrainingWindow,
@@ -382,5 +468,6 @@ module.exports = {
   addYears,
   markItemDone,
   copyFromIntake,
+  syncFromDrive,
   driveFolderIdFromUrl
 };

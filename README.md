@@ -840,6 +840,57 @@ Follow-up table plus a signature line (House Manager for Longstreet,
 Residential Liaison for sponsored homes) after Part B. License number and
 footer per the form. Print → Save as PDF produces the file.
 
+### Documents put straight into Drive (Staff Training, Annual Planning)
+
+Documents don't have to go through the dashboard: one dragged, scanned
+or saved straight into the right Drive folder is picked up and recorded,
+as long as its name starts with the document's code. The rules for staff
+are on the dashboard's **File Naming Guide** (`admin-dashboard/naming-guide.html`,
+linked from both tabs and from every Drive box), which lists the codes
+live from each checklist (`get-naming-guide.js`).
+
+- **Convention:** `{Code}_{Date}.ext`, e.g. `FirstAidCPR_2026-10-15.pdf`.
+  The folder says who it's for. The code goes first (any letter case;
+  punctuation such as `W-4` is ignored); dates can be `2026-10-15`,
+  `20261015`, `10-15-2026` or `10152026`. The app's own names and the
+  old Document_Compliance_Tracker names (`{location}_Resident_{initials}
+  _{code}_{date}`) are read too, as are the old ASRS Doc Codes where they
+  differ from the app's Keys (`LEGACY_CODES`). All of this is
+  `lib/drive-documents.js`.
+- **Staff Training** (`syncFromDrive` in `lib/staff-training.js`): the
+  person's Training folder and the folders directly inside it. The code is
+  a Training Requirements Key, and the item must apply to the person's
+  role. A renewing item needs its completion date in the name; a one-time
+  item can leave it off (the day the file was put in Drive is used). A file
+  is recorded when the item isn't on file yet, or when it's a renewing
+  item and the file's date is newer than the one on file. Training-module
+  certificates (`Module_…`) are left alone.
+- **Annual Planning** (`syncFromDrive` in `lib/annual-planning.js`): only
+  files directly in the cycle's dated folder (`20261101-20271031`), not its
+  Quarterly Report subfolder. The code is a `STEPS` key; no date needed.
+  Steps already done are left alone; a finalized cycle isn't touched. The
+  6-week lock isn't checked: a document in the cycle's folder is on file
+  whenever it arrived.
+- **When:** every time a person's Staff Training screen or a resident's
+  Annual Planning screen opens (`get-staff-training.js`,
+  `get-annual-planning.js`; a Drive error never stops the screen loading),
+  and nightly at 3:15 AM Eastern for everyone (`check-drive-documents.js`
+  → `drive-documents-background.js`, which gets 15 minutes; see
+  `lib/drive-documents-job.js`), so the oversight boards, Compliance tab
+  and weekly digest are current. Rows filled this way have `Last Updated
+  By` = "Google Drive (filed by hand)" and the Drive file name as their
+  Filename.
+- **On screen:** a box above the checklist lists what was just picked up
+  and every file the app couldn't place, with the reason (no code, code
+  not on this person's checklist, renewing item without a date).
+- Uses the same read-only Google grant as "Documents from Google Drive"
+  below (`GOOGLE_OAUTH_*`); nothing else to set up. Medical, Quarterly
+  Reporting and Intake aren't covered yet.
+- **Adding a document type:** Staff Training: a new Training Requirements
+  row in Notion; its Key is the file code and it appears on the guide
+  straight away. Annual Planning: a new `STEPS` entry plus its `{key} Done`
+  and `{key} Filename` columns (see Annual Planning above).
+
 ### Quarterly Reporting (fourth process — tied entirely to Annual Planning)
 
 No independent existence of its own: four fixed reports (Quarterly

@@ -1,4 +1,6 @@
 const { queryDatabase, updatePage, createPage, getPlainText, driveFolderIdFromUrl } = require('./notion');
+const drive = require('./google-drive');
+const driveDocs = require('./drive-documents');
 
 const ANNUAL_PLANNING_DB_ID = process.env.ANNUAL_PLANNING_DB_ID;
 
@@ -299,6 +301,61 @@ async function markStepDone(location, resident, service, stepKey, filename, done
   });
 }
 
+// Picks up documents put straight into this cycle's Drive folder
+// ("{Annual Planning folder}/20261101-20271031/") by hand rather than
+// uploaded through the app (lib/drive-documents.js has the naming
+// convention): a file whose name starts with a step's Key marks that
+// step done. The folder already says which cycle it's for, so no date is
+// needed. Only files directly in the cycle folder count (its Quarterly
+// Report subfolder belongs to Quarterly Reporting). Steps already done
+// are left alone, and the lock window is deliberately not checked: a
+// document in the cycle's folder is on file whenever it arrived. Returns
+// { checked, added: [{ label, file }], unrecognized: [{ name, reason }] }.
+async function syncFromDrive(record, now) {
+  const result = { checked: false, added: [], unrecognized: [], folderMissing: false };
+  if (!record || !record.folderUrl || !record.effectiveDate || record.finalized) return result;
+  const rootId = driveFolderIdFromUrl(record.folderUrl);
+  if (!rootId) return result;
+
+  const cycleFolderName = computeFolderName(record.effectiveDate);
+  const cycleFolderId = await drive.findChildFolder(rootId, cycleFolderName);
+  result.checked = true;
+  result.folderName = cycleFolderName;
+  if (!cycleFolderId) {
+    result.folderMissing = true;
+    return result;
+  }
+
+  const codes = STEPS.map(function (s) { return s.key; });
+  const props = {};
+  const files = await driveDocs.listFiles(cycleFolderId, 0);
+  files.forEach(function (file) {
+    const known = STEPS.some(function (s) { return driveDocs.sameFile(record.steps[s.key].filename, file.name); });
+    if (known) return;
+    const parsed = driveDocs.parseDocName(file.name, codes);
+    if (!parsed.code) {
+      result.unrecognized.push({ name: file.name, reason: 'The name doesn\'t start with a document code from this checklist.' });
+      return;
+    }
+    const step = STEPS.find(function (s) { return s.key === parsed.code; });
+    if (record.steps[step.key].done || props[step.key + ' Done']) return; // already on file
+    props[step.key + ' Done'] = { checkbox: true };
+    props[step.key + ' Filename'] = { rich_text: [{ text: { content: file.name } }] };
+    result.added.push({ label: step.label, file: file.name });
+  });
+
+  if (result.added.length) {
+    props['Last Updated By'] = { rich_text: [{ text: { content: driveDocs.DRIVE_SOURCE } }] };
+    props['Last Updated Date'] = { date: { start: (now || new Date()).toISOString().slice(0, 10) } };
+    await updatePage(record.id, props);
+    result.added.forEach(function (a) {
+      const step = STEPS.find(function (s) { return s.label === a.label; });
+      record.steps[step.key] = { done: true, filename: a.file };
+    });
+  }
+  return result;
+}
+
 async function createRecord(location, resident, service, effectiveDate, folderUrl) {
   const props = {
     'Record Title': { title: [{ text: { content: location + ' - ' + resident + ' - ' + service } }] },
@@ -334,5 +391,6 @@ module.exports = {
   rollToNextCycleIfWindowJustOpened,
   loadCurrentRecord,
   markStepDone,
+  syncFromDrive,
   createRecord
 };

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>File Naming Guide</title>
+<style>
+  /* How to name documents put straight into Google Drive so the admin
+     dashboard picks them up (lib/drive-documents.js). The code lists are
+     read live from each checklist (get-naming-guide.js). */
+  * { box-sizing: border-box; }
+  body { font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1d2433; margin: 0; background: #f5f6f8; }
+  .toolbar { position: sticky; top: 0; background: #1f3a5f; color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 14px; z-index: 1; }
+  .toolbar button { background: #fff; color: #1f3a5f; border: 0; border-radius: 6px; padding: 7px 14px; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .toolbar .msg { opacity: .85; }
+  main { max-width: 820px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 24px; margin: 0 0 4px; color: #1f3a5f; }
+  .lede { color: #555; margin: 0 0 20px; }
+  section { background: #fff; border: 1px solid #dfe3e9; border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+  h2 { font-size: 17px; margin: 0 0 10px; color: #1f3a5f; }
+  h3 { font-size: 14px; margin: 16px 0 6px; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+  p { margin: 0 0 10px; }
+  ol, ul { margin: 0 0 10px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  code, .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; background: #eef1f5; border-radius: 4px; padding: 1px 5px; overflow-wrap: anywhere; }
+  .rule { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 20px; font-weight: 700; color: #1f3a5f; background: #eef4fb; border: 1px dashed #9db6d6; border-radius: 10px; padding: 14px; text-align: center; margin: 4px 0 12px; overflow-wrap: anywhere; }
+  .ok { color: #1B7A3D; font-weight: 700; }
+  .no { color: #B3261E; font-weight: 700; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #e6e9ee; vertical-align: top; }
+  th { background: #f3f5f8; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #555; }
+  td.c { white-space: nowrap; }
+  .examples td:first-child { width: 1.5em; font-size: 16px; }
+  .examples .why { color: #555; font-size: 13.5px; margin-top: 3px; }
+  .muted { color: #777; font-size: 13px; }
+  .tag { display: inline-block; font-size: 11.5px; background: #eef1f5; color: #445; border-radius: 10px; padding: 1px 8px; margin: 1px 2px 1px 0; white-space: nowrap; }
+  .problems { background: #fdecea; border: 1px solid #f3c2bd; color: #8a1c14; border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; font-size: 14px; }
+  .error { color: #B3261E; padding: 8px 0; }
+  @media print {
+    body { background: #fff; font-size: 11pt; }
+    .toolbar { display: none; }
+    main { padding: 0; max-width: none; }
+    section { border: 0; padding: 0; margin: 0 0 14px; break-inside: auto; }
+    tr { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="toolbar"><button type="button" id="print-btn">Print</button><span class="msg" id="msg">Loading the current codes…</span></div>
+<main>
+  <h1>File Naming Guide</h1>
+  <p class="lede">You can put documents straight into a person's Google Drive folder, without going through the dashboard. When the file is named this way, the dashboard records it for you.</p>
+
+  <section>
+    <h2>1. The rule</h2>
+    <div class="rule">Code_Date.pdf</div>
+    <ul>
+      <li><b>Code</b> is the document's code from the lists below. It goes <b>first</b>. Capital letters don't matter.</li>
+      <li><b>Date</b> comes after an underscore <code>_</code> (a space works too). It's required for training that renews (yearly or every 2 years). It can be left off for one-time items and Annual Planning.</li>
+      <li>Don't put the person's name in it. The folder already says who it's for.</li>
+    </ul>
+    <h3>Examples</h3>
+    <div class="table-wrap"><table class="examples">
+      <tr><td class="ok">✓</td><td><code>FirstAidCPR_2026-10-15.pdf</code><div class="why">Code, then the date it was completed</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>TBTest_10-15-2026.jpg</code><div class="why">Month-day-year is fine too</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>ISP_20261101.pdf</code><div class="why">Annual Planning: the date is optional</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>Lease.pdf</code><div class="why">Annual Planning: the cycle folder gives the year</div></td></tr>
+      <tr><td class="no">✗</td><td><code>CPR card Jane.pdf</code><div class="why">Doesn't start with a code, and has no date</div></td></tr>
+      <tr><td class="no">✗</td><td><code>2026-10-15_FirstAidCPR.pdf</code><div class="why">The code must come first</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>Resume.pdf</code><div class="why">One-time item: no date needed (the day it was added to Drive is used)</div></td></tr>
+      <tr><td class="no">✗</td><td><code>FirstAidCPR.pdf</code><div class="why">Renewing training needs the completion date: it sets the next due date</div></td></tr>
+    </table></div>
+    <h3>Dates the app understands</h3>
+    <p><code>2026-10-15</code> · <code>20261015</code> · <code>10-15-2026</code> · <code>10152026</code>. Use the date the training was <b>completed</b> (or the day the document was signed), not the expiration date.</p>
+  </section>
+
+  <section>
+    <h2>2. Where to put it</h2>
+    <div class="table-wrap"><table>
+      <tr><th>Module</th><th>Folder</th><th>Date in the name</th></tr>
+      <tr><td>Staff Training</td><td>The person's <b>Training</b> folder (the link saved on their Staff Training screen). A folder inside it is fine too.</td><td><b>Required</b> for renewing items (the completion date). Optional for one-time items.</td></tr>
+      <tr><td>Annual Planning</td><td>The resident's Annual Planning folder → the cycle's dated folder, e.g. <code>20261101-20271031</code>. Not the Quarterly Report folder inside it.</td><td>Optional</td></tr>
+    </table></div>
+    <p class="muted">Medical, Quarterly Reporting and Intake still go through the dashboard for now. They're next.</p>
+  </section>
+
+  <section>
+    <h2>3. What happens next</h2>
+    <ol>
+      <li>The dashboard checks the folder <b>whenever you open that person's screen</b>, and checks everyone's folders <b>every night</b> (3:15 AM).</li>
+      <li>A recognized file marks its item done. On the person's screen it's listed under <b>Picked up from Drive</b>, and the item shows the file name.</li>
+      <li>A file it can't place is listed under <b>Files in the Drive folder the app couldn't place</b>, with the reason. Rename it in Drive and reopen the screen.</li>
+    </ol>
+    <h3>Good to know</h3>
+    <ul>
+      <li><b>Renewals:</b> for a yearly (or 2-year) training item, a file with a <b>newer</b> date replaces the one on file and moves the next due date. An older file is left alone.</li>
+      <li><b>Already on file:</b> a one-time item or an Annual Planning document that's already done is never changed by a second file.</li>
+      <li>Items that don't apply to the person's role (e.g. a Sponsor-only item in a DSP's folder) aren't recorded. They show in the couldn't-place list.</li>
+      <li>Files the app created itself, and training-module certificates (<code>Module_…</code>), are recognized and left alone.</li>
+    </ul>
+  </section>
+
+  <div id="problems"></div>
+
+  <section>
+    <h2>4. Staff Training codes</h2>
+    <p class="muted">From the Training Requirements checklist in Notion. This list is always current.</p>
+    <div id="staff-codes" class="table-wrap"></div>
+  </section>
+
+  <section>
+    <h2>5. Annual Planning codes</h2>
+    <div id="annual-codes" class="table-wrap"></div>
+  </section>
+
+  <section>
+    <h2>6. Adding a new document type</h2>
+    <h3>Staff Training: you can do this yourself in Notion</h3>
+    <ol>
+      <li>Open the <b>Training Requirements</b> database in Notion and add a row.</li>
+      <li>Fill in <b>Label</b> (what it's called), <b>Part</b>, <b>Section</b>, <b>Applies To</b> (Sponsor, DSP, Secondary DSP), <b>Renews</b> (One-time, 1 year or 2 years) and <b>Order</b>, and check <b>Active</b>.</li>
+      <li>Give it a <b>Key</b>. This is the code for file names: letters and numbers only, no spaces, e.g. <code>FireSafety</code>. Pick it carefully: <b>never change a Key once it's used</b>. To rename the item, change its Label instead.</li>
+      <li>Reload the dashboard. The item appears on everyone it applies to, and its code appears on this page.</li>
+    </ol>
+    <p>To retire an item, uncheck <b>Active</b>. Don't delete the row.</p>
+    <h3>Annual Planning: ask Claude</h3>
+    <p>The Annual Planning checklist is part of the app's code, and each document needs two new columns in the Resident Annual Planning database. Ask Claude to add it, giving the document's name and the code you'd like. The code shows up here once it's added.</p>
+  </section>
+
+  <section>
+    <h2>7. Older codes still accepted</h2>
+    <p class="muted">Files named with the old ASRS Doc Codes (from the Document Compliance Tracker) are still recognized. Please use the new code for new files.</p>
+    <div id="legacy-codes" class="table-wrap"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const FN_BASE = '/.netlify/functions';
+  const SESSION_KEY = 'asrs_admin_dashboard_session';
+  const msg = document.getElementById('msg');
+  document.getElementById('print-btn').addEventListener('click', function () { window.print(); });
+
+  async function api(path) {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) { stored = null; }
+    if (!stored) throw new Error('Log in to the admin dashboard to see the current codes.');
+    const res = await fetch(FN_BASE + path, { headers: { Authorization: 'Bearer ' + stored.sessionToken } });
+    const data = await res.json();
+    if (res.status === 401) throw new Error('Your admin session expired. Log in to the dashboard again to see the current codes.');
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    return data;
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function row(cells, header) {
+    const tr = document.createElement('tr');
+    cells.forEach(function (c) {
+      const td = el(header ? 'th' : 'td');
+      if (c instanceof Node) td.appendChild(c); else td.textContent = c;
+      tr.appendChild(td);
+    });
+    return tr;
+  }
+  function codeCell(code) {
+    const span = el('span', 'code', code);
+    return span;
+  }
+  function renews(years) { return years === 1 ? '1 year' : years === 2 ? '2 years' : 'One-time'; }
+
+  function renderStaff(items) {
+    const table = el('table');
+    table.appendChild(row(['Code', 'Item', 'Applies to', 'Renews'], true));
+    let part = null, section = null;
+    items.forEach(function (i) {
+      if (i.part !== part) {
+        part = i.part; section = null;
+        const tr = el('tr'); const td = el('td'); td.colSpan = 4;
+        td.appendChild(el('b', null, (part === 'Intake' ? 'Part B · ' : 'Part A · ') + part));
+        tr.appendChild(td); table.appendChild(tr);
+      }
+      if (i.section && i.section !== section) {
+        section = i.section;
+        const tr = el('tr'); const td = el('td', 'muted', section); td.colSpan = 4;
+        tr.appendChild(td); table.appendChild(tr);
+      }
+      const roles = el('span');
+      i.appliesTo.forEach(function (r) { roles.appendChild(el('span', 'tag', r)); });
+      const tr = row([codeCell(i.code), i.label, roles, renews(i.renewYears)]);
+      tr.firstChild.className = 'c';
+      table.appendChild(tr);
+    });
+    return table;
+  }
+
+  function renderSimple(items) {
+    const table = el('table');
+    table.appendChild(row(['Code', 'Document'], true));
+    items.forEach(function (i) {
+      const tr = row([codeCell(i.code), i.label]);
+      tr.firstChild.className = 'c';
+      table.appendChild(tr);
+    });
+    return table;
+  }
+
+  function renderLegacy(items) {
+    const table = el('table');
+    table.appendChild(row(['Old code', 'Now'], true));
+    items.forEach(function (i) {
+      const tr = row([codeCell(i.old), codeCell(i.code)]);
+      table.appendChild(tr);
+    });
+    return table;
+  }
+
+  api('/get-naming-guide').then(function (data) {
+    document.getElementById('staff-codes').appendChild(renderStaff(data.staffTraining || []));
+    document.getElementById('annual-codes').appendChild(renderSimple(data.annualPlanning || []));
+    document.getElementById('legacy-codes').appendChild(renderLegacy(data.legacy || []));
+    if ((data.problems || []).length) {
+      const box = el('div', 'problems');
+      box.appendChild(el('b', null, 'Some Training Requirements rows need fixing in Notion and aren\'t listed below:'));
+      const ul = el('ul');
+      data.problems.forEach(function (p) { ul.appendChild(el('li', null, p)); });
+      box.appendChild(ul);
+      document.getElementById('problems').appendChild(box);
+    }
+    msg.textContent = 'Codes are current as of ' + new Date().toLocaleString();
+  }).catch(function (e) {
+    msg.textContent = '';
+    ['staff-codes', 'annual-codes', 'legacy-codes'].forEach(function (id) {
+      document.getElementById(id).appendChild(el('p', 'error', e.message));
+    });
+  });
+})();
+</script>
+</body>
+</html>

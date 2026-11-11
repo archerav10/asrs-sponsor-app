@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { STEPS, SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName } = require('./lib/annual-planning');
+const { STEPS, SERVICES, DEFAULT_SERVICE, loadCurrentRecord, computeFolderName, syncFromDrive } = require('./lib/annual-planning');
 
 // Per-resident checklist detail. Read-only — lazily rolls a finalized
 // record into the next cycle if that cycle's window just opened, same
@@ -34,6 +34,16 @@ exports.handler = async function (event) {
 
     const { record, windowState } = await loadCurrentRecord(location, resident, service);
 
+    // Documents put straight into the cycle's Drive folder count too. A
+    // Drive problem never stops the screen from loading.
+    let drive;
+    try {
+      drive = await syncFromDrive(record);
+    } catch (e) {
+      console.error('Annual Planning Drive check failed', e);
+      drive = { checked: false, error: 'Couldn\'t check the Drive folder just now.' };
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
@@ -41,6 +51,7 @@ exports.handler = async function (event) {
         resident: resident,
         service: service,
         record: record,
+        drive: drive,
         window: {
           hasCycle: windowState.hasCycle,
           targetEffectiveDate: windowState.targetEffectiveDate,
