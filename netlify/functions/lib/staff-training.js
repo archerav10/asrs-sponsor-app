@@ -413,19 +413,19 @@ async function syncFromDrive(member, requirements, now) {
     const parsed = driveDocs.parseDocName(file.name, allCodes);
     const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
     if (!parsed.code) {
-      result.unrecognized.push({ name: shown, reason: 'The name doesn\'t start with a training item code.' });
+      driveDocs.unplaced(result, file, { name: shown, reason: 'The name doesn\'t start with a training item code.' });
       return;
     }
     const req = mine.find(function (r) { return r.key === parsed.code; });
     if (!req) {
-      result.unrecognized.push({ name: shown, reason: parsed.code + ' isn\'t on the checklist for a ' + member.role + '.' });
+      driveDocs.unplaced(result, file, { name: shown, reason: parsed.code + ' isn\'t on the checklist for a ' + member.role + '.' });
       return;
     }
     // A renewing item's date sets its next due date, so it has to be in
     // the name; a one-time item can go without (the day the file was
     // added to Drive is used).
     if (!parsed.date && req.renewYears) {
-      result.unrecognized.push({ name: shown, reason: 'Add the date it was completed to the name, e.g. ' + req.key + '_2026-10-15.' });
+      driveDocs.unplaced(result, file, { name: shown, reason: 'Add the date it was completed to the name, e.g. ' + req.key + '_2026-10-15.' });
       return;
     }
     candidates.push({ file: file, req: req, date: parsed.date || driveDate(file, now) });

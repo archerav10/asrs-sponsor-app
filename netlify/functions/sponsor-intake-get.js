@@ -1,6 +1,6 @@
 const {
   requireIntakeAdmin, loadChecklist, getIntake, itemsForIntake, fullItemList, stageSummary, adminFormLink,
-  statusPageUrl, processInfo, json, errorResponse, useRequestHost
+  statusPageUrl, processInfo, syncFromDrive, json, errorResponse, useRequestHost
 } = require('./lib/sponsor-intake');
 const { id: configId } = require('./lib/ids');
 
@@ -20,6 +20,17 @@ exports.handler = async function (event) {
     const intake = await getIntake(id);
     const cl = await loadChecklist({ fresh: true, process: intake.process });
     const items = await itemsForIntake(intake.id);
+
+    // Documents put straight into the person's intake folder count too
+    // (added to `items` in place). A Drive problem never stops the page
+    // from loading.
+    let drive;
+    try {
+      drive = await syncFromDrive(intake, cl, items);
+    } catch (e) {
+      console.error('Intake Drive check failed', e);
+      drive = { checked: false, added: [], unrecognized: [], error: 'Couldn\'t check the Drive folder just now.' };
+    }
     const rootFolderId = configId('SPONSOR_INTAKE_ROOT_FOLDER_ID') || '';
 
     return json(200, {
@@ -41,7 +52,8 @@ exports.handler = async function (event) {
         item.adminFormUrl = adminFormLink(intake, cl.byKey[item.key]);
         return item;
       }),
-      checklistProblems: cl.problems
+      checklistProblems: cl.problems,
+      drive: drive
     });
   } catch (err) {
     return errorResponse(err);

@@ -43,11 +43,42 @@ const LEGACY_CODES = {
   '32HrMedAdmin': 'MedAdmin32Hour',
   DocTraining: 'DocumentationTraining',
   OrientationTraining: 'ASRSOrientation',
-  RefChecks: 'ReferenceLetters'
+  RefChecks: 'ReferenceLetters',
+  // Medical
+  Psych: 'Psychiatric',
+  Endo: 'Endocrinologist',
+  Nephro: 'Nephrologist',
+  PhysMed: 'PhysicalMedicine',
+  Uro: 'Urologist',
+  Gastro: 'Gastrointestinal',
+  CovidVac: 'CovidShot',
+  // Quarterly Reporting
+  QtrlyRpt: 'QuarterlyProgressReport',
+  ClientSat: 'ClientSatisfactionInterview',
+  QtrlyReassess: 'ComprehensiveReAssessment'
 };
 
 // Who filled in a step from a hand-placed file (Last Updated By).
 const DRIVE_SOURCE = 'Google Drive (filed by hand)';
+
+// Folders already held years of files with free-form names when this
+// started, so only files put there (or changed) from this date on are
+// listed as "couldn't place". Older files that follow the convention
+// still count.
+const LIST_UNPLACED_SINCE = '2026-11-10';
+
+// Notes a file the app couldn't place (entry: { name, reason }), unless
+// it's one of the older files above.
+function unplaced(result, file, entry) {
+  if (file.modifiedTime && file.modifiedTime.slice(0, 10) < LIST_UNPLACED_SINCE) return;
+  result.unrecognized.push(entry);
+}
+
+// "2027-04-30" → "4/30/2027", for messages.
+function usDate(iso) {
+  const p = (iso || '').split('-');
+  return p.length === 3 ? Number(p[1]) + '/' + Number(p[2]) + '/' + p[0] : iso;
+}
 
 function baseName(name) {
   const dot = (name || '').lastIndexOf('.');
@@ -101,7 +132,8 @@ function parseDocName(name, codes) {
   const parts = base.split('_');
   const candidates = [];
   // The app's own names and the tracker's: the code is in a fixed slot.
-  if (parts[1] === 'Resident' && parts.length === 6) candidates.push(parts[4]);
+  if (parts[1] === 'Resident' && (parts.length === 6 || parts.length === 7)) candidates.push(parts[4]);
+  if (parts[1] === 'Medical' && parts.length >= 3) candidates.push(parts[2]);
   if ((parts[1] === 'Resident' || parts[1] === 'Staff') && parts.length === 5) candidates.push(parts[3]);
   // Everything else starts with the code: "ISP_2026..." or "ISP 2026...",
   // "W-4_2026..." (punctuation inside the code is ignored).
@@ -115,6 +147,21 @@ function parseDocName(name, codes) {
     if (hit) { code = hit; break; }
   }
   return { code: code, rawCode: strip(candidates[0]) || strip(first), date: dateInName(base) };
+}
+
+// 1-4 when the name says which quarter ("Q2", "q2"), else 0.
+function quarterInName(base) {
+  const m = (base || '').match(/(?<![A-Za-z0-9])Q([1-4])(?![0-9])/i);
+  return m ? Number(m[1]) : 0;
+}
+
+// The Sponsor/DSP Intake step key a name starts with ("1.3 Photo ID",
+// "4.A3_…"), matched against `keys` ignoring case; '' when none.
+function intakeStepInName(name, keys) {
+  const m = (name || '').match(/^\s*(\d+\.(?:\d+[a-z]?|A\d+))(?=$|[\s_.\-(])/i);
+  if (!m) return '';
+  const want = m[1].toLowerCase();
+  return keys.find(function (k) { return k.toLowerCase() === want; }) || '';
 }
 
 // Files (not folders) in a folder, plus those in its subfolders when
@@ -141,4 +188,4 @@ function sameFile(recorded, name) {
   return recorded === name || recorded === baseName(name);
 }
 
-module.exports = { LEGACY_CODES, DRIVE_SOURCE, baseName, dateInName, parseDocName, listFiles, sameFile };
+module.exports = { LEGACY_CODES, DRIVE_SOURCE, unplaced, usDate, baseName, dateInName, quarterInName, intakeStepInName, parseDocName, listFiles, sameFile };

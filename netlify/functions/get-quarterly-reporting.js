@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { findRecord, computeQuarterlyReportingForRecord } = require('./lib/quarterly-reporting');
+const { findRecord, computeQuarterlyReportingForRecord, syncFromDrive } = require('./lib/quarterly-reporting');
 
 function quarterOut(q) {
   return {
@@ -41,6 +41,17 @@ exports.handler = async function (event) {
       return { statusCode: 400, body: JSON.stringify({ error: 'No Annual Planning cycle is on file for that resident/service yet.' }) };
     }
 
+    // Reports put straight into the cycle's Quarterly Report folder count
+    // too, so check Drive before working out where things stand. A Drive
+    // problem never stops the screen from loading.
+    let drive;
+    try {
+      drive = await syncFromDrive(location, resident, service, record);
+    } catch (e) {
+      console.error('Quarterly Reporting Drive check failed', e);
+      drive = { checked: false, added: [], unrecognized: [], error: 'Couldn\'t check the Drive folder just now.' };
+    }
+
     const state = await computeQuarterlyReportingForRecord(location, resident, service, record);
 
     if (cycle === 'prior') {
@@ -53,6 +64,7 @@ exports.handler = async function (event) {
           resident: resident,
           service: service,
           cycle: 'prior',
+          drive: drive,
           folderUrl: record.folderUrl || '',
           hasCycle: true,
           targetEffectiveDate: state.priorCycle.targetEffectiveDate,
@@ -74,6 +86,7 @@ exports.handler = async function (event) {
         resident: resident,
         service: service,
         cycle: 'current',
+        drive: drive,
         folderUrl: record.folderUrl || '',
         hasCycle: state.hasCycle,
         targetEffectiveDate: state.targetEffectiveDate,
