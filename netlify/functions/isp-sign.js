@@ -20,7 +20,9 @@ function page(status, title, text) {
 
 exports.handler = async function (event) {
   try {
-    const tracking = parseTracking((event.queryStringParameters || {}).t || '');
+    // The /isp/{tracking} rewrite (netlify.toml) doesn't always carry the
+    // ?t= query through, so read the tracking value from the path too.
+    const tracking = parseTracking([(event.queryStringParameters || {}).t, event.path, event.rawUrl].filter(Boolean).join(' '));
     if (!tracking) return page(404, 'Link not recognized', 'This signing link isn\'t valid. Please ask ASRS for a new one.');
 
     const member = await staffInfoById(tracking.staffId);
