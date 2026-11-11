@@ -89,7 +89,7 @@
       <tr><td>Annual Planning</td><td>The resident's Annual Planning folder → the cycle's dated folder, e.g. <code>20261101-20271031</code>. Not the Quarterly Report folder inside it.</td><td>Optional</td></tr>
       <tr><td>Quarterly Reporting</td><td>The same cycle folder → <b>Quarterly Report</b>, e.g. <code>20261101-20271031/Quarterly Report</code>.</td><td><b>Required</b>: the quarter (<code>Q1</code>–<code>Q4</code>, shown on the resident's Quarterly screen) or the date it was done</td></tr>
       <tr><td>Medical</td><td><code>Facility Reporting/{Location}/Residents/{Full Name}/Medical Appointments</code>. A folder inside it is fine too.</td><td><b>Required</b>: the appointment date</td></tr>
-      <tr><td>Intake (Sponsor and DSP)</td><td>The person's intake folder, <code>Sponsor Intake/{Name}</code> (DSP candidates: <code>{Name} (DSP)</code>), or any stage folder inside it.</td><td>Optional (name starts with the <b>step number</b> instead of a code)</td></tr>
+      <tr><td>Intake (Sponsor, DSP and Resident)</td><td>The person's intake folder, <code>Sponsor Intake/{Name}</code> (DSP candidates: <code>{Name} (DSP)</code>; residents: <code>{Name} (Resident)</code>), or any stage folder inside it.</td><td>Optional (name starts with the <b>step number</b> instead of a code)</td></tr>
     </table></div>
   </section>
 
@@ -105,7 +105,7 @@
       <li><b>Renewals:</b> for a yearly (or 2-year) training item, a file with a <b>newer</b> date replaces the one on file and moves the next due date. An older file is left alone.</li>
       <li><b>Already on file:</b> a one-time item, an Annual Planning document or a quarterly report that's already done is never changed by a second file.</li>
       <li><b>Medical:</b> a file attaches to a logged appointment of that type and date that has no document yet (and marks it Completed). Otherwise it's logged as a new completed appointment.</li>
-      <li><b>Intake:</b> a step the candidate normally sends (an upload or a form) comes in as <b>Received</b> for you to Accept or Return, like their own uploads. Steps ASRS does (documents, trainings, meetings) are marked <b>Complete</b>. Nothing is emailed to anyone.</li>
+      <li><b>Intake:</b> a step the sponsor, candidate or applicant normally sends (an upload or a form) comes in as <b>Received</b> for you to Accept or Return, like their own uploads. Steps ASRS does (documents, trainings, meetings) are marked <b>Complete</b>. Nothing is emailed to anyone.</li>
       <li>Items that don't apply to the person's role (e.g. a Sponsor-only item in a DSP's folder) aren't recorded. They show in the couldn't-place list.</li>
       <li>Files the app created itself, and training-module certificates (<code>Module_…</code>), are recognized and left alone.</li>
       <li><b>ISP training:</b> signed ISP Training Acknowledgments are filed into the staff member's Training folder automatically, as <code>Plan_{Resident}_{date}_…pdf</code>. A paper acknowledgment scanned into their Training folder as <code>Plan_AR_2026-11-15.pdf</code> also counts for that resident's current plan.</li>
@@ -154,7 +154,7 @@
     <p>To retire an item, uncheck <b>Active</b>. Don't delete the row.</p>
     <h3>Intake: you can do this yourself in Notion</h3>
     <ol>
-      <li>Open <b>Intake Steps</b> (Sponsor) or <b>DSP Intake Steps</b> in Notion and add a row.</li>
+      <li>Open <b>Intake Steps</b> (Sponsor), <b>DSP Intake Steps</b> or <b>Resident Intake Steps</b> in Notion and add a row.</li>
       <li>Give it a <b>Key</b> like the others: the stage number, a dot, and a number, e.g. <code>2.7</code>. Use <code>3.A1</code> style for admin-only steps. Never change a Key once it's used.</li>
       <li>Fill in the Label, Stage, Type and Order as for the other steps, and check Active. The step number then works in file names and shows up here.</li>
     </ol>
