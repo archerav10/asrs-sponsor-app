@@ -103,3 +103,10 @@
   # acts on the 10th and 16th — texts the Risk Manager (Admin Accounts →
   # Roles) when last month's month-end close still has open items.
   schedule = "30 13 * * *"
+
+[functions."check-drive-documents"]
+  # 3:15am US/Eastern nightly (EDT-pinned like check-report-status) —
+  # picks up documents put straight into Drive by hand (Annual Planning
+  # cycle folders, staff Training folders), before the 9:30 checks and
+  # digest read Notion.
+  schedule = "15 7 * * *"

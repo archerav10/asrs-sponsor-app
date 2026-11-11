@@ -186,6 +186,13 @@
   .ap-step-title { font-weight: 600; font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .ap-step-status { font-size: 13px; color: #666; margin: 0 0 10px; }
   .ap-step-status.done { color: #1B7A3D; font-weight: 600; }
+  .drive-check { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: #F4F7F5; border: 1px solid #DCE6DF; font-size: 13px; color: #333; }
+  .drive-check ul { margin: 6px 0 0; padding-left: 18px; }
+  .drive-check li { margin: 3px 0; overflow-wrap: anywhere; }
+  .drive-check-added { margin: 0; font-weight: 600; color: #1B7A3D; }
+  .drive-check-warn { background: #FFF8E6; border-color: #F0D9A0; }
+  .drive-check-title { margin: 8px 0 0; font-weight: 600; }
+  .drive-check-title:first-child { margin-top: 0; }
   .checkmark { color: #1B7A3D; font-weight: 700; margin-left: 4px; }
   .ap-step-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .ap-step-actions input[type="file"] { flex: 1; font-size: 13px; min-width: 160px; }
@@ -494,13 +501,13 @@
     </div>
 
     <div id="annual-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Locked until 6 weeks before due. Once unlocked, tap a resident to upload documents and finalize.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Locked until 6 weeks before due. Once unlocked, tap a resident to upload documents and finalize. Documents can also be put straight into the cycle's Drive folder: see the <a href="naming-guide.html" target="_blank" rel="noopener">File Naming Guide</a>.</p>
       <p class="error-text" id="annual-dashboard-error"></p>
       <div id="annual-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <div id="staff-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Annual items are due again 1 year after they're completed (First Aid/CPR: 2 years); intake items are done once. Puzzle turns yellow 30 days before the next item is due. The checklist itself is edited in Notion's Training Requirements database.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Annual items are due again 1 year after they're completed (First Aid/CPR: 2 years); intake items are done once. Puzzle turns yellow 30 days before the next item is due. The checklist itself is edited in Notion's Training Requirements database. Documents can also be put straight into a person's Training folder: see the <a href="naming-guide.html" target="_blank" rel="noopener">File Naming Guide</a>.</p>
       <p class="error-text" id="staff-dashboard-error"></p>
       <div id="staff-dashboard-list"><p class="loading-text">Loading&hellip;</p></div>
     </div>
@@ -1698,6 +1705,7 @@
         return; // Steps need the folder set up first.
       }
 
+      renderDriveCheck(bodyEl, data.drive);
       steps.forEach(function (stepDef) { renderStepSection(bodyEl, stepDef, record, windowState.targetEffectiveDate); });
 
       const allDone = steps.every(function (s) { return record.steps[s.key].done; });
@@ -1726,6 +1734,75 @@
       document.getElementById('annual-detail-banner').textContent = '';
       setError('annual-detail-error', e.message);
     }
+  }
+
+  // What the server found in the person's Drive folder when the screen
+  // loaded (lib/drive-documents.js): documents put there by hand that it
+  // just recorded, and files it couldn't place, with the reason. Every
+  // string here comes from Drive or Notion, so it's built with
+  // textContent.
+  function renderDriveCheck(container, drive) {
+    if (!drive) return;
+    const box = document.createElement('div');
+    box.className = 'drive-check';
+    const guide = document.createElement('a');
+    guide.href = 'naming-guide.html';
+    guide.target = '_blank';
+    guide.rel = 'noopener';
+    guide.textContent = 'File Naming Guide';
+
+    if (drive.error) {
+      box.appendChild(document.createTextNode(drive.error + ' Files put there by hand will be picked up next time.'));
+      container.appendChild(box);
+      return;
+    }
+    if (!drive.checked) return;
+    if (drive.folderMissing) {
+      box.appendChild(document.createTextNode('There\'s no ' + drive.folderName + ' folder in Drive yet. Documents put in a folder with that name are picked up automatically.'));
+      container.appendChild(box);
+      return;
+    }
+    if (drive.added && drive.added.length) {
+      const p = document.createElement('p');
+      p.className = 'drive-check-added';
+      p.textContent = 'Picked up from Drive:';
+      box.appendChild(p);
+      const ul = document.createElement('ul');
+      drive.added.forEach(function (a) {
+        const li = document.createElement('li');
+        li.textContent = a.label + (a.date ? ' (' + formatDate(a.date) + ')' : '') + ' — ' + a.file;
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+    }
+    if (drive.unrecognized && drive.unrecognized.length) {
+      box.classList.add('drive-check-warn');
+      const p = document.createElement('p');
+      p.className = 'drive-check-title';
+      p.textContent = 'Files in the Drive folder the app couldn\'t place (rename them to match the ';
+      p.appendChild(guide);
+      p.appendChild(document.createTextNode('):'));
+      box.appendChild(p);
+      const ul = document.createElement('ul');
+      drive.unrecognized.forEach(function (u) {
+        const li = document.createElement('li');
+        const strong = document.createElement('strong');
+        strong.textContent = u.name;
+        li.appendChild(strong);
+        li.appendChild(document.createTextNode(' — ' + u.reason));
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'help-text';
+      p.style.margin = drive.added && drive.added.length ? '8px 0 0' : '0';
+      p.appendChild(document.createTextNode('Documents put straight into the Drive folder are picked up automatically when named by the '));
+      p.appendChild(guide);
+      p.appendChild(document.createTextNode('.'));
+      box.appendChild(p);
+    }
+    container.appendChild(box);
   }
 
   // --- Screen 3c: Staff Training oversight ---
@@ -2276,6 +2353,7 @@
       if (!staff.folderUrl) {
         return; // Steps need the folder set up first.
       }
+      renderDriveCheck(bodyEl, data.drive);
 
       // Part A (annual) then Part B (intake), each split into its sections.
       let part = null;
