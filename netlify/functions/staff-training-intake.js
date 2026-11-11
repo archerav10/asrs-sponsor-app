@@ -1,5 +1,6 @@
 const { updatePage } = require('./lib/notion');
-const { requireIntakeAdmin, PROCESSES, listIntakes, getIntake, itemsForIntake, normalizeId } = require('./lib/sponsor-intake');
+const { requireIntakeAdmin, PROCESSES, listIntakes, getIntake, itemsForIntake, normalizeId, loadChecklist, smsConsentStep, STATUS, todayIso } = require('./lib/sponsor-intake');
+const { normalizePhone } = require('./lib/twilio');
 const { loadRequirements, staffInfoById, intakeProcessForRole, copyFromIntake } = require('./lib/staff-training');
 
 // Links a staff member's training record (ASRS People) to the intake they
@@ -52,7 +53,9 @@ exports.handler = async function (event) {
     }
 
     const requirements = (await loadRequirements({ fresh: true })).requirements;
-    const result = await copyFromIntake(staff.location, staff, requirements, await itemsForIntake(intake.id), session.name || session.email, processName);
+    const intakeItems = await itemsForIntake(intake.id);
+    const result = await copyFromIntake(staff.location, staff, requirements, intakeItems, session.name || session.email, processName);
+    result.smsConsent = await copySmsConsent(staff, intake, intakeItems);
 
     return { statusCode: 200, body: JSON.stringify(Object.assign({ intakeName: intake.name, title: title }, result)) };
   } catch (err) {
@@ -60,3 +63,31 @@ exports.handler = async function (event) {
     return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message || 'Something went wrong.' }) };
   }
 };
+
+// The intake's Text Message Consent step, carried over to the person's
+// ASRS People row: replied START -> Opted In (dated the reply); replied
+// STOP -> Opted Out. Someone who has opted out since is never switched
+// back on. Their intake phone fills in a missing Phone Number. Returns a
+// short description for the screen, or ''.
+async function copySmsConsent(staff, intake, intakeItems) {
+  const step = smsConsentStep(await loadChecklist({ process: intake.process }));
+  const item = step ? intakeItems[step.key] : null;
+  const props = {};
+  let said = '';
+  if (item && item.status === STATUS.COMPLETE && staff.smsConsent !== 'Opted Out' && staff.smsConsent !== 'Opted In') {
+    props['SMS Consent Status'] = { select: { name: 'Opted In' } };
+    props['SMS Consent Date'] = { date: { start: (item.completedDate || todayIso()).slice(0, 10) } };
+    said = 'Texts: Opted In (replied START ' + (item.completedDate || '').slice(0, 10) + ').';
+  } else if (item && item.status === STATUS.RETURNED && staff.smsConsent !== 'Opted Out' && staff.smsConsent !== 'Opted In') {
+    props['SMS Consent Status'] = { select: { name: 'Opted Out' } };
+    props['SMS Consent Date'] = { date: { start: todayIso() } };
+    said = 'Texts: Opted Out (replied STOP).';
+  }
+  const phone = normalizePhone(intake.phone);
+  if (phone && !normalizePhone(staff.phone)) {
+    props['Phone Number'] = { phone_number: phone };
+    said += (said ? ' ' : '') + 'Phone number copied from the intake.';
+  }
+  if (Object.keys(props).length) await updatePage(staff.id, props);
+  return said;
+}

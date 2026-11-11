@@ -1539,6 +1539,23 @@ Rules:
 `SPONSOR_INTAKE_ADMIN_EMAILS` if that's set, because intake folders hold
 background check results.
 
+#### Text message consent (double opt-in)
+
+Both intake checklists have an admin-only **Text message consent** step
+(`1.A1`, Type **Text Message Consent**). The person first agrees to texts
+on their application (a "Text message consent" checkbox on the DSP and
+Sponsor Application JotForms); an admin then clicks **Send opt-in text**
+(`sponsor-intake-send-optin.js`, only when clicked), which texts the
+intake's phone number asking them to reply START, and marks the step
+Requested. `sms-inbound` records the reply on every intake with that
+number (`recordSmsReply`): START → Complete (dated), STOP → Returned
+("Replied STOP"). **Mark complete** covers consent given another way.
+When the person is linked to the intake on Staff Training
+(`staff-training-intake.js`), their ASRS People row becomes Opted In
+(SMS Consent Date = the START date) or Opted Out, unless it already says
+Opted In or Opted Out, and a missing Phone Number is filled in from the
+intake.
+
 #### Printing (binder sheets)
 
 `/admin-dashboard/print.html` renders a letter-size sheet and opens the
