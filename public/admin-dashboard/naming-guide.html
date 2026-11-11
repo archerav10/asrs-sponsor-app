@@ -51,14 +51,15 @@
 <div class="toolbar"><button type="button" id="print-btn">Print</button><span class="msg" id="msg">Loading the current codes…</span></div>
 <main>
   <h1>File Naming Guide</h1>
-  <p class="lede">You can put documents straight into a person's Google Drive folder, without going through the dashboard. When the file is named this way, the dashboard records it for you.</p>
+  <p class="lede">You can put documents straight into a person's Google Drive folder, without going through the dashboard. When the file is named this way, the dashboard records it for you. This works for Staff Training, Annual Planning, Quarterly Reporting, Medical and Intake.</p>
 
   <section>
     <h2>1. The rule</h2>
     <div class="rule">Code_Date.pdf</div>
+    <p class="muted">Intake is the one exception: there the name starts with the step number instead, e.g. <code>1.3 Photo ID.pdf</code>.</p>
     <ul>
       <li><b>Code</b> is the document's code from the lists below. It goes <b>first</b>. Capital letters don't matter.</li>
-      <li><b>Date</b> comes after an underscore <code>_</code> (a space works too). It's required for training that renews (yearly or every 2 years). It can be left off for one-time items and Annual Planning.</li>
+      <li><b>Date</b> comes after an underscore <code>_</code> (a space works too). Whether it's needed depends on the module: see the table in section 2.</li>
       <li>Don't put the person's name in it. The folder already says who it's for.</li>
     </ul>
     <h3>Examples</h3>
@@ -71,9 +72,13 @@
       <tr><td class="no">✗</td><td><code>2026-10-15_FirstAidCPR.pdf</code><div class="why">The code must come first</div></td></tr>
       <tr><td class="ok">✓</td><td><code>Resume.pdf</code><div class="why">One-time item: no date needed (the day it was added to Drive is used)</div></td></tr>
       <tr><td class="no">✗</td><td><code>FirstAidCPR.pdf</code><div class="why">Renewing training needs the completion date: it sets the next due date</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>Dental_2026-10-15.pdf</code><div class="why">Medical: the appointment type, then the appointment date</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>QuarterlyProgressReport_Q2.pdf</code><div class="why">Quarterly: say which quarter, Q1 to Q4</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>ClientSatisfactionInterview_2027-02-10.pdf</code><div class="why">Quarterly: or the date it was done (counts for the quarter that had just ended)</div></td></tr>
+      <tr><td class="ok">✓</td><td><code>2.4 Confidentiality Agreement.pdf</code><div class="why">Intake: the step number first, then anything you like</div></td></tr>
     </table></div>
     <h3>Dates the app understands</h3>
-    <p><code>2026-10-15</code> · <code>20261015</code> · <code>10-15-2026</code> · <code>10152026</code>. Use the date the training was <b>completed</b> (or the day the document was signed), not the expiration date.</p>
+    <p><code>2026-10-15</code> · <code>20261015</code> · <code>10-15-2026</code> · <code>10152026</code>. Use the date the training was <b>completed</b>, the appointment happened, or the document was signed. Never use the expiration date.</p>
   </section>
 
   <section>
@@ -82,8 +87,10 @@
       <tr><th>Module</th><th>Folder</th><th>Date in the name</th></tr>
       <tr><td>Staff Training</td><td>The person's <b>Training</b> folder (the link saved on their Staff Training screen). A folder inside it is fine too.</td><td><b>Required</b> for renewing items (the completion date). Optional for one-time items.</td></tr>
       <tr><td>Annual Planning</td><td>The resident's Annual Planning folder → the cycle's dated folder, e.g. <code>20261101-20271031</code>. Not the Quarterly Report folder inside it.</td><td>Optional</td></tr>
+      <tr><td>Quarterly Reporting</td><td>The same cycle folder → <b>Quarterly Report</b>, e.g. <code>20261101-20271031/Quarterly Report</code>.</td><td><b>Required</b>: the quarter (<code>Q1</code>–<code>Q4</code>, shown on the resident's Quarterly screen) or the date it was done</td></tr>
+      <tr><td>Medical</td><td><code>Facility Reporting/{Location}/Residents/{Full Name}/Medical Appointments</code>. A folder inside it is fine too.</td><td><b>Required</b>: the appointment date</td></tr>
+      <tr><td>Intake (Sponsor and DSP)</td><td>The person's intake folder, <code>Sponsor Intake/{Name}</code> (DSP candidates: <code>{Name} (DSP)</code>), or any stage folder inside it.</td><td>Optional (name starts with the <b>step number</b> instead of a code)</td></tr>
     </table></div>
-    <p class="muted">Medical, Quarterly Reporting and Intake still go through the dashboard for now. They're next.</p>
   </section>
 
   <section>
@@ -91,12 +98,14 @@
     <ol>
       <li>The dashboard checks the folder <b>whenever you open that person's screen</b>, and checks everyone's folders <b>every night</b> (3:15 AM).</li>
       <li>A recognized file marks its item done. On the person's screen it's listed under <b>Picked up from Drive</b>, and the item shows the file name.</li>
-      <li>A file it can't place is listed under <b>Files in the Drive folder the app couldn't place</b>, with the reason. Rename it in Drive and reopen the screen.</li>
+      <li>A file it can't place is listed under <b>Files in the Drive folder the app couldn't place</b>, with the reason. Rename it in Drive and reopen the screen. (Files that were already in the folders before November 10, 2026 aren't listed, so older free-form names don't clutter the screen. Older files that follow this guide still count.)</li>
     </ol>
     <h3>Good to know</h3>
     <ul>
       <li><b>Renewals:</b> for a yearly (or 2-year) training item, a file with a <b>newer</b> date replaces the one on file and moves the next due date. An older file is left alone.</li>
-      <li><b>Already on file:</b> a one-time item or an Annual Planning document that's already done is never changed by a second file.</li>
+      <li><b>Already on file:</b> a one-time item, an Annual Planning document or a quarterly report that's already done is never changed by a second file.</li>
+      <li><b>Medical:</b> a file attaches to a logged appointment of that type and date that has no document yet (and marks it Completed). Otherwise it's logged as a new completed appointment.</li>
+      <li><b>Intake:</b> a step the candidate normally sends (an upload or a form) comes in as <b>Received</b> for you to Accept or Return, like their own uploads. Steps ASRS does (documents, trainings, meetings) are marked <b>Complete</b>. Nothing is emailed to anyone.</li>
       <li>Items that don't apply to the person's role (e.g. a Sponsor-only item in a DSP's folder) aren't recorded. They show in the couldn't-place list.</li>
       <li>Files the app created itself, and training-module certificates (<code>Module_…</code>), are recognized and left alone.</li>
     </ul>
@@ -116,7 +125,24 @@
   </section>
 
   <section>
-    <h2>6. Adding a new document type</h2>
+    <h2>6. Quarterly Reporting codes</h2>
+    <div id="quarterly-codes" class="table-wrap"></div>
+  </section>
+
+  <section>
+    <h2>7. Medical appointment codes</h2>
+    <p class="muted">Physical, Dental, Labwork and TB Test count toward the home's yearly compliance. The rest are kept as history.</p>
+    <div id="medical-codes" class="table-wrap"></div>
+  </section>
+
+  <section>
+    <h2>8. Intake step numbers</h2>
+    <p class="muted">From the Intake Steps checklists in Notion. Always current.</p>
+    <div id="intake-codes" class="table-wrap"></div>
+  </section>
+
+  <section>
+    <h2>9. Adding a new document type</h2>
     <h3>Staff Training: you can do this yourself in Notion</h3>
     <ol>
       <li>Open the <b>Training Requirements</b> database in Notion and add a row.</li>
@@ -125,12 +151,18 @@
       <li>Reload the dashboard. The item appears on everyone it applies to, and its code appears on this page.</li>
     </ol>
     <p>To retire an item, uncheck <b>Active</b>. Don't delete the row.</p>
-    <h3>Annual Planning: ask Claude</h3>
-    <p>The Annual Planning checklist is part of the app's code, and each document needs two new columns in the Resident Annual Planning database. Ask Claude to add it, giving the document's name and the code you'd like. The code shows up here once it's added.</p>
+    <h3>Intake: you can do this yourself in Notion</h3>
+    <ol>
+      <li>Open <b>Intake Steps</b> (Sponsor) or <b>DSP Intake Steps</b> in Notion and add a row.</li>
+      <li>Give it a <b>Key</b> like the others: the stage number, a dot, and a number, e.g. <code>2.7</code>. Use <code>3.A1</code> style for admin-only steps. Never change a Key once it's used.</li>
+      <li>Fill in the Label, Stage, Type and Order as for the other steps, and check Active. The step number then works in file names and shows up here.</li>
+    </ol>
+    <h3>Annual Planning, Quarterly Reporting and Medical: ask Claude</h3>
+    <p>These checklists are part of the app's code (Annual Planning documents also need two new columns in Notion). Ask Claude to add the document, giving its name and the code you'd like. The code shows up here once it's added.</p>
   </section>
 
   <section>
-    <h2>7. Older codes still accepted</h2>
+    <h2>10. Older codes still accepted</h2>
     <p class="muted">Files named with the old ASRS Doc Codes (from the Document Compliance Tracker) are still recognized. Please use the new code for new files.</p>
     <div id="legacy-codes" class="table-wrap"></div>
   </section>
@@ -200,15 +232,38 @@
     return table;
   }
 
-  function renderSimple(items) {
+  function renderSimple(items, what) {
     const table = el('table');
-    table.appendChild(row(['Code', 'Document'], true));
+    table.appendChild(row(['Code', what || 'Document'], true));
     items.forEach(function (i) {
       const tr = row([codeCell(i.code), i.label]);
       tr.firstChild.className = 'c';
       table.appendChild(tr);
     });
     return table;
+  }
+
+  // One table per checklist (Sponsor, DSP), grouped by stage.
+  function renderIntake(processes) {
+    const wrap = el('div');
+    processes.forEach(function (proc) {
+      wrap.appendChild(el('h3', null, proc.title));
+      const table = el('table');
+      table.appendChild(row(['Step', 'Item'], true));
+      let stage = null;
+      proc.steps.forEach(function (st) {
+        if (st.stage !== stage) {
+          stage = st.stage;
+          const tr = el('tr'); const td = el('td', 'muted', stage); td.colSpan = 2;
+          tr.appendChild(td); table.appendChild(tr);
+        }
+        const tr = row([codeCell(st.key), st.label]);
+        tr.firstChild.className = 'c';
+        table.appendChild(tr);
+      });
+      wrap.appendChild(table);
+    });
+    return wrap;
   }
 
   function renderLegacy(items) {
@@ -225,6 +280,9 @@
     document.getElementById('staff-codes').appendChild(renderStaff(data.staffTraining || []));
     document.getElementById('annual-codes').appendChild(renderSimple(data.annualPlanning || []));
     document.getElementById('legacy-codes').appendChild(renderLegacy(data.legacy || []));
+    document.getElementById('quarterly-codes').appendChild(renderSimple(data.quarterlyReporting || []));
+    document.getElementById('medical-codes').appendChild(renderSimple(data.medical || [], 'Appointment'));
+    document.getElementById('intake-codes').appendChild(renderIntake(data.intake || []));
     if ((data.problems || []).length) {
       const box = el('div', 'problems');
       box.appendChild(el('b', null, 'Some Training Requirements rows need fixing in Notion and aren\'t listed below:'));
@@ -236,7 +294,7 @@
     msg.textContent = 'Codes are current as of ' + new Date().toLocaleString();
   }).catch(function (e) {
     msg.textContent = '';
-    ['staff-codes', 'annual-codes', 'legacy-codes'].forEach(function (id) {
+    ['staff-codes', 'annual-codes', 'quarterly-codes', 'medical-codes', 'intake-codes', 'legacy-codes'].forEach(function (id) {
       document.getElementById(id).appendChild(el('p', 'error', e.message));
     });
   });

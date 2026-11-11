@@ -3904,8 +3904,9 @@
         bannerEl.appendChild(warn);
       }
 
+      renderDriveCheck(bodyEl, data.drive);
       if (!currentMedicalByType.length) {
-        bodyEl.innerHTML = '<p class="empty-text">No appointments on file yet.</p>';
+        bodyEl.appendChild(Object.assign(document.createElement('p'), { className: 'empty-text', textContent: 'No appointments on file yet.' }));
         return;
       }
       const complianceByKey = {};
@@ -4847,6 +4848,7 @@
         bannerEl.textContent = 'Four reports due every 3 months, tied to this resident’s Annual Planning cycle.';
       }
 
+      renderDriveCheck(bodyEl, data.drive);
       quarters.forEach(function (quarter) { renderQuarterSection(bodyEl, quarter); });
     } catch (e) {
       document.getElementById('quarterly-detail-banner').textContent = '';
@@ -5399,6 +5401,7 @@
       });
 
       renderChecklistProblems(bodyEl, data.checklistProblems);
+      renderDriveCheck(bodyEl, data.drive);
 
       data.stages.forEach(function (stage) {
         const stageItems = data.items.filter(function (i) { return i.stage === stage.num; });

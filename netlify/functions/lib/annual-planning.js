@@ -334,7 +334,7 @@ async function syncFromDrive(record, now) {
     if (known) return;
     const parsed = driveDocs.parseDocName(file.name, codes);
     if (!parsed.code) {
-      result.unrecognized.push({ name: file.name, reason: 'The name doesn\'t start with a document code from this checklist.' });
+      driveDocs.unplaced(result, file, { name: file.name, reason: 'The name doesn\'t start with a document code from this checklist.' });
       return;
     }
     const step = STEPS.find(function (s) { return s.key === parsed.code; });

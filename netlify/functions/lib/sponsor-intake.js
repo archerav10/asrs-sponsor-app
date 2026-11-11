@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPage, getPlainText } = require('./notion');
 const { requireSession } = require('./session');
 const { id: configId } = require('./ids');
+const drive = require('./google-drive');
+const driveDocs = require('./drive-documents');
 
 const INTAKES_DB_ID = configId('SPONSOR_INTAKES_DB_ID');
 const ITEMS_DB_ID = configId('SPONSOR_INTAKE_ITEMS_DB_ID');
@@ -714,6 +716,69 @@ function errorResponse(err) {
   return json(err.statusCode || 500, { error: err.message || 'Something went wrong.' });
 }
 
+// Picks up documents put straight into the person's intake folder
+// ("{intake root}/{Name}" or "{Name} (DSP)", and its stage folders) by hand
+// rather than uploaded through the app. The name starts with the step's
+// number, the same way the app names its own uploads ("1.3 Photo ID.pdf").
+// A step the person normally does (Sponsor Upload / Sponsor Form) comes in
+// as Received, for an admin to Accept or Return, like the person's own
+// upload; any other step is marked Complete, like an admin upload, dated
+// from the name or else the day the file was put in Drive. Steps already
+// Complete, Not Applicable or waiting in Received are left alone. `items`
+// is itemsForIntake's result, updated in place. Returns
+// { checked, added: [{ label, file }], unrecognized: [{ name, reason }] }.
+async function syncFromDrive(intake, cl, items, now) {
+  const result = { checked: false, added: [], unrecognized: [] };
+  const rootId = configId('SPONSOR_INTAKE_ROOT_FOLDER_ID');
+  if (!rootId) return result;
+  const folderName = sponsorFolderName(intake);
+  const folderId = await drive.findChildFolder(rootId, folderName);
+  result.checked = true;
+  if (!folderId) {
+    result.folderMissing = true;
+    result.folderName = folderName;
+    return result;
+  }
+
+  const keys = Object.keys(cl.byKey);
+  const today = todayIso();
+  for (const file of await driveDocs.listFiles(folderId, 1)) {
+    if (Object.keys(items).some(function (k) { return driveDocs.sameFile(items[k].filename, file.name); })) continue;
+    const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
+    const form = parseFormFilename(file.name);
+    const key = (form && normalizeId(form.intakeId) === normalizeId(intake.id) && cl.byKey[form.stepKey]) ? form.stepKey : driveDocs.intakeStepInName(file.name, keys);
+    if (!key) {
+      driveDocs.unplaced(result, file, { name: shown, reason: 'The name doesn\'t start with a step number from this checklist, e.g. 1.3.' });
+      continue;
+    }
+    const step = cl.byKey[key];
+    const item = items[key] || null;
+    if (item && (isDone(item) || item.status === STATUS.RECEIVED)) continue;
+
+    const props = { 'Filename': richText(file.name), 'Last Updated By': richText(driveDocs.DRIVE_SOURCE) };
+    let status;
+    const local = {};
+    if (isSponsorStep(step)) {
+      status = STATUS.RECEIVED;
+      props['Status'] = statusProp(status);
+      props['Return Reason'] = richText('');
+      props['Received Date'] = dateProp(today);
+      local.receivedDate = today;
+      local.returnReason = '';
+    } else {
+      status = STATUS.COMPLETE;
+      local.completedDate = driveDocs.dateInName(driveDocs.baseName(file.name)) ||
+        (file.modifiedTime ? dateInTimeZone(new Date(file.modifiedTime)).date : today);
+      props['Status'] = statusProp(status);
+      props['Completed Date'] = dateProp(local.completedDate);
+    }
+    await upsertItem(intake, step, props, item);
+    items[key] = Object.assign({}, item || { stepKey: key }, local, { status: status, filename: file.name });
+    result.added.push({ label: key + ' ' + step.label + (status === STATUS.RECEIVED ? ' (Received: review it)' : ''), file: file.name });
+  }
+  return result;
+}
+
 module.exports = {
   PROCESSES,
   processOf,
@@ -744,6 +809,7 @@ module.exports = {
   createIntake,
   itemsForIntake,
   upsertItem,
+  syncFromDrive,
   normalizeId,
   fullItemList,
   stageSummary,

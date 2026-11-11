@@ -1,6 +1,9 @@
 const { queryDatabase, updatePage, createPage, getPlainText, driveFolderIdFromUrl } = require('./notion');
 const { DEFAULT_SERVICE, findRecord: findRecordPage, recordFromPage, computeFolderName, oneYearLater } = require('./annual-planning');
 
+const drive = require('./google-drive');
+const driveDocs = require('./drive-documents');
+
 const QUARTERLY_REPORTING_DB_ID = process.env.QUARTERLY_REPORTING_DB_ID;
 
 // annual-planning.js's own findRecord returns the raw Notion page — every
@@ -225,6 +228,86 @@ async function markQuarterlyStepDone(location, resident, service, quarterStart, 
   }, props));
 }
 
+// Which of a cycle's quarters a hand-placed report is for: the quarter
+// named in it ("Q2"), else the quarter that had most recently ended on the
+// date in its name (a report is written after its quarter ends), else the
+// quarter-start date in one of the app's own names. null when it can't
+// tell; { error } when it names a quarter that hasn't ended yet.
+function quarterForFile(name, quarters, now) {
+  const base = driveDocs.baseName(name);
+  const parts = base.split('_');
+  if (parts[1] === 'Resident' && parts.length === 7) {
+    const q = quarters.find(function (x) { return x.start === parts[5]; });
+    if (q) return q;
+  }
+  const n = driveDocs.quarterInName(base);
+  if (n) {
+    const q = quarters[n - 1];
+    if (now < new Date(q.dueDate + 'T00:00:00')) return { error: 'Q' + n + ' doesn\'t end until ' + driveDocs.usDate(q.end) + '.' };
+    return q;
+  }
+  const date = driveDocs.dateInName(base);
+  if (!date) return null;
+  const ended = quarters.filter(function (q) { return q.dueDate <= date; });
+  if (!ended.length) return { error: 'The date in the name is before Q1 ended (' + driveDocs.usDate(quarters[0].end) + '), so it isn\'t clear which quarter it\'s for. Add Q1-Q4 to the name.' };
+  return ended[ended.length - 1];
+}
+
+// Picks up reports put straight into a cycle's "Quarterly Report" folder
+// ("{Annual Planning folder}/20261101-20271031/Quarterly Report/") by
+// hand rather than uploaded through the app (lib/drive-documents.js has
+// the naming convention): the name starts with the report's code and says
+// which quarter, as Q1-Q4 or the date it was completed. Both the current
+// cycle's folder and the prior cycle's are read (the prior one only once
+// something is on file for it), since the prior year's last reports are
+// often finished after the Effective Date moves on. A
+// report already on file for that quarter is left alone. Returns
+// { checked, added: [{ label, file, quarter }], unrecognized: [{ name, reason }] }.
+async function syncFromDrive(location, resident, service, record, now) {
+  now = now || new Date();
+  const result = { checked: false, added: [], unrecognized: [] };
+  if (!record || !record.folderUrl || !record.effectiveDate) return result;
+  const rootId = driveFolderIdFromUrl(record.folderUrl);
+  if (!rootId) return result;
+  result.checked = true;
+
+  for (const cycle of ['current', 'prior']) {
+    const effectiveDate = effectiveDateForCycle(record, cycle);
+    const cycleFolderId = await drive.findChildFolder(rootId, computeFolderName(effectiveDate));
+    const folderId = cycleFolderId && await drive.findChildFolder(cycleFolderId, QUARTERLY_REPORT_SUBFOLDER_NAME);
+    if (!folderId) continue;
+    const quarters = computeQuarters(effectiveDate);
+    const itemsByQuarter = {};
+    for (const q of quarters) itemsByQuarter[q.start] = await itemsForQuarter(location, resident, service, q.start);
+    const allItems = [].concat.apply([], Object.keys(itemsByQuarter).map(function (k) { return itemsByQuarter[k]; }));
+    // Same rule as computeQuarterlyReportingForRecord's priorCycle: a prior
+    // year only counts once something was ever recorded against it, so a
+    // folder of pre-app reports doesn't raise a year of old "overdue" ones.
+    if (cycle === 'prior' && !allItems.length) continue;
+
+    for (const file of await driveDocs.listFiles(folderId, 0)) {
+      if (allItems.some(function (i) { return driveDocs.sameFile(i.filename, file.name); })) continue;
+      const parsed = driveDocs.parseDocName(file.name, STEP_KEYS);
+      if (!parsed.code) {
+        driveDocs.unplaced(result, file, { name: file.name, reason: 'The name doesn\'t start with a quarterly report code.' });
+        continue;
+      }
+      const q = quarterForFile(file.name, quarters, now);
+      if (!q || q.error) {
+        driveDocs.unplaced(result, file, { name: file.name, reason: q ? q.error : 'Add the quarter (Q1-Q4) or the date it was completed, e.g. ' + parsed.code + '_Q2.' });
+        continue;
+      }
+      const items = itemsByQuarter[q.start];
+      if (items.some(function (i) { return i.stepKey === parsed.code && i.done; })) continue;
+      await markQuarterlyStepDone(location, resident, service, q.start, parsed.code, file.name, driveDocs.DRIVE_SOURCE);
+      items.push({ stepKey: parsed.code, done: true, filename: file.name });
+      const step = STEPS.find(function (st) { return st.key === parsed.code; });
+      result.added.push({ label: step.label + ' · Q' + q.index + (cycle === 'prior' ? ' (prior year)' : ''), file: file.name });
+    }
+  }
+  return result;
+}
+
 module.exports = {
   STEPS,
   STEP_KEYS,
@@ -239,5 +322,6 @@ module.exports = {
   computeQuarterlyReportingForRecord,
   activeQuarter,
   markQuarterlyStepDone,
+  syncFromDrive,
   driveFolderIdFromUrl
 };

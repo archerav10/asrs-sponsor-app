@@ -2,6 +2,8 @@ const { queryDatabaseAll, createPage, updatePage, getPage, getPlainText, queryDa
 const { findAllQuestionRows } = require('./daily-progress-notes');
 
 const { id: configId } = require('./ids');
+const drive = require('./google-drive');
+const driveDocs = require('./drive-documents');
 
 const MEDICAL_APPOINTMENTS_DB_ID = configId('MEDICAL_APPOINTMENTS_DB_ID');
 const MAR_DB_ID = process.env.MAR_DB_ID;
@@ -266,6 +268,75 @@ async function createAppointment(location, resident, typeKey, appointmentDate, f
   });
 }
 
+// The resident's "Facility Reporting/{Location}/Residents/{Full Name}/
+// Medical Appointments" folder in Drive, where the upload workflow files
+// documents; null when the full name or any folder on the way is missing.
+async function medicalFolderId(location, fullName) {
+  if (!fullName) return null;
+  let folder = configId('FACILITY_REPORTING_ROOT_FOLDER_ID');
+  for (const name of [location, 'Residents', fullName, 'Medical Appointments']) {
+    folder = await drive.findChildFolder(folder, name);
+    if (!folder) return null;
+  }
+  return folder;
+}
+
+// Picks up documents put straight into the resident's Medical Appointments
+// folder (or a folder inside it) by hand rather than uploaded through the
+// app (lib/drive-documents.js has the naming convention): the name starts
+// with an appointment type's key and includes the appointment date, e.g.
+// Dental_2026-10-15.pdf. A file attaches to an appointment of that type
+// and date already on file without a document (marking it Completed, as
+// attaching through the app does); otherwise it's logged as a new
+// Completed appointment. One with a document already is left alone.
+// `appointments` is appointmentsForResident's result, updated in place.
+// Returns { checked, added: [{ label, file, date }], unrecognized: [{ name, reason }] }.
+async function syncFromDrive(location, resident, fullName, appointments, now) {
+  const result = { checked: false, added: [], unrecognized: [] };
+  if (!fullName) return result;
+  const folderId = await medicalFolderId(location, fullName);
+  result.checked = true;
+  if (!folderId) {
+    result.folderMissing = true;
+    result.folderName = 'Medical Appointments';
+    return result;
+  }
+
+  const tomorrow = new Date((now || new Date()).getTime() + 86400000).toISOString().slice(0, 10);
+  const codes = APPOINTMENT_TYPES.map(function (t) { return t.key; });
+  for (const file of await driveDocs.listFiles(folderId, 1)) {
+    if (appointments.some(function (a) { return driveDocs.sameFile(a.filename, file.name); })) continue;
+    const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
+    const parsed = driveDocs.parseDocName(file.name, codes);
+    if (!parsed.code) {
+      driveDocs.unplaced(result, file, { name: shown, reason: 'The name doesn\'t start with an appointment type code.' });
+      continue;
+    }
+    if (!parsed.date) {
+      driveDocs.unplaced(result, file, { name: shown, reason: 'Add the appointment date to the name, e.g. ' + parsed.code + '_2026-10-15.' });
+      continue;
+    }
+    if (parsed.date > tomorrow) {
+      driveDocs.unplaced(result, file, { name: shown, reason: 'The date in the name is in the future.' });
+      continue;
+    }
+    const type = typeByKey(parsed.code);
+    const same = appointments.filter(function (a) { return a.typeKey === type.key && a.date === parsed.date && a.status !== 'Cancelled'; });
+    if (same.some(function (a) { return a.filename; })) continue; // that visit already has its document
+    if (same.length) {
+      await attachFilename(same[0].id, file.name);
+      same[0].filename = file.name;
+      same[0].status = 'Completed';
+    } else {
+      const page = await createAppointment(location, resident, type.key, parsed.date, file.name, driveDocs.DRIVE_SOURCE, 'Completed', false);
+      appointments.push({ id: page && page.id, location: location, resident: resident, typeKey: type.key, typeLabel: type.label, date: parsed.date, filename: file.name, loggedBy: driveDocs.DRIVE_SOURCE, status: 'Completed', hasNotes: false });
+    }
+    result.added.push({ label: type.label, file: file.name, date: parsed.date });
+  }
+  appointments.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  return result;
+}
+
 module.exports = {
   APPOINTMENT_TYPES,
   COMPLIANCE_TYPE_KEYS,
@@ -284,5 +355,6 @@ module.exports = {
   buildFilename,
   validateAppointmentInput,
   validateScheduleInput,
-  createAppointment
+  createAppointment,
+  syncFromDrive
 };

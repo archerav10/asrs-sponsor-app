@@ -5,7 +5,8 @@ const {
   residentFullNameFor,
   appointmentsForResident,
   latestByType,
-  computeMedicalCompliance
+  computeMedicalCompliance,
+  syncFromDrive
 } = require('./lib/medical-appointments');
 
 // One resident's Medical Appointments screen: the latest appointment of
@@ -42,12 +43,24 @@ exports.handler = async function (event) {
     }
     const appointments = results[1];
 
+    // Documents put straight into the resident's Medical Appointments
+    // folder count too (added to `appointments` in place). A Drive
+    // problem never stops the screen from loading.
+    let drive;
+    try {
+      drive = await syncFromDrive(location, resident, results[2], appointments);
+    } catch (e) {
+      console.error('Medical Drive check failed', e);
+      drive = { checked: false, added: [], unrecognized: [], error: 'Couldn\'t check the Drive folder just now.' };
+    }
+
     return {
       statusCode: 200,
       body: JSON.stringify({
         location: location,
         resident: resident,
         residentFullName: results[2],
+        drive: drive,
         appointmentTypes: APPOINTMENT_TYPES,
         byType: latestByType(appointments),
         compliance: computeMedicalCompliance(appointments)
