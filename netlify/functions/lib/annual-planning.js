@@ -35,6 +35,7 @@ const STEPS = [
   { key: 'MeetingNotes', label: 'Annual Planning Meeting Notes' },
   { key: 'CompAssessment', label: 'Comprehensive Assessment' },
   { key: 'ISP', label: 'Individualized Service Plan' },
+  { key: 'ISPTraining', label: 'ISP Training Documentation' },
   { key: 'RiskProtocols', label: 'Risk Protocols' },
   { key: 'CarePlans', label: 'Care Plans' },
   { key: 'BSP', label: 'Behavior Support Plan', canBeNotNeeded: true },

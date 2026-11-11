@@ -52,6 +52,8 @@ const LEGACY_CODES = {
   Uro: 'Urologist',
   Gastro: 'Gastrointestinal',
   CovidVac: 'CovidShot',
+  // Annual Planning
+  ISPGoals: 'ISPTraining',
   // Quarterly Reporting
   QtrlyRpt: 'QuarterlyProgressReport',
   ClientSat: 'ClientSatisfactionInterview',
