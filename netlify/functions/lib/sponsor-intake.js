@@ -4,6 +4,7 @@ const { requireSession } = require('./session');
 const { id: configId } = require('./ids');
 const drive = require('./google-drive');
 const driveDocs = require('./drive-documents');
+const { normalizePhone } = require('./twilio');
 
 const INTAKES_DB_ID = configId('SPONSOR_INTAKES_DB_ID');
 const ITEMS_DB_ID = configId('SPONSOR_INTAKE_ITEMS_DB_ID');
@@ -75,7 +76,8 @@ const TYPE_MAP = {
   'Sponsor Form': 'form',
   'Meeting / Event': 'event',
   'ASRS Document': 'document',
-  'Training': 'training'
+  'Training': 'training',
+  'Text Message Consent': 'sms'
 };
 // 2.3 / 2.3a for regular steps; 3.A1 for admin-only steps (the master
 // list's unnumbered "999" rows).
@@ -779,6 +781,51 @@ async function syncFromDrive(intake, cl, items, now) {
   return result;
 }
 
+// ---------- Text message consent (double opt-in) ----------
+// A "Text Message Consent" step: the person agreed to texts on their
+// application; an admin clicks Send opt-in text, and they confirm by
+// replying START (sms-inbound). START marks the step Complete; STOP marks
+// it Returned. When the person is hired and linked to this intake,
+// staff-training-intake.js copies the result to their ASRS People row.
+const OPT_IN_SMS = 'Arch Support Residential Services: Reply START to receive work-related texts (training reminders, documents to sign, scheduling). Msg & data rates may apply. Reply STOP to opt out, HELP for help.';
+const OPTED_OUT_REASON = 'Replied STOP: doesn\'t want texts';
+
+function smsConsentStep(cl) {
+  return cl.steps.find(function (st) { return st.type === 'sms'; }) || null;
+}
+
+// Every intake (finished ones too) whose phone matches.
+async function intakesByPhone(phone) {
+  const want = normalizePhone(phone);
+  if (!want) return [];
+  const pages = await queryDatabaseAll(INTAKES_DB_ID, { property: 'Phone', phone_number: { is_not_empty: true } });
+  return pages.map(intakeFromPage).filter(function (i) { return normalizePhone(i.phone) === want; });
+}
+
+// A START (opt-in) or STOP (opt-out) reply from a phone: recorded on the
+// consent step of every intake with that number.
+async function recordSmsReply(phone, optedIn) {
+  const today = todayIso();
+  for (const intake of await intakesByPhone(phone)) {
+    const cl = await loadChecklist({ process: intake.process });
+    const step = smsConsentStep(cl);
+    if (!step) continue;
+    const item = (await itemsForIntake(intake.id))[step.key] || null;
+    if (item && item.status === STATUS.NOT_APPLICABLE) continue;
+    await upsertItem(intake, step, optedIn ? {
+      'Status': statusProp(STATUS.COMPLETE),
+      'Completed Date': dateProp(today),
+      'Return Reason': richText(''),
+      'Last Updated By': richText('Text reply: START')
+    } : {
+      'Status': statusProp(STATUS.RETURNED),
+      'Completed Date': dateProp(null),
+      'Return Reason': richText(OPTED_OUT_REASON),
+      'Last Updated By': richText('Text reply: STOP')
+    }, item);
+  }
+}
+
 module.exports = {
   PROCESSES,
   processOf,
@@ -810,6 +857,10 @@ module.exports = {
   itemsForIntake,
   upsertItem,
   syncFromDrive,
+  OPT_IN_SMS,
+  OPTED_OUT_REASON,
+  smsConsentStep,
+  recordSmsReply,
   normalizeId,
   fullItemList,
   stageSummary,

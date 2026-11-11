@@ -2219,6 +2219,7 @@
           if (r.notApplicable.length) lines.push('Marked Not Applicable in the intake, so counted as done: ' + r.notApplicable.map(function (c) { return c.label; }).join(', ') + '.');
           if (r.notYet.length) lines.push('Not complete in the intake yet: ' + r.notYet.join(', ') + '.');
           if (r.noDate.length) lines.push('Complete but missing a completion date in the intake: ' + r.noDate.join(', ') + '.');
+          if (r.smsConsent) lines.push(r.smsConsent);
           alert(lines.join('\n\n'));
           loadStaffDetail();
         } catch (e) {
@@ -5090,13 +5091,14 @@
 
   // Closable confirmation after every Sponsor Intake email. Clicking the
   // backdrop or pressing Esc closes it too.
-  function showSentDialog(text) {
+  function showSentDialog(text, title) {
     const dlg = document.getElementById('sent-dialog');
+    document.getElementById('sent-dialog-title').textContent = title || 'Email sent';
     document.getElementById('sent-dialog-text').textContent = text;
     if (typeof dlg.showModal === 'function') {
       if (!dlg.open) dlg.showModal();
     } else {
-      window.alert('Email sent. ' + text);
+      window.alert((title || 'Email sent') + '. ' + text);
     }
   }
   document.getElementById('sent-dialog-close').addEventListener('click', function () {
@@ -5367,6 +5369,7 @@
     const isNA = item.status === 'Not Applicable';
     let pillText = item.status || 'Not started';
     if (!item.status && item.sentTo) pillText = 'Emailed';
+    if (item.type === 'sms' && item.status === 'Requested') pillText = 'Texted';
     if (item.status === 'Scheduled' && item.eventDate) pillText = formatDate(item.eventDate) + (item.eventTime ? ' ' + item.eventTime : '');
     head.appendChild(intakeEl('span', 'in-pill ' + (isNA ? 'na' : (item.status || (item.sentTo ? 'Requested' : ''))), pillText));
     wrap.appendChild(head);
@@ -5388,9 +5391,10 @@
     // Status detail lines
     const info = [];
     if (item.requestedDate && item.sponsorStep) info.push('Requested ' + formatDate(item.requestedDate));
-    if (item.sentTo) info.push('Form emailed to ' + item.sentTo + (item.requestedDate ? ' on ' + formatDate(item.requestedDate) : ''));
+    if (item.type === 'sms' && item.requestedDate) info.push('Opt-in text sent' + (item.sentTo ? ' to ' + item.sentTo : '') + ' ' + formatDate(item.requestedDate));
+    else if (item.sentTo) info.push('Form emailed to ' + item.sentTo + (item.requestedDate ? ' on ' + formatDate(item.requestedDate) : ''));
     if (item.receivedDate) info.push('Received ' + formatDate(item.receivedDate));
-    if (item.completedDate) info.push('Completed ' + formatDate(item.completedDate));
+    if (item.completedDate) info.push((item.type === 'sms' ? 'Replied START ' : 'Completed ') + formatDate(item.completedDate));
     if (item.lastUpdatedBy) info.push('by ' + item.lastUpdatedBy);
     if (info.length) wrap.appendChild(intakeEl('p', 'in-item-info', info.join(' · ')));
     if (item.filename) wrap.appendChild(intakeEl('p', 'in-item-info', 'File: ' + item.filename));
@@ -5457,6 +5461,32 @@
       controls.appendChild(t);
       controls.appendChild(intakeButton('Save date', true, function () { intakeUpdate(item.key, { action: 'schedule', date: d.value, time: t.value }); }));
       if (!isComplete) controls.appendChild(intakeButton('Mark done', false, function () { intakeUpdate(item.key, { action: 'complete', date: d.value || undefined }); }));
+    } else if (item.type === 'sms') {
+      // Double opt-in: they agreed to texts on their application; this
+      // text asks them to confirm by replying START (recorded by
+      // sms-inbound). Sends only when clicked.
+      if (!isComplete) {
+        controls.appendChild(intakeButton(item.status === 'Requested' || item.status === 'Returned' ? 'Send opt-in text again' : 'Send opt-in text', false, async function () {
+          if (!window.confirm('Text ' + (currentIntake && currentIntake.phone ? currentIntake.phone : 'them') + ' asking them to reply START to receive texts from ASRS?')) return;
+          setError('intake-detail-error', '');
+          try {
+            const res = await apiFetch('/sponsor-intake-send-optin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: currentIntakeId, stepKey: item.key })
+            });
+            showSentDialog('Sent to ' + res.to + '. The step completes when they reply START.', 'Opt-in text sent');
+            loadIntakeDetail();
+          } catch (e) {
+            setError('intake-detail-error', e.message);
+          }
+        }));
+        const d = document.createElement('input');
+        d.type = 'date';
+        d.setAttribute('aria-label', item.label + ' date they agreed');
+        controls.appendChild(d);
+        controls.appendChild(intakeButton('Mark complete', true, function () { intakeUpdate(item.key, { action: 'complete', date: d.value || undefined }); }));
+      }
     } else if (item.type === 'training') {
       if (!isComplete) {
         const d = document.createElement('input');

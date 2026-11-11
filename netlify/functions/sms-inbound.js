@@ -3,6 +3,7 @@ const wf = require('./lib/weekly-focus');
 const sms = require('./lib/weekly-focus-sms');
 const { alertAdminsRed } = require('./lib/weekly-focus-alert');
 const modulesSend = require('./lib/training-modules-send');
+const intakeLib = require('./lib/sponsor-intake');
 
 // Twilio calls this for every text sent to the Messaging Service's number
 // (the service's "Incoming messages" webhook). It records Weekly Focus
@@ -17,7 +18,9 @@ const modulesSend = require('./lib/training-modules-send');
 //                 Before they've answered: asked to reply 1, 2 or 3.
 //   STOP / START  Twilio itself stops or resumes texting that number and
 //                 replies; this only mirrors it on the sponsor's SMS
-//                 Consent Status, so next week goes by email instead.
+//                 Consent Status, so next week goes by email instead,
+//                 on staff (ASRS People), and on the Text Message
+//                 Consent step of an intake with that number.
 //
 // Messages from numbers that aren't a sponsor's are ignored (no reply).
 // The reply is TwiML, so Twilio sends it back on the same thread.
@@ -118,6 +121,8 @@ exports.handler = async function (event) {
           try { await modulesSend.setStaffSmsConsent(person.id, status); } catch (e) { console.error('Could not set SMS consent for ' + person.name, e); }
         }
       } catch (e) { console.error('Could not look up staff by phone', e); }
+      // Candidates and sponsors still in intake (Text Message Consent step).
+      try { await intakeLib.recordSmsReply(from, keyword === 'optIn'); } catch (e) { console.error('Could not record the reply on an intake', e); }
       return twiml(null); // Twilio sends its own STOP/START confirmation
     }
     if (keyword === 'help') return twiml(null);

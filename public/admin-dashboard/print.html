@@ -84,7 +84,7 @@
   const params = new URLSearchParams(location.search);
   const mode = params.get('mode') === 'blank' ? 'blank' : 'progress';
   // Who does each step: the person the intake is for (Sponsor or DSP), ASRS, etc.
-  const WHO = { upload: 'Sponsor', form: 'Sponsor', event: 'Meeting', document: 'ASRS', training: 'Training' };
+  const WHO = { upload: 'Sponsor', form: 'Sponsor', event: 'Meeting', document: 'ASRS', training: 'Training', sms: 'Text consent' };
   function who(item, intake) {
     return (item.type === 'upload' || item.type === 'form') && intake.process === 'DSP' ? 'Candidate' : WHO[item.type];
   }
