@@ -1,6 +1,7 @@
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPlainText, getPage, driveFolderIdFromUrl } = require('./notion');
 const { id: configId } = require('./ids');
 const driveDocs = require('./drive-documents');
+const isp = require('./isp-training');
 
 const STAFF_TRAINING_DB_ID = configId('STAFF_TRAINING_DB_ID');
 const ASRS_PEOPLE_DB_ID = configId('ASRS_PEOPLE_DB_ID');
@@ -155,7 +156,9 @@ function personFromPage(page) {
     role: effectiveRole(role),
     roleSet: ROLES.indexOf(role) !== -1,
     trainingFolderUrl: getPlainText(page.properties['Training Folder URL']),
-    intakeId: getPlainText(page.properties['Intake ID']) || ''
+    intakeId: getPlainText(page.properties['Intake ID']) || '',
+    phone: getPlainText(page.properties['Phone Number']) || '',
+    smsConsent: getPlainText(page.properties['SMS Consent Status']) || 'Not Asked'
   };
 }
 
@@ -286,9 +289,30 @@ function computeStaffTrainingWindow(steps) {
 // people at once.
 async function staffTrainingStatus(location, member, requirements, now) {
   requirements = requirements || (await loadRequirements()).requirements;
-  const items = await itemsForStaff(location, member.name);
-  const steps = fullStepList(items, requirements, member.role, now);
+  const results = await Promise.all([itemsForStaff(location, member.name), ispContext(location)]);
+  const steps = withPlanSteps(fullStepList(results[0], requirements, member.role, now),
+    isp.planSteps(member, results[1], now));
   return { steps: steps, window: computeStaffTrainingWindow(steps) };
+}
+
+// The residents' plans and signed acknowledgments at a location (see
+// lib/isp-training.js). If ISP Training can't be read (e.g. the Notion
+// integration hasn't been connected to it yet), training still loads,
+// just without the plan lines.
+async function ispContext(location) {
+  try {
+    return await isp.contextForLocation(location);
+  } catch (e) {
+    console.error('ISP training could not be read for ' + location, e);
+    return { plans: [], rows: [] };
+  }
+}
+
+// The "Resident plans (ISP)" lines go at the end of Part A, before Part B.
+function withPlanSteps(steps, planSteps) {
+  let at = steps.findIndex(function (s) { return s.part === PARTS[1]; });
+  if (at === -1) at = steps.length;
+  return steps.slice(0, at).concat(planSteps, steps.slice(at));
 }
 
 // "YYYY-MM-DD" plus whole years; Feb 29 rolls to Mar 1 in a non-leap year.
@@ -407,8 +431,10 @@ async function syncFromDrive(member, requirements, now) {
   // Oldest first, so when several files name the same item the newest
   // one ends up on file.
   const candidates = [];
+  const planFiles = [];
   files.forEach(function (file) {
     if (/^Module_/i.test(file.name)) return;
+    if (/^Plan_/i.test(file.name)) { planFiles.push(file); return; }
     if (Object.keys(existing).some(function (k) { return driveDocs.sameFile(existing[k].filename, file.name); })) return;
     const parsed = driveDocs.parseDocName(file.name, allCodes);
     const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
@@ -446,7 +472,34 @@ async function syncFromDrive(member, requirements, now) {
     result.added = result.added.filter(function (a) { return a.key !== c.req.key; });
     result.added.push({ key: c.req.key, label: c.req.label, file: c.file.name, date: c.date });
   }
+  if (planFiles.length) await syncPlanFiles(member, planFiles, result, now);
   return result;
+}
+
+// ISP Training Acknowledgments in the Training folder: the JotForm
+// workflow files them as "Plan_{resident}_{date}_…pdf" and records them
+// itself; a signed paper copy named the same way (Plan_AR_2026-11-15.pdf)
+// counts too, for the resident's current plan.
+async function syncPlanFiles(member, files, result, now) {
+  const context = await isp.contextForLocation(member.location, { fresh: true });
+  for (const file of files) {
+    if (context.rows.some(function (r) { return driveDocs.sameFile(r.filename, file.name); })) continue;
+    const shown = file.folderName ? file.folderName + '/' + file.name : file.name;
+    const m = file.name.match(/^Plan_([A-Za-z0-9]+)/i);
+    const plan = context.plans.find(function (p) { return p.resident.toLowerCase() === m[1].toLowerCase(); });
+    if (!plan) {
+      driveDocs.unplaced(result, file, { name: shown, reason: 'There\'s no current plan on file for ' + m[1] + ' at ' + member.location + '.' });
+      continue;
+    }
+    if (isp.rowFor(context.rows, plan, member)) continue; // already signed for this plan
+    const date = driveDocs.dateInName(driveDocs.baseName(file.name)) || driveDate(file, now);
+    await isp.recordTraining(member, plan, {
+      trainedDate: date, trainedBy: '', filename: file.name,
+      fileUrl: 'https://drive.google.com/file/d/' + file.id + '/view', recordedBy: driveDocs.DRIVE_SOURCE
+    });
+    context.rows.push({ resident: plan.resident, planDate: plan.planDate, staffId: member.id, staffName: member.name, trainedDate: date, filename: file.name });
+    result.added.push({ key: isp.KEY_PREFIX + plan.resident, label: isp.planLabel(plan), file: file.name, date: date });
+  }
 }
 
 module.exports = {

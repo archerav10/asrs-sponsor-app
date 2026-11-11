@@ -13,6 +13,7 @@ const crypto = require('crypto');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPage, getPlainText, driveFolderIdFromUrl } = require('./notion');
 const { id: configId } = require('./ids');
+const { normalizePhone } = require('./twilio');
 
 const MODULES_DB_ID = configId('MODULES_DB_ID');
 const MODULE_STEPS_DB_ID = configId('MODULE_STEPS_DB_ID');
@@ -101,16 +102,6 @@ function longDate(iso) {
   return new Date(iso.slice(0, 10) + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-// US numbers to E.164. Anything else that already starts with + is kept.
-function normalizePhone(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return '';
-  if (s.charAt(0) === '+') return '+' + s.slice(1).replace(/\D/g, '');
-  const digits = s.replace(/\D/g, '');
-  if (digits.length === 10) return '+1' + digits;
-  if (digits.length === 11 && digits.charAt(0) === '1') return '+' + digits;
-  return '';
-}
 
 // ---------- private links ----------
 // /m/{token}. The token is 32 bytes, base64url: the assignment's page ID

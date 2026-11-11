@@ -891,6 +891,56 @@ the codes live from each checklist (`get-naming-guide.js`).
   and Medical: the `STEPS` / `APPOINTMENT_TYPES` lists in code (Annual
   Planning also needs its `{key} Done` and `{key} Filename` columns).
 
+### ISP training (every staff member on every resident's current plan)
+
+Every active staff member at a location must be trained on each
+resident's current Individualized Service Plan (the Congregate
+Residential plan) and sign an **ISP Training Acknowledgment** as the
+evidence. `lib/isp-training.js`.
+
+- **Which plan:** the resident's Resident Annual Planning record. Its
+  plan date is the cycle's Effective Date, or `Plan Revised Date` when the
+  plan was revised mid-year (**Plan revised** on the Annual Planning
+  screen, `save-isp-plan-revised.js`). A new cycle's plan date is ahead of
+  today, so staff show as **due** (yellow) until it, then **missing**
+  (red); after a revision, or for someone new, they're missing straight
+  away (new staff sign by the end of orientation, before working with the
+  resident).
+- **Notion:** "ISP Training" (`ISP_TRAINING_DB_ID` in `lib/ids.js`), one
+  row per signed acknowledgment: Location, Resident Initials, Plan Date,
+  Staff Name / Staff ID, Trained Date, Trained By, Filename, File URL. The
+  "ASRS Sponsor Portal" integration needs a connection to it. If it can't
+  be read, Staff Training still loads without the plan lines.
+- **Where it shows:** each staff member's Staff Training screen gets a
+  "Resident plans (ISP)" section at the end of Part A, one line per
+  resident, built by `planSteps` in the same shape as the checklist items,
+  so oversight, the ASRS-450-01 report, Compliance, the Sponsor App and the
+  weekly digest count them like any other item. Each resident's Annual
+  Planning screen has an **ISP training** panel (`get-isp-training.js`)
+  listing every staff member at the location, with **Print ISP Training
+  Record** (`admin-dashboard/isp-training-record.html`: who signed, when,
+  trained by, the signed PDF, earlier plans, and a reviewer signature line).
+- **Signing:** **Sign now** (opens the form on this computer), **Copy
+  link**, and **Text link** (`send-isp-training-text.js`: only when clicked,
+  only to someone with a phone number and `SMS Consent Status` = Opted In).
+  The link is `/isp/{tracking}` (netlify.toml → `isp-sign.js`), where the
+  tracking value `ISP_{staffId}_{resident}_{planDate}_{sig}` is signed
+  (HMAC with `APP_ENCRYPTION_KEY`), so it can only record that person's
+  training on that plan; a link for a plan that's since been revised says
+  so instead of opening. `isp-sign.js` redirects to the JotForm
+  (`ISP_TRAINING_FORM_URL`) with staffName, location, resident, planDate and
+  the hidden `app_filename` prefilled.
+- **Filing:** JotForm's Google Drive integration saves the signed PDF,
+  named by `app_filename`, into the Completed Jotforms staging folder. The
+  Zapier workflow **ASRS ISP Training Acknowledgment**
+  (`zapier/isp-training-forms.workflow.ts`, JotForm New Submission) asks
+  `isp-training-resolve` where it goes (the staff member's Training folder,
+  as `Plan_{resident}_{date}_ISP-Acknowledgment_{name}.pdf`), moves and
+  renames it, then posts to `isp-training-submitted`, which writes the ISP
+  Training row. A person with no Training folder yet keeps the renamed PDF
+  in the staging folder. The Drive check also reads `Plan_{resident}_…`
+  files in a Training folder, so a scanned paper acknowledgment counts.
+
 ### Quarterly Reporting (fourth process — tied entirely to Annual Planning)
 
 No independent existence of its own: four fixed reports (Quarterly

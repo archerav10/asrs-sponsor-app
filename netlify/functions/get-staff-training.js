@@ -1,5 +1,7 @@
 const { requireSession } = require('./lib/session');
 const { ROLES, loadRequirements, staffInfoById, staffTrainingStatus, syncFromDrive } = require('./lib/staff-training');
+const isp = require('./lib/isp-training');
+const { normalizePhone } = require('./lib/twilio');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'GET') {
@@ -36,6 +38,11 @@ exports.handler = async function (event) {
     }
     const status = await staffTrainingStatus(staff.location, staff, checklist.requirements);
     const windowState = status.window;
+    // Resident plan lines carry the person's signing link for that plan.
+    const site = isp.siteFor(event);
+    status.steps.forEach(function (s) {
+      if (s.plan) s.plan.link = isp.signingLink(site, staff, s.plan);
+    });
 
     return {
       statusCode: 200,
@@ -46,7 +53,8 @@ exports.handler = async function (event) {
           location: staff.location,
           role: staff.role,
           roleSet: staff.roleSet,
-          folderUrl: staff.trainingFolderUrl || ''
+          folderUrl: staff.trainingFolderUrl || '',
+          canText: !!normalizePhone(staff.phone) && staff.smsConsent === 'Opted In'
         },
         roles: ROLES,
         drive: drive,

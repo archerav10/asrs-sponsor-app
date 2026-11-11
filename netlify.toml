@@ -27,6 +27,13 @@
   to = "/module/index.html"
   status = 200
 
+# ISP Training Acknowledgment signing links (/isp/{tracking}) open the
+# prefilled JotForm via isp-sign.js, which checks the link first.
+[[redirects]]
+  from = "/isp/*"
+  to = "/.netlify/functions/isp-sign?t=:splat"
+  status = 200
+
 # The module page embeds YouTube, which refuses to play without a
 # Referer. Only the origin is sent, so the link's token never leaves.
 [[headers]]
