@@ -1,7 +1,7 @@
 const { queryDatabase, getPlainText } = require('./notion');
 const { sendEmail, sleep } = require('./email');
 const wf = require('./weekly-focus');
-const { loadRequirements, staffListForLocation, itemsForStaff, fullStepList } = require('./staff-training');
+const { loadRequirements, staffListForLocation, staffTrainingStatus } = require('./staff-training');
 const { DEFAULT_SERVICE, findRecordsForResident, computeAnnualPlanningWindow } = require('./annual-planning');
 const { computeQuarterlyReportingForRecord, activeQuarter } = require('./quarterly-reporting');
 
@@ -119,8 +119,7 @@ async function checkStaffTraining(location, today) {
   const staff = await staffListForLocation(location);
 
   const perMember = await Promise.all(staff.map(async function (member) {
-    const items = await itemsForStaff(location, member.name);
-    const steps = fullStepList(items, requirements, member.role);
+    const steps = (await staffTrainingStatus(location, member, requirements)).steps;
     const missing = steps.filter(function (s) { return s.state === 'missing'; });
 
     if (missing.length === steps.length) {
@@ -129,6 +128,12 @@ async function checkStaffTraining(location, today) {
 
     const issues = [];
     steps.forEach(function (s) {
+      // Resident plan lines (ISP training): missing, or due by the plan date.
+      if (s.plan) {
+        if (s.state === 'missing') issues.push('Staff Training: ' + member.name + ' — ISP training on ' + s.label + ': not signed');
+        else if (s.state === 'soon') issues.push('Staff Training: ' + member.name + ' — ISP training on ' + s.label + ': due by ' + s.plan.planDate);
+        return;
+      }
       if (s.state === 'missing') {
         issues.push('Staff Training: ' + member.name + ' — ' + s.label + ': not completed');
         return;

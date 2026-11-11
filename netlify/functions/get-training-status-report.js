@@ -48,6 +48,14 @@ exports.handler = async function (event) {
     }).map(function (req) {
       return { key: req.key, label: req.label, part: req.part, section: req.section, renewYears: req.renewYears };
     });
+    // One row per resident plan (lib/isp-training.js), at the end of Part A
+    // like on the Staff Training screen; every staff member has every plan.
+    const planRows = (statuses[0] ? statuses[0].steps : []).filter(function (s) { return s.plan; }).map(function (s) {
+      return { key: s.key, label: s.label, part: s.part, section: s.section, renewYears: 0, plan: true };
+    });
+    let at = rows.findIndex(function (r) { return r.part === 'Intake'; });
+    if (at === -1) at = rows.length;
+    rows.splice.apply(rows, [at, 0].concat(planRows));
 
     const runDate = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 

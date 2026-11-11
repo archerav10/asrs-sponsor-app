@@ -41,4 +41,15 @@ function sendSms(to, body) {
   });
 }
 
-module.exports = { sendSms };
+// US numbers to E.164. Anything else that already starts with + is kept.
+function normalizePhone(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (s.charAt(0) === '+') return '+' + s.slice(1).replace(/\D/g, '');
+  const digits = s.replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits.charAt(0) === '1') return '+' + digits;
+  return '';
+}
+
+module.exports = { sendSms, normalizePhone };

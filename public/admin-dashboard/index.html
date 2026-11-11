@@ -186,6 +186,16 @@
   .ap-step-title { font-weight: 600; font-size: 15px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
   .ap-step-status { font-size: 13px; color: #666; margin: 0 0 10px; }
   .ap-step-status.done { color: #1B7A3D; font-weight: 600; }
+  .isp-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+  .isp-actions .form-link { margin: 0; }
+  .isp-actions button.nn-btn:disabled { opacity: .5; cursor: default; }
+  .isp-revise input[type="date"] { width: auto; margin: 0; padding: 6px 8px; font-size: 13px; }
+  .isp-panel { margin: 18px 0; padding: 14px 16px; border: 1px solid #DCE6DF; border-radius: 12px; background: #fff; }
+  .isp-panel h3 { margin: 0 0 4px; font-size: 16px; }
+  .isp-staff { border-top: 1px solid #EEE; padding: 10px 0; }
+  .isp-staff:first-of-type { border-top: 0; }
+  .isp-staff-name { font-weight: 600; margin: 0 0 2px; }
+  .isp-revise { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #DDD; font-size: 13px; }
   .drive-check { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: #F4F7F5; border: 1px solid #DCE6DF; font-size: 13px; color: #333; }
   .drive-check ul { margin: 6px 0 0; padding-left: 18px; }
   .drive-check li { margin: 3px 0; overflow-wrap: anywhere; }
@@ -1644,6 +1654,105 @@
     container.appendChild(wrap);
   }
 
+  // ISP training panel (Congregate Residential only): every active staff
+  // member at the location and whether they've signed the ISP Training
+  // Acknowledgment for this resident's current plan, with Sign now / Copy
+  // link / Text link, Plan revised, and the printable ISP Training Record.
+  // Loads on its own so the rest of the screen never waits on it.
+  function renderIspPanel(container) {
+    if (currentAnnualService !== DEFAULT_SERVICE) return;
+    const box = document.createElement('div');
+    box.className = 'isp-panel';
+    const h = document.createElement('h3');
+    h.textContent = 'ISP training';
+    box.appendChild(h);
+    const body = document.createElement('div');
+    body.appendChild(Object.assign(document.createElement('p'), { className: 'loading-text', textContent: 'Loading…' }));
+    box.appendChild(body);
+    container.appendChild(box);
+    const location = currentAnnualLocation;
+    const resident = currentAnnualResident;
+
+    apiFetch('/get-isp-training?location=' + encodeURIComponent(location) + '&resident=' + encodeURIComponent(resident)).then(function (data) {
+      body.innerHTML = '';
+      if (!data.plan) {
+        body.appendChild(Object.assign(document.createElement('p'), { className: 'help-text', textContent: 'Start this resident\'s cycle (Step 1) and staff ISP training will be tracked here.' }));
+        return;
+      }
+      const signed = data.staff.filter(function (m) { return m.state === 'current'; }).length;
+      const intro = document.createElement('p');
+      intro.className = 'help-text';
+      intro.style.margin = '0 0 8px';
+      intro.appendChild(document.createTextNode(data.plan.label + ': ' + signed + ' of ' + data.staff.length + ' staff signed. '));
+      const print = document.createElement('a');
+      print.href = 'isp-training-record.html?location=' + encodeURIComponent(location) + '&resident=' + encodeURIComponent(resident);
+      print.target = '_blank';
+      print.rel = 'noopener';
+      print.textContent = 'Print ISP Training Record';
+      intro.appendChild(print);
+      body.appendChild(intro);
+
+      if (!data.staff.length) {
+        body.appendChild(Object.assign(document.createElement('p'), { className: 'empty-text', textContent: 'No active staff at ' + location + '.' }));
+      }
+      data.staff.forEach(function (m) {
+        const row = document.createElement('div');
+        row.className = 'isp-staff';
+        row.appendChild(Object.assign(document.createElement('p'), { className: 'isp-staff-name', textContent: m.name + (m.role ? ' (' + m.role + ')' : '') }));
+        const st = document.createElement('p');
+        st.className = 'ap-step-status' + (m.state === 'current' ? ' done' : '');
+        st.style.margin = '0 0 6px';
+        st.textContent = ispStatusText(m.state, data.plan, m.trainedDate, m.trainedBy, resident);
+        if (m.state === 'missing') st.style.color = '#B3261E';
+        else if (m.state === 'soon') st.style.color = '#B25E00';
+        if (m.fileUrl) {
+          st.appendChild(document.createTextNode(' · '));
+          st.appendChild(ispEvidenceLink(m.fileUrl, m.filename));
+        }
+        row.appendChild(st);
+        renderIspActions(row, { link: m.link, signed: m.state === 'current', canText: m.canText, staffId: m.id, name: m.name, resident: resident }, 'annual-detail-error');
+        body.appendChild(row);
+      });
+
+      // Mid-year revision: everyone signs again for the revised plan.
+      const rev = document.createElement('div');
+      rev.className = 'ap-step-actions isp-revise';
+      rev.appendChild(document.createTextNode(data.plan.revised ? 'Revised ' + formatDate(data.plan.revisedDate) + '. Revised again?' : 'ISP revised mid-year?'));
+      const d = document.createElement('input');
+      d.type = 'date';
+      d.max = localTodayISO();
+      d.setAttribute('aria-label', 'Revision date');
+      rev.appendChild(d);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'nn-btn';
+      btn.textContent = 'Plan revised';
+      btn.addEventListener('click', async function () {
+        setError('annual-detail-error', '');
+        if (!d.value) { setError('annual-detail-error', 'Choose the date the plan was revised.'); return; }
+        if (!window.confirm('Record that ' + resident + '\'s ISP was revised on ' + formatDate(d.value) + '? Every staff member at ' + location + ' will need to sign for the revised plan.')) return;
+        btn.disabled = true;
+        try {
+          await apiFetch('/save-isp-plan-revised', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ location: location, resident: resident, revisedDate: d.value })
+          });
+          box.remove();
+          renderIspPanel(container);
+        } catch (e) {
+          setError('annual-detail-error', e.message);
+          btn.disabled = false;
+        }
+      });
+      rev.appendChild(btn);
+      body.appendChild(rev);
+    }).catch(function (e) {
+      body.innerHTML = '';
+      body.appendChild(Object.assign(document.createElement('p'), { className: 'error-text', textContent: 'ISP training couldn\'t load: ' + e.message }));
+    });
+  }
+
   async function loadAnnualDetail() {
     document.getElementById('annual-detail-title').textContent = currentAnnualResident;
     document.getElementById('annual-detail-meta').textContent = currentAnnualLocation + ' — ' + currentAnnualService;
@@ -1682,6 +1791,7 @@
           link.style.marginTop = '8px';
           bannerEl.appendChild(link);
         }
+        if (record) renderIspPanel(bodyEl);
         return;
       }
 
@@ -1692,6 +1802,7 @@
         strong.textContent = formatDate(windowState.windowOpenDate);
         bannerEl.appendChild(strong);
         bannerEl.appendChild(document.createTextNode('.'));
+        if (record) renderIspPanel(bodyEl);
         return;
       }
 
@@ -1702,6 +1813,7 @@
       renderSetupSection(bodyEl, record, windowState);
 
       if (!record || !record.folderUrl) {
+        if (record) renderIspPanel(bodyEl);
         return; // Steps need the folder set up first.
       }
 
@@ -1730,6 +1842,7 @@
         }
       });
       bodyEl.appendChild(finalizeBtn);
+      renderIspPanel(bodyEl);
     } catch (e) {
       document.getElementById('annual-detail-banner').textContent = '';
       setError('annual-detail-error', e.message);
@@ -1919,6 +2032,7 @@
   let currentStaffId = null;
   let currentStaffLocation = null;
   let currentStaffName = null;
+  let currentStaffCanText = false;
 
   function openStaffDetail(location, staffId) {
     currentStaffLocation = location;
@@ -2138,7 +2252,115 @@
     return parts.join(' · ') + ' — ' + (stepDef.filename || (stepDef.fromIntake ? 'from intake (document is in the intake folder)' : 'document'));
   }
 
+  // --- ISP training (lib/isp-training.js) ---
+  // Sign now / Copy link / Text link for one staff member's ISP Training
+  // Acknowledgment on one resident's plan. The link is made by the server
+  // (it carries a signature); Text link only sends when clicked, and only
+  // for someone Opted In to texts with a phone number.
+  function renderIspActions(container, opts, errorId) {
+    const row = document.createElement('div');
+    row.className = 'ap-step-actions isp-actions';
+
+    const sign = document.createElement('a');
+    sign.className = 'form-link';
+    sign.href = opts.link;
+    sign.target = '_blank';
+    sign.rel = 'noopener';
+    sign.textContent = opts.signed ? 'Sign again' : 'Sign now';
+    row.appendChild(sign);
+
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'nn-btn';
+    copy.textContent = 'Copy link';
+    copy.addEventListener('click', function () {
+      navigator.clipboard.writeText(opts.link).then(function () {
+        copy.textContent = 'Copied';
+        setTimeout(function () { copy.textContent = 'Copy link'; }, 1600);
+      }).catch(function () { window.prompt('Copy the signing link:', opts.link); });
+    });
+    row.appendChild(copy);
+
+    const text = document.createElement('button');
+    text.type = 'button';
+    text.className = 'nn-btn';
+    text.textContent = 'Text link';
+    text.disabled = !opts.canText;
+    if (!opts.canText) text.title = 'Needs a phone number and SMS Consent Status = Opted In in ASRS People';
+    text.addEventListener('click', async function () {
+      if (!window.confirm('Text ' + opts.name + ' the link to sign for ' + opts.resident + '\'s plan?')) return;
+      setError(errorId, '');
+      text.disabled = true;
+      try {
+        const res = await apiFetch('/send-isp-training-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ staffId: opts.staffId, resident: opts.resident })
+        });
+        text.textContent = 'Texted ' + res.to;
+      } catch (e) {
+        setError(errorId, e.message);
+        text.disabled = false;
+      }
+    });
+    row.appendChild(text);
+    container.appendChild(row);
+  }
+
+  // Status line for a staff member on a resident's plan.
+  function ispStatusText(state, plan, trainedDate, trainedBy, resident) {
+    if (state === 'current') return 'Signed ' + formatDate(trainedDate) + (trainedBy ? ' · trained by ' + trainedBy : '');
+    if (state === 'soon') return 'Due by ' + formatDate(plan.planDate) + ', before the plan takes effect';
+    return plan.revised
+      ? 'Plan revised ' + formatDate(plan.planDate) + ': needs training on the revision'
+      : 'Not signed yet: needed before they work with ' + resident;
+  }
+
+  function ispEvidenceLink(fileUrl, filename) {
+    const a = document.createElement('a');
+    a.href = fileUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'View signed acknowledgment';
+    a.title = filename || '';
+    return a;
+  }
+
+  // A Staff Training "Resident plans (ISP)" line.
+  function renderStaffPlanStep(container, stepDef) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ap-step';
+    const title = document.createElement('p');
+    title.className = 'ap-step-title';
+    title.textContent = stepDef.label + (stepDef.done ? ' ' : '');
+    if (stepDef.done) {
+      const check = document.createElement('span');
+      check.className = 'checkmark';
+      check.textContent = '✓';
+      title.appendChild(check);
+    }
+    wrap.appendChild(title);
+
+    const status = document.createElement('p');
+    status.className = 'ap-step-status' + (stepDef.done ? ' done' : '');
+    status.textContent = ispStatusText(stepDef.state, stepDef.plan, stepDef.completedDate, stepDef.plan.trainedBy, stepDef.plan.resident);
+    if (stepDef.state === 'missing') status.style.color = '#B3261E';
+    else if (stepDef.state === 'soon') status.style.color = '#B25E00';
+    if (stepDef.plan.fileUrl) {
+      status.appendChild(document.createTextNode(' · '));
+      status.appendChild(ispEvidenceLink(stepDef.plan.fileUrl, stepDef.filename));
+    }
+    wrap.appendChild(status);
+
+    renderIspActions(wrap, {
+      link: stepDef.plan.link, signed: stepDef.done, canText: currentStaffCanText,
+      staffId: currentStaffId, name: currentStaffName, resident: stepDef.plan.resident
+    }, 'staff-detail-error');
+    container.appendChild(wrap);
+  }
+
   function renderStaffStepSection(container, stepDef) {
+    if (stepDef.plan) { renderStaffPlanStep(container, stepDef); return; }
     // Same filename convention lib/staff-training.js's buildFilename
     // uses server-side: "{location}_Staff_{staffId}_{key}_{completedDate}".
     // The staff member's page ID stands in for their name — unlike
@@ -2322,6 +2544,7 @@
       const steps = data.steps || [];
       currentStaffName = staff.name;
       currentStaffLocation = staff.location;
+      currentStaffCanText = !!staff.canText;
       document.getElementById('staff-detail-title').textContent = staff.name;
       document.getElementById('staff-detail-meta').textContent = staff.location + ' · ' + (staff.roleSet ? staff.role : 'Role not set');
 
