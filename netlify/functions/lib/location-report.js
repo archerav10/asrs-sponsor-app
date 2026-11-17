@@ -43,8 +43,8 @@ const AREAS = [
 
 // Same ranges as the Physical Environment screen.
 const PE_RANGES = {
-  'Kitchen Hot Water Temp': { min: 100, max: 110 },
-  'Bathroom Hot Water Temp': { min: 100, max: 110 },
+  'Kitchen Hot Water Temp': { min: 100, max: 120 },
+  'Bathroom Hot Water Temp': { min: 100, max: 120 },
   'Refrigerator Temp': { min: 32, max: 40 },
   'Freezer Temp': { max: 32 }
 };

@@ -104,7 +104,7 @@ don't pick up env var changes until the next deploy.
   the Emergency Supply Water item specifically
 - Physical Environment screen: 4 temperature readings and 1 fire
   extinguisher expiration date shown first (flags red inline when a
-  reading is outside the standard range — 100-110°F hot water, 32-40°F
+  reading is outside the standard range — 100-120°F hot water, 32-40°F
   fridge, <32°F freezer — informational only, doesn't block saving),
   followed by a 10-item checklist (First Aid Kit Complete, Emergency
   Supply Kit Complete, Home Clean, No Knives Accessible, Smoke Alarms
