@@ -170,13 +170,24 @@ function parseCsv(text) {
 }
 
 // The action items: the first column of the Sheet's first tab, one per
-// non-empty row. A header row ("Action Item", "Item", "Task"… or a second
-// column headed "Done") is skipped.
+// non-empty row, below the header row ("Action Item", "Item", "Task"…, or
+// a row with a column headed "Done") when there is one in the first 10
+// rows, so a title or due-date line above the header is skipped too.
+// Other columns (Owner, Done, Date, Notes…) aren't read: the phone page
+// collects Done, the date and notes itself.
+const HEADER_RE = /^\s*(action\s*items?|items?|tasks?|to\s*dos?|checklist(\s*items?)?)\s*$/i;
+
+function isHeaderRow(row) {
+  return HEADER_RE.test(row[0] || '') || row.slice(1).some(function (c) { return /^\s*done\s*\??\s*$/i.test(c || ''); });
+}
+
 function itemsFromCsv(text) {
   const rows = parseCsv(text || '');
-  const first = rows[0] || [];
-  const isHeader = /^\s*(action\s*items?|items?|tasks?|to\s*do|checklist)\s*$/i.test(first[0] || '') || /^\s*done\s*$/i.test(first[1] || '');
-  return rows.slice(isHeader ? 1 : 0)
+  let start = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    if (isHeaderRow(rows[i])) { start = i + 1; break; }
+  }
+  return rows.slice(start)
     .map(function (r) { return (r[0] || '').replace(/\s+/g, ' ').trim(); })
     .filter(Boolean);
 }

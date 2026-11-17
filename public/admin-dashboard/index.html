@@ -607,7 +607,7 @@
         <input type="date" id="sc-add-due">
         <label for="sc-add-link">Google Sheet link</label>
         <input type="url" id="sc-add-link" placeholder="https://docs.google.com/spreadsheets/...">
-        <p class="help-text">The action items are read from the Sheet's first column, one per row (a header row like "Action Item" is skipped). Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
+        <p class="help-text">The action items are read from the Sheet's first column, one per row, below a header row that starts "Action Item" (anything above it, like a title or due date, is skipped). Other columns are ignored: the sponsor checks items off, dates them and adds notes on their phone. Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
         <p class="error-text" id="sponsor-checklist-add-error"></p>
         <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
       </details>

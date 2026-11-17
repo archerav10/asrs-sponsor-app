@@ -2142,8 +2142,10 @@ toggles to the closed ones. "+ New checklist" (location, title, message,
 due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklists.js`.
 
 - **Items come from the Sheet.** The app reads the first column of the
-  Sheet's first tab, one action item per row (a header like "Action Item",
-  or a second column headed "Done", is skipped), once, when the checklist
+  Sheet's first tab, one action item per row below the header row (one
+  starting "Action Item"/"Item"/"Task", or with a column headed "Done",
+  within the first 10 rows; a title or due-date line above it is skipped;
+  other columns aren't read), once, when the checklist
   is sent, and saves one row per item in **Sponsor Checklist Items**
   (`SPONSOR_CHECKLIST_ITEMS_DB_ID`). Checklists are still built and edited
   in Google Sheets; the Sheet must be in (or shared with) the ASRS Drive
