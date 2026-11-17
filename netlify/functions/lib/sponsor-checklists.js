@@ -4,6 +4,7 @@ const { sendEmail } = require('./email');
 const { sendSms, normalizePhone } = require('./twilio');
 const { adminsWithRole } = require('./roles');
 const drive = require('./google-drive');
+const { encryptToken } = require('./crypto');
 const { id: configId } = require('./ids');
 
 const SPONSOR_CHECKLISTS_DB_ID = configId('SPONSOR_CHECKLISTS_DB_ID');
@@ -97,7 +98,9 @@ function checklistFromPage(page) {
     createdByName: getPlainText(p['Created By Name']),
     createdDate: getPlainText(p['Created Date']),
     closedDate: getPlainText(p['Closed Date']),
-    closedBy: getPlainText(p['Closed By'])
+    closedBy: getPlainText(p['Closed By']),
+    pdfStatus: getPlainText(p['PDF Status']),
+    pdfLink: getPlainText(p['PDF Link'])
   };
 }
 
@@ -170,13 +173,24 @@ function parseCsv(text) {
 }
 
 // The action items: the first column of the Sheet's first tab, one per
-// non-empty row. A header row ("Action Item", "Item", "Task"… or a second
-// column headed "Done") is skipped.
+// non-empty row, below the header row ("Action Item", "Item", "Task"…, or
+// a row with a column headed "Done") when there is one in the first 10
+// rows, so a title or due-date line above the header is skipped too.
+// Other columns (Owner, Done, Date, Notes…) aren't read: the phone page
+// collects Done, the date and notes itself.
+const HEADER_RE = /^\s*(action\s*items?|items?|tasks?|to\s*dos?|checklist(\s*items?)?)\s*$/i;
+
+function isHeaderRow(row) {
+  return HEADER_RE.test(row[0] || '') || row.slice(1).some(function (c) { return /^\s*done\s*\??\s*$/i.test(c || ''); });
+}
+
 function itemsFromCsv(text) {
   const rows = parseCsv(text || '');
-  const first = rows[0] || [];
-  const isHeader = /^\s*(action\s*items?|items?|tasks?|to\s*do|checklist)\s*$/i.test(first[0] || '') || /^\s*done\s*$/i.test(first[1] || '');
-  return rows.slice(isHeader ? 1 : 0)
+  let start = 0;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    if (isHeaderRow(rows[i])) { start = i + 1; break; }
+  }
+  return rows.slice(start)
     .map(function (r) { return (r[0] || '').replace(/\s+/g, ' ').trim(); })
     .filter(Boolean);
 }
@@ -278,6 +292,118 @@ async function staffToNotify(checklist) {
   });
 }
 
+// ---------- completion record in Drive ----------
+// When a checklist is marked complete, a one-page PDF of it (each item,
+// done or not, date and note; who it went to; submitted; closed by) is
+// filed to Facility Reporting/{Location}/Checklists through the "ASRS
+// Document Filing" Zapier workflow (the same one as Liaison visit PDFs,
+// see document-filing-resolve.js), and the checklist's Google Sheet is
+// renamed "✓ COMPLETE {date} – {name}" so Drive shows it's done (each
+// checklist has its own copy of the Sheet).
+const COMPLETE_PREFIX = '✓ COMPLETE';
+
+function pdfText(s) {
+  return String(s == null ? '' : s).replace(/[^\x20-\x7E\n]/g, function (ch) {
+    return ({ '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', '·': '-', '…': '...', '✓': 'v' })[ch] || '';
+  });
+}
+
+async function buildCompletionPdf(checklist, items) {
+  const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const W = 612, H = 792, M = 50, CW = W - 2 * M;
+  let page = doc.addPage([W, H]);
+  let y = H - M;
+  function wrap(text, f, size, width) {
+    const out = [];
+    pdfText(text).split('\n').forEach(function (para) {
+      let line = '';
+      para.split(/\s+/).forEach(function (w) {
+        const t = line ? line + ' ' + w : w;
+        if (f.widthOfTextAtSize(t, size) > width && line) { out.push(line); line = w; } else line = t;
+      });
+      out.push(line);
+    });
+    return out;
+  }
+  function draw(text, opts) {
+    opts = opts || {};
+    const size = opts.size || 10, f = opts.bold ? bold : font, indent = opts.indent || 0;
+    wrap(text, f, size, CW - indent).forEach(function (l) {
+      if (y - size < M) { page = doc.addPage([W, H]); y = H - M; }
+      page.drawText(l, { x: M + indent, y: y - size, size: size, font: f, color: opts.color || rgb(0, 0, 0) });
+      y -= size + 4;
+    });
+  }
+  const p = progress(items);
+  const green = rgb(0.1, 0.45, 0.2), red = rgb(0.7, 0.15, 0.1), grey = rgb(0.35, 0.35, 0.35);
+  draw('Arch Support Residential Services', { size: 10, color: grey });
+  draw('Checklist: ' + checklist.title, { size: 16, bold: true });
+  draw('COMPLETE', { size: 11, bold: true, color: green });
+  y -= 4;
+  draw('Location: ' + checklist.location, { bold: true });
+  draw('Sent to: ' + checklist.sponsorName + ' (' + (checklist.sentVia === 'Text' ? 'by text' : 'by email') + ') on ' + usDate(checklist.createdDate) + ' by ' + checklist.createdByName);
+  draw('Due: ' + usDate(checklist.dueDate));
+  draw('Submitted: ' + (checklist.submittedDate ? usDate(checklist.submittedDate) : 'not submitted'));
+  draw('Closed: ' + usDate(checklist.closedDate) + (checklist.closedBy ? ' by ' + checklist.closedBy : ''));
+  if (items.length) draw('Items done: ' + p.done + ' of ' + p.total, { bold: true, color: p.done === p.total ? green : red });
+  if (checklist.message) { y -= 4; draw('Message', { bold: true }); draw(checklist.message, { indent: 12 }); }
+  y -= 8;
+  if (!items.length) {
+    draw('This checklist was answered in its Google Sheet: ' + checklist.driveLink);
+  } else {
+    draw('ITEMS', { size: 9, bold: true, color: rgb(0.2, 0.35, 0.3) });
+    items.forEach(function (it, i) {
+      draw((i + 1) + '. ' + it.item, { bold: true });
+      draw((it.done ? 'Done' + (it.date ? ' ' + usDate(it.date) : '') : 'Not done'), { indent: 14, color: it.done ? green : red });
+      if (it.notes) draw('Note: ' + it.notes, { indent: 14 });
+      y -= 2;
+    });
+  }
+  return doc.save();
+}
+
+function fileSafe(s) {
+  return String(s || '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
+async function fileCompletionRecord(checklist, items, site) {
+  const url = configId('DOCUMENT_FILING_WEBHOOK_URL');
+  if (!url) throw new Error('Document filing is not configured.');
+  const filename = checklist.closedDate + ' - ' + fileSafe(checklist.title) + ' - COMPLETE.pdf';
+  const pdf = await buildCompletionPdf(checklist, items);
+
+  // Rename the checklist's own Sheet, unless it's already marked.
+  let rename = null;
+  const sheetId = sheetIdFromLink(checklist.driveLink);
+  if (sheetId) {
+    try {
+      const meta = await drive.getMeta(sheetId);
+      if (meta.name && meta.name.indexOf(COMPLETE_PREFIX) !== 0) {
+        rename = { fileId: sheetId, name: COMPLETE_PREFIX + ' ' + usDate(checklist.closedDate) + ' – ' + meta.name };
+      }
+    } catch (e) {
+      console.error('Checklist Sheet not readable for the rename', e);
+    }
+  }
+
+  await updatePage(checklist.id, { 'PDF Status': { select: { name: 'Pending' } } });
+  const ticket = encryptToken({
+    kind: 'filing', target: 'checklist', pageId: checklist.id, location: checklist.location,
+    folders: [{ name: checklist.location, create: false }, { name: 'Checklists', create: true }],
+    filename: filename, rename: rename
+  }, 7 * 24 * 3600);
+  const form = new FormData();
+  form.append('file', new Blob([pdf], { type: 'application/pdf' }), filename);
+  form.append('ticket', ticket);
+  form.append('site', siteBase(site));
+  const res = await fetch(url, { method: 'POST', body: form });
+  if (!res.ok) throw new Error('Filing webhook returned ' + res.status);
+  return filename;
+}
+
 // ---------- actions ----------
 
 async function createChecklist(location, title, message, dueDate, driveLink, createdByEmail, createdByName, site) {
@@ -336,14 +462,23 @@ async function closeChecklist(checklistId, byName, site) {
     'Closed Date': { date: { start: todayIso() } },
     'Closed By': richText(byName)
   });
-  checklist.hasItems = (await itemsFor(checklist.id)).length > 0;
+  const items = await itemsFor(checklist.id);
+  checklist.hasItems = items.length > 0;
   let notified = '';
   try {
     notified = await notifyRecipient(checklist, 'closed', site);
   } catch (e) {
     console.error('Checklist closed, but the recipient couldn\'t be told', e);
   }
-  return { checklist: await checklistById(checklistId), notified: notified };
+  const closed = await checklistById(checklistId);
+  let filed = '';
+  try {
+    filed = await fileCompletionRecord(closed, items, site);
+  } catch (e) {
+    console.error('Checklist closed, but its completion record couldn\'t be filed', e);
+    await updatePage(checklistId, { 'PDF Status': { select: { name: 'Failed' } } }).catch(function () {});
+  }
+  return { checklist: await checklistById(checklistId), notified: notified, filed: filed };
 }
 
 // ---------- the recipient's page ----------
@@ -420,5 +555,6 @@ module.exports = {
   closeChecklist,
   publicView,
   saveItem,
-  submit
+  submit,
+  buildCompletionPdf
 };

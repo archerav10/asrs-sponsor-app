@@ -2,7 +2,8 @@ import { defineDurable } from "@zapier/zapier-durable";
 import { createZapierSdk } from "@zapier/zapier-sdk";
 import { z } from "zod";
 
-// ASRS Document Filing (Liaison app visit and questionnaire PDFs). The app
+// ASRS Document Filing (Liaison app visit and questionnaire PDFs, and
+// sponsor checklist completion records). The app
 // POSTs each PDF here as multipart form data with:
 //   file, ticket, site
 // The ticket is encrypted by the app and names the destination; the
@@ -11,8 +12,10 @@ import { z } from "zod";
 //   Facility Reporting/{folders...}/
 // A folder marked create: false must already exist (a typo'd or missing
 // location or resident folder should surface as an error, not quietly make
-// a stray folder); create: true folders are made on first use. Last, the
-// app is told the file is saved, which sets PDF Status = Saved.
+// a stray folder); create: true folders are made on first use. If the
+// destination names a file to rename (a completed checklist's Google
+// Sheet), that's renamed next; a failed rename doesn't stop the filing.
+// Last, the app is told the file is saved, which sets PDF Status = Saved.
 
 const sdk = createZapierSdk();
 
@@ -37,6 +40,7 @@ const ResolvedSchema = z
     rootFolderId: z.string(),
     folders: z.array(z.object({ name: z.string(), create: z.boolean() }).loose()).min(1),
     filename: z.string(),
+    rename: z.object({ fileId: z.string(), name: z.string() }).loose().nullable().optional(),
   })
   .loose();
 
@@ -129,6 +133,25 @@ const workflow = defineDurable<Input, unknown>(
     );
     const out = uploaded.data[0] as { id?: string; alternateLink?: string } | undefined;
 
+    let renamed = false;
+    const rename = dest.rename;
+    if (rename && rename.fileId && rename.name) {
+      try {
+        await ctx.step("rename-file", async () =>
+          sdk.runAction({
+            appKey: DRIVE_APP_KEY,
+            actionType: "write",
+            actionKey: "update_file_name",
+            connection: DRIVE_CONNECTION,
+            inputs: { file: rename.fileId, new_name: rename.name },
+          }),
+        );
+        renamed = true;
+      } catch (e) {
+        renamed = false;
+      }
+    }
+
     await ctx.step("confirm-saved", async () =>
       sdk.runAction({
         appKey: WEBHOOKS_APP_KEY,
@@ -138,7 +161,7 @@ const workflow = defineDurable<Input, unknown>(
       }),
     );
 
-    return { filename: dest.filename, fileId: out?.id ?? null, link: out?.alternateLink ?? null };
+    return { filename: dest.filename, fileId: out?.id ?? null, link: out?.alternateLink ?? null, renamed };
   },
 );
 

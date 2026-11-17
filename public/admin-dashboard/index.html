@@ -607,7 +607,7 @@
         <input type="date" id="sc-add-due">
         <label for="sc-add-link">Google Sheet link</label>
         <input type="url" id="sc-add-link" placeholder="https://docs.google.com/spreadsheets/...">
-        <p class="help-text">The action items are read from the Sheet's first column, one per row (a header row like "Action Item" is skipped). Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
+        <p class="help-text">The action items are read from the Sheet's first column, one per row, below a header row that starts "Action Item" (anything above it, like a title or due date, is skipped). Other columns are ignored: the sponsor checks items off, dates them and adds notes on their phone. Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
         <p class="error-text" id="sponsor-checklist-add-error"></p>
         <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
       </details>
@@ -3362,6 +3362,24 @@
     link.textContent = p.total ? 'Open Sheet' : 'Open checklist';
     actions.appendChild(link);
 
+    // Closed: the completion record filed to Drive (Checklists folder).
+    if (c.status !== 'Open') {
+      if (c.pdfLink) {
+        const rec = document.createElement('a');
+        rec.className = 'small-btn';
+        rec.href = c.pdfLink;
+        rec.target = '_blank';
+        rec.rel = 'noopener';
+        rec.textContent = 'Completion record';
+        actions.appendChild(rec);
+      } else if (c.pdfStatus) {
+        const note = document.createElement('span');
+        note.className = 'ap-step-status';
+        note.textContent = c.pdfStatus === 'Failed' ? 'Completion record couldn\'t be filed to Drive' : 'Completion record being filed to Drive…';
+        actions.appendChild(note);
+      }
+    }
+
     if (c.status === 'Open') {
       const remindBtn = document.createElement('button');
       remindBtn.type = 'button';
@@ -3390,7 +3408,7 @@
       closeBtn.className = 'secondary';
       closeBtn.textContent = 'Mark complete';
       closeBtn.addEventListener('click', async function () {
-        if (!confirm('Mark "' + c.title + '" complete and close it? ' + c.sponsorName + ' will be told it\'s complete, and it can\'t be reopened.')) return;
+        if (!confirm('Mark "' + c.title + '" complete and close it? ' + c.sponsorName + ' will be told it\'s complete, a completion record is filed to Drive, and it can\'t be reopened.')) return;
         closeBtn.disabled = true;
         setError('sponsor-checklists-error', '');
         try {

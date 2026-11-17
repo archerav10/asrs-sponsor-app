@@ -2142,8 +2142,10 @@ toggles to the closed ones. "+ New checklist" (location, title, message,
 due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklists.js`.
 
 - **Items come from the Sheet.** The app reads the first column of the
-  Sheet's first tab, one action item per row (a header like "Action Item",
-  or a second column headed "Done", is skipped), once, when the checklist
+  Sheet's first tab, one action item per row below the header row (one
+  starting "Action Item"/"Item"/"Task", or with a column headed "Done",
+  within the first 10 rows; a title or due-date line above it is skipped;
+  other columns aren't read), once, when the checklist
   is sent, and saves one row per item in **Sponsor Checklist Items**
   (`SPONSOR_CHECKLIST_ITEMS_DB_ID`). Checklists are still built and edited
   in Google Sheets; the Sheet must be in (or shared with) the ASRS Drive
@@ -2169,12 +2171,24 @@ due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklist
   **Mark complete**. Anyone granted the location can mark it complete
   (Closed By is recorded); the recipient then gets a "complete" text or
   email.
+- **Done, as seen in Drive.** Marking a checklist complete also files a
+  one-page **completion record** PDF (each item done or not, its date and
+  note; who it went to, submitted, closed by) to
+  `Facility Reporting/{Location}/Checklists/` as
+  `{closed date} - {title} - COMPLETE.pdf`, and renames the checklist's
+  Sheet `✓ COMPLETE {M/D/YYYY} – {old name}` (each checklist gets its own
+  copy of the Sheet, so the rename touches only that one). Both go through
+  the "ASRS Document Filing" Zapier workflow (`zapier/document-filing.workflow.ts`,
+  ticket from `fileCompletionRecord`, resolved by
+  `document-filing-resolve`); a failed rename doesn't stop the filing.
+  PDF Status (Pending/Saved/Failed) and PDF Link are saved on the
+  checklist; closed rows show **Completion record**.
 - Checklists sent before items existed (Sheet link by email) still open the
   Sheet, and their reminders email the Sheet link.
 - **Data:** Notion **Sponsor Checklists** (`SPONSOR_CHECKLISTS_DB_ID`):
   Location, Drive Link, Due Date, Message, Status, Sponsor Name/Email/Phone,
   Sent Via, Submitted Date, Created By Email/Name, Created Date, Closed
-  Date, Closed By. Texts use the Twilio Messaging Service (`lib/twilio.js`),
+  Date, Closed By, PDF Status, PDF Link. Texts use the Twilio Messaging Service (`lib/twilio.js`),
   emails the EmailJS setup (`lib/email.js`). The Notion integration needs a
   connection to both databases.
 
