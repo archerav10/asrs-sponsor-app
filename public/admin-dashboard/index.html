@@ -3362,6 +3362,24 @@
     link.textContent = p.total ? 'Open Sheet' : 'Open checklist';
     actions.appendChild(link);
 
+    // Closed: the completion record filed to Drive (Checklists folder).
+    if (c.status !== 'Open') {
+      if (c.pdfLink) {
+        const rec = document.createElement('a');
+        rec.className = 'small-btn';
+        rec.href = c.pdfLink;
+        rec.target = '_blank';
+        rec.rel = 'noopener';
+        rec.textContent = 'Completion record';
+        actions.appendChild(rec);
+      } else if (c.pdfStatus) {
+        const note = document.createElement('span');
+        note.className = 'ap-step-status';
+        note.textContent = c.pdfStatus === 'Failed' ? 'Completion record couldn\'t be filed to Drive' : 'Completion record being filed to Drive…';
+        actions.appendChild(note);
+      }
+    }
+
     if (c.status === 'Open') {
       const remindBtn = document.createElement('button');
       remindBtn.type = 'button';
@@ -3390,7 +3408,7 @@
       closeBtn.className = 'secondary';
       closeBtn.textContent = 'Mark complete';
       closeBtn.addEventListener('click', async function () {
-        if (!confirm('Mark "' + c.title + '" complete and close it? ' + c.sponsorName + ' will be told it\'s complete, and it can\'t be reopened.')) return;
+        if (!confirm('Mark "' + c.title + '" complete and close it? ' + c.sponsorName + ' will be told it\'s complete, a completion record is filed to Drive, and it can\'t be reopened.')) return;
         closeBtn.disabled = true;
         setError('sponsor-checklists-error', '');
         try {
