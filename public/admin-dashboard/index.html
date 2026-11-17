@@ -529,15 +529,16 @@
     </div>
 
     <div id="intake-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Prospective sponsors, DSPs and Secondary DSPs. They never log in: they get an email only when you click Send request, and they can always check their private status page. The checklists are edited in Notion (Intake Steps for sponsors, DSP Intake Steps for DSPs).</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Prospective sponsors, DSPs and Secondary DSPs, and residents applying for placement. They never log in: they get an email only when you click Send request, and they can always check their private status page. For a resident, use the email of whoever completes the intake (the applicant, their guardian/AR or the referring worker). The checklists are edited in Notion (Intake Steps for sponsors, DSP Intake Steps for DSPs, Resident Intake Steps for residents).</p>
       <details class="in-new" id="intake-new">
         <summary>+ Start a new intake</summary>
         <label for="intake-new-process">Intake for</label>
         <select id="intake-new-process">
           <option value="Sponsor">Sponsor</option>
           <option value="DSP">DSP / Secondary DSP</option>
+          <option value="Resident">Resident</option>
         </select>
-        <label for="intake-new-name">Name</label>
+        <label for="intake-new-name">Name (the sponsor, candidate or resident)</label>
         <input type="text" id="intake-new-name" autocomplete="off">
         <label for="intake-new-email">Email</label>
         <input type="email" id="intake-new-email" autocomplete="off">
@@ -5112,8 +5113,19 @@
     return currentIntake ? currentIntake.name + ' (' + currentIntake.email + ')' : 'the ' + personWord();
   }
   // "sponsor" or "candidate" (DSP intakes), for wording on this screen.
-  function personWord() {
-    return currentIntake && currentIntake.process === 'DSP' ? 'candidate' : 'sponsor';
+  // Who an intake is for, by process (Sponsor, DSP, Resident).
+  const PERSON_WORDS = { Sponsor: 'sponsor', DSP: 'candidate', Resident: 'applicant' };
+  const PROCESS_TAGS = {
+    Sponsor: { text: 'Sponsor', style: 'background:#EDE7F6; color:#5B3E8F;' },
+    DSP: { text: 'DSP', style: 'background:#E3ECF8; color:#1F4E8C;' },
+    Resident: { text: 'Resident', style: 'background:#E3F2E8; color:#1B6B3A;' }
+  };
+  function personWord(process) {
+    return PERSON_WORDS[process || (currentIntake && currentIntake.process)] || 'sponsor';
+  }
+  function personTag() {
+    const w = personWord();
+    return w.charAt(0).toUpperCase() + w.slice(1);
   }
   let intakeSelected = {};
   let intakeOpenStages = {}; // stage num -> open, kept across reloads after each save
@@ -5166,9 +5178,9 @@
         btn.type = 'button';
         const left = intakeEl('div');
         const whoEl = intakeEl('div', 'who', row.name);
-        const tag = intakeEl('span', null, row.process === 'DSP' ? 'DSP' : 'Sponsor');
-        tag.style.cssText = 'margin-left:8px; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; vertical-align:2px; ' +
-          (row.process === 'DSP' ? 'background:#E3ECF8; color:#1F4E8C;' : 'background:#EDE7F6; color:#5B3E8F;');
+        const pt = PROCESS_TAGS[row.process] || PROCESS_TAGS.Sponsor;
+        const tag = intakeEl('span', null, pt.text);
+        tag.style.cssText = 'margin-left:8px; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; vertical-align:2px; ' + pt.style;
         whoEl.appendChild(tag);
         left.appendChild(whoEl);
         left.appendChild(intakeEl('div', 'meta-line', row.currentStage
@@ -5176,7 +5188,7 @@
           : 'Intake complete'));
         const flags = [];
         if (row.needsReview) flags.push(row.needsReview + ' to review');
-        if (row.waitingOnSponsor) flags.push(row.waitingOnSponsor + ' waiting on ' + (row.process === 'DSP' ? 'candidate' : 'sponsor') + (row.oldestRequest ? ' (oldest ' + formatDate(row.oldestRequest) + ')' : ''));
+        if (row.waitingOnSponsor) flags.push(row.waitingOnSponsor + ' waiting on ' + personWord(row.process) + (row.oldestRequest ? ' (oldest ' + formatDate(row.oldestRequest) + ')' : ''));
         if (flags.length) {
           const f = intakeEl('div', 'meta-line', flags.join(' · '));
           if (row.needsReview) f.style.color = '#1F4E8C';
@@ -5362,7 +5374,7 @@
     title.appendChild(intakeEl('span', 'num', item.key));
     title.appendChild(document.createTextNode(item.label));
     if (item.licensing) title.appendChild(intakeEl('span', 'lic', '[L]'));
-    if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', personWord() === 'candidate' ? 'Candidate' : 'Sponsor'));
+    if (item.sponsorStep) title.appendChild(intakeEl('span', 'who-tag', personTag()));
     if (item.adminOnly) title.appendChild(intakeEl('span', 'admin-tag', 'Admin only'));
     head.appendChild(title);
 
@@ -5406,7 +5418,7 @@
     }
     if (item.blankFormUrl) {
       const bf = intakeEl('p', 'in-item-info');
-      bf.appendChild(document.createTextNode((personWord() === 'candidate' ? 'Candidate' : 'Sponsor') + ' downloads a blank form: '));
+      bf.appendChild(document.createTextNode(personTag() + ' downloads a blank form: '));
       const a = intakeEl('a', null, 'view');
       a.href = item.blankFormUrl;
       a.target = '_blank';

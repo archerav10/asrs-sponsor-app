@@ -628,7 +628,8 @@ One resident-annual, not calendar-anchored: each resident has their own
 Effective Date, and their cycle runs exactly one year from it
 (`lib/annual-planning.js` — `computeAnnualPlanningWindow`, the same
 rolling-window shape as `lib/mar-review-state.js`, just resident-anchored
-instead of month-anchored). 10 required documents, each satisfied by
+instead of month-anchored). 14 required documents (`STEPS`, including
+the ISP Training Documentation, `ISPTraining`), each satisfied by
 either an upload or (for now, only Authorization for Release —
 see `STEPS` in that file) a preconfigured JotForm.
 
@@ -1556,6 +1557,24 @@ When the person is linked to the intake on Staff Training
 Opted In or Opted Out, and a missing Phone Number is filled in from the
 intake.
 
+#### Resident intake (third process)
+
+`PROCESSES.Resident` in `lib/sponsor-intake.js`: residents applying for
+placement, from the ASRS Resident Intake File 2.0. Its checklist is
+**Resident Intake Stages** / **Resident Intake Steps** in Notion
+(`RESIDENT_INTAKE_STAGES_DB_ID` / `RESIDENT_INTAKE_STEPS_DB_ID`, same
+columns as the others; the "ASRS Sponsor Portal" integration needs a
+connection to both), four stages: Application & Referral, Interview &
+Acceptance, Admission & Planning, Medical. Everything is an upload except
+**1.1 ASRS Program Application**, a JotForm (263141045142040) emailed from
+Send request; a paper copy returned by hand goes in with Upload on their
+behalf. The application's ASRS-only page (received, interview,
+pre-placement visit, preliminary assessment, decision) is the admin-only
+step 2.A1. Requests go to the intake's email, which for a resident is
+whoever completes it (the applicant, their guardian/AR, or the referring
+worker). Drive: `{intake root}/{Name} (Resident)/{n Stage}`. The
+dashboard calls the person "applicant".
+
 #### Printing (binder sheets)
 
 `/admin-dashboard/print.html` renders a letter-size sheet and opens the
@@ -1715,6 +1734,7 @@ Live copies (all private, in the account that owns the Drive connection):
 | Statement of Understanding | 262777101527054 | 4.A6 |
 | DSP Application | 262996596719078 | DSP 1.3 |
 | DSP Confidentiality Agreement | 262996687594080 | DSP 2.4 |
+| ASRS Program Application (residents) | 263141045142040 | Resident 1.1 |
 
 The hidden `app_filename` field must be a plain Short Text field: a
 Unique ID field can't be prefilled and always submits its own number.

@@ -26,9 +26,10 @@ const STAGES_DB_ID = configId('SPONSOR_INTAKE_STAGES_DB_ID');
 const STEPS_DB_ID = configId('SPONSOR_INTAKE_STEPS_DB_ID');
 const CHECKLIST_TTL_MS = 30 * 1000;
 
-// Two intake checklists share everything in this file: Sponsor (the
-// databases above) and DSP, for DSPs and Secondary DSPs (DSP Intake
-// Stages / DSP Intake Steps, same columns). An intake's Process says
+// Three intake checklists share everything in this file: Sponsor (the
+// databases above), DSP, for DSPs and Secondary DSPs (DSP Intake
+// Stages / DSP Intake Steps, same columns), and Resident (Resident Intake
+// Stages / Steps). An intake's Process says
 // which one it follows; blank means Sponsor, which is every intake from
 // before DSP intake existed. "Sponsor" in names below means whoever the
 // intake is for.
@@ -48,6 +49,17 @@ const PROCESSES = {
     noun: 'DSP',
     applyingFor: 'a Direct Support Professional (DSP)',
     folderSuffix: ' (DSP)'
+  },
+  // Residents applying for placement (ASRS Resident Intake File). The
+  // request emails go to whoever the intake's email is: the applicant,
+  // their guardian/AR, or a referring case worker.
+  Resident: {
+    stagesDb: configId('RESIDENT_INTAKE_STAGES_DB_ID'),
+    stepsDb: configId('RESIDENT_INTAKE_STEPS_DB_ID'),
+    title: 'Resident Intake',
+    noun: 'resident',
+    applyingFor: 'a resident',
+    folderSuffix: ' (Resident)'
   }
 };
 const DEFAULT_PROCESS = 'Sponsor';

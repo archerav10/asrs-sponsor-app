@@ -26,7 +26,8 @@ exports.handler = async function (event) {
       return json(400, { error: 'That email address doesn\'t look right.' });
     }
 
-    // Process: "Sponsor" (default) or "DSP" (DSPs and Secondary DSPs).
+    // Process: "Sponsor" (default), "DSP" (DSPs and Secondary DSPs) or
+    // "Resident" (residents applying for placement).
     const intake = await createIntake(name, email, phone, session.name || session.email, processOf(body.process));
 
     let welcomeSent = false;
