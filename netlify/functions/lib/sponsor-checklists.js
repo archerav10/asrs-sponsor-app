@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { queryDatabase, queryDatabaseAll, createPage, updatePage, getPage, getPlainText } = require('./notion');
+const { queryDatabase, queryDatabaseAll, createPage, updatePage, trashPage, getPage, getPlainText } = require('./notion');
 const { sendEmail } = require('./email');
 const { sendSms, normalizePhone } = require('./twilio');
 const { adminsWithRole } = require('./roles');
@@ -29,6 +29,9 @@ const MAX_ITEMS = 100;
 //   Submit texts the admin who sent it and the location's Residential
 //   Liaison(s). Closing it texts the recipient that it's complete.
 //   Reminders only go out when an admin clicks Send reminder.
+//   Update from Sheet (open checklists) reads the Sheet again: items whose
+//   text is unchanged keep their answers, new ones are added unchecked,
+//   ones no longer in the Sheet are removed (see updateItemsFromSheet).
 //
 // Checklists sent before this (a Sheet link by email, no items) keep
 // working the old way: Open checklist opens the Sheet, and reminders
@@ -100,7 +103,8 @@ function checklistFromPage(page) {
     closedDate: getPlainText(p['Closed Date']),
     closedBy: getPlainText(p['Closed By']),
     pdfStatus: getPlainText(p['PDF Status']),
-    pdfLink: getPlainText(p['PDF Link'])
+    pdfLink: getPlainText(p['PDF Link']),
+    itemsUpdatedDate: getPlainText(p['Items Updated Date'])
   };
 }
 
@@ -254,7 +258,7 @@ async function notifyRecipient(checklist, kind, site) {
   if (checklist.sentVia === 'Text' && normalizePhone(checklist.sponsorPhone)) {
     const text = kind === 'closed'
       ? 'ASRS: Thanks, ' + firstName(checklist.sponsorName) + '. "' + checklist.title + '" is complete. No further action needed.'
-      : (kind === 'reminder' ? 'ASRS reminder: ' : 'ASRS checklist for ' + checklist.location + ': ') + '"' + checklist.title + '", due ' + due +
+      : (kind === 'reminder' ? (checklist.itemsUpdatedDate ? 'ASRS reminder (list updated ' + usDate(checklist.itemsUpdatedDate) + '): ' : 'ASRS reminder: ') : 'ASRS checklist for ' + checklist.location + ': ') + '"' + checklist.title + '", due ' + due +
         '. Open it here to check items off: ' + link + ' Reply STOP to opt out.';
     await sendSms(normalizePhone(checklist.sponsorPhone), text);
     return 'Text';
@@ -263,7 +267,7 @@ async function notifyRecipient(checklist, kind, site) {
   const subject = kind === 'closed' ? 'Complete: ' + checklist.title : (kind === 'reminder' ? 'Reminder: ' : '') + checklist.title;
   const body = kind === 'closed'
     ? 'Thank you. "' + checklist.title + '" is complete. No further action is needed.'
-    : [checklist.message, '', 'Please complete all items by ' + due + '.', '', 'Checklist: ' + (legacy ? checklist.driveLink : link)].join('\n');
+    : [checklist.message, '', (kind === 'reminder' && checklist.itemsUpdatedDate ? 'The checklist was updated ' + usDate(checklist.itemsUpdatedDate) + '. ' : '') + 'Please complete all items by ' + due + '.', '', 'Checklist: ' + (legacy ? checklist.driveLink : link)].join('\n');
   await sendEmail(checklist.sponsorEmail, checklist.sponsorName, subject, body);
   return 'Email';
 }
@@ -481,6 +485,72 @@ async function closeChecklist(checklistId, byName, site) {
   return { checklist: await checklistById(checklistId), notified: notified, filed: filed };
 }
 
+// ---------- updating the items from the Sheet ----------
+// Matches the Sheet's items to the checklist's by their text (ignoring
+// letter case and spacing). A reworded item counts as removed + added, so
+// its check mark doesn't carry over to what is now a different ask.
+
+function itemKey(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function planItemUpdate(current, sheetItems) {
+  const pool = current.slice();
+  const order = [];
+  const added = [];
+  sheetItems.forEach(function (text) {
+    const i = pool.findIndex(function (c) { return itemKey(c.item) === itemKey(text); });
+    if (i !== -1) { order.push({ keep: pool[i], text: text }); pool.splice(i, 1); }
+    else { order.push({ text: text }); added.push(text); }
+  });
+  return {
+    order: order,
+    added: added,
+    removed: pool.map(function (c) { return { id: c.id, item: c.item, done: c.done, notes: c.notes }; }),
+    unchanged: order.length - added.length
+  };
+}
+
+// apply=false: just the plan, for the confirmation. apply=true: makes
+// the changes. Adding items clears Submitted Date, so the recipient
+// submits again for the new items.
+async function updateItemsFromSheet(checklistId, apply) {
+  const checklist = await checklistById(checklistId);
+  if (checklist.status !== 'Open') throw httpError(400, 'That checklist is closed.');
+  const current = await itemsFor(checklistId);
+  if (!current.length) throw httpError(400, 'This checklist was sent before checklists had items, so it uses the Sheet directly. Nothing to update.');
+  const sheetItems = await itemsFromSheet(checklist.driveLink);
+  const plan = planItemUpdate(current, sheetItems);
+  const summary = { added: plan.added, removed: plan.removed, unchanged: plan.unchanged, total: sheetItems.length };
+  if (!apply) return summary;
+  if (!plan.added.length && !plan.removed.length && plan.order.every(function (o, i) { return o.keep && o.keep.order === i + 1; })) {
+    return Object.assign(summary, { applied: false });
+  }
+
+  for (let i = 0; i < plan.order.length; i++) {
+    const o = plan.order[i];
+    if (o.keep) {
+      const props = {};
+      if (o.keep.order !== i + 1) props['Order'] = { number: i + 1 };
+      if (o.keep.item !== o.text) props['Item'] = { title: [{ text: { content: o.text.slice(0, 2000) } }] };
+      if (Object.keys(props).length) await updatePage(o.keep.id, props);
+    } else {
+      await createPage(ITEMS_DB_ID, {
+        'Item': { title: [{ text: { content: o.text.slice(0, 2000) } }] },
+        'Checklist ID': richText(checklistId),
+        'Order': { number: i + 1 },
+        'Done': { checkbox: false }
+      });
+    }
+  }
+  for (const r of plan.removed) await trashPage(r.id);
+
+  const props = { 'Items Updated Date': { date: { start: todayIso() } } };
+  if (plan.added.length && checklist.submittedDate) props['Submitted Date'] = { date: null };
+  await updatePage(checklistId, props);
+  return Object.assign(summary, { applied: true });
+}
+
 // ---------- the recipient's page ----------
 
 async function publicView(token) {
@@ -553,6 +623,8 @@ module.exports = {
   createChecklist,
   sendReminder,
   closeChecklist,
+  planItemUpdate,
+  updateItemsFromSheet,
   publicView,
   saveItem,
   submit,

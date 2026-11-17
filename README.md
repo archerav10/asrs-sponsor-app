@@ -2150,7 +2150,18 @@ due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklist
   (`SPONSOR_CHECKLIST_ITEMS_DB_ID`). Checklists are still built and edited
   in Google Sheets; the Sheet must be in (or shared with) the ASRS Drive
   account the app reads with, and doesn't need to be shared with the
-  sponsor. Editing the Sheet later doesn't change a checklist already sent.
+  sponsor. Editing the Sheet later doesn't change a checklist already sent
+  until someone clicks **Update from Sheet** on it.
+- **Update from Sheet** (open checklists with items;
+  `update-sponsor-checklist-items`, `updateItemsFromSheet`): reads the
+  Sheet again and shows what would change before saving. Items are matched
+  by text (case and spacing ignored): unchanged ones keep their check
+  marks, dates and notes; new ones are added unchecked; ones no longer in
+  the Sheet go to Notion's trash (it warns when one was already answered);
+  a reworded item counts as removed + added. Order follows the Sheet.
+  Adding items clears Submitted Date so the recipient submits again. Items
+  Updated Date is saved; nothing is sent, but the next reminder says the
+  list was updated. The recipient's link doesn't change.
 - **Recipient:** a location's one checklist recipient from the **Sponsors**
   table: the only person there, or the one with **Primary Sponsor**
   checked (Longstreet: the house manager). They get a private link
@@ -2188,7 +2199,7 @@ due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklist
 - **Data:** Notion **Sponsor Checklists** (`SPONSOR_CHECKLISTS_DB_ID`):
   Location, Drive Link, Due Date, Message, Status, Sponsor Name/Email/Phone,
   Sent Via, Submitted Date, Created By Email/Name, Created Date, Closed
-  Date, Closed By, PDF Status, PDF Link. Texts use the Twilio Messaging Service (`lib/twilio.js`),
+  Date, Closed By, PDF Status, PDF Link, Items Updated Date. Texts use the Twilio Messaging Service (`lib/twilio.js`),
   emails the EmailJS setup (`lib/email.js`). The Notion integration needs a
   connection to both databases.
 

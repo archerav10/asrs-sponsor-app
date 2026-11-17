@@ -607,7 +607,7 @@
         <input type="date" id="sc-add-due">
         <label for="sc-add-link">Google Sheet link</label>
         <input type="url" id="sc-add-link" placeholder="https://docs.google.com/spreadsheets/...">
-        <p class="help-text">The action items are read from the Sheet's first column, one per row, below a header row that starts "Action Item" (anything above it, like a title or due date, is skipped). Other columns are ignored: the sponsor checks items off, dates them and adds notes on their phone. Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
+        <p class="help-text">The action items are read from the Sheet's first column, one per row, below a header row that starts "Action Item" (anything above it, like a title or due date, is skipped). Other columns are ignored: the sponsor checks items off, dates them and adds notes on their phone. Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor. To change items after it's sent, edit the Sheet and click Update from Sheet on the checklist.</p>
         <p class="error-text" id="sponsor-checklist-add-error"></p>
         <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
       </details>
@@ -3320,7 +3320,8 @@
       const prog = document.createElement('p');
       prog.className = 'ap-step-status' + (p.done === p.total ? ' done' : '');
       prog.textContent = p.done + ' of ' + p.total + ' done' + (p.notes ? ' · ' + p.notes + ' note' + (p.notes === 1 ? '' : 's') : '') +
-        (c.submittedDate ? ' · submitted ' + formatDate(c.submittedDate) : ' · not submitted yet');
+        (c.submittedDate ? ' · submitted ' + formatDate(c.submittedDate) : ' · not submitted yet') +
+        (c.itemsUpdatedDate ? ' · list updated ' + formatDate(c.itemsUpdatedDate) : '');
       row.appendChild(prog);
     }
 
@@ -3400,6 +3401,51 @@
         }
       });
       actions.appendChild(remindBtn);
+
+      // Update from Sheet: re-read the Sheet after editing it. Shows what
+      // would change and asks first; unchanged items keep their answers.
+      if (p.total) {
+        const updBtn = document.createElement('button');
+        updBtn.type = 'button';
+        updBtn.className = 'secondary';
+        updBtn.textContent = 'Update from Sheet';
+        updBtn.addEventListener('click', async function () {
+          updBtn.disabled = true;
+          updBtn.textContent = 'Reading the Sheet…';
+          setError('sponsor-checklists-error', '');
+          const call = function (apply) {
+            return apiFetch('/update-sponsor-checklist-items', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id, apply: apply })
+            });
+          };
+          try {
+            const plan = await call(false);
+            const answered = plan.removed.filter(function (r) { return r.done || r.notes; });
+            if (!plan.added.length && !plan.removed.length) {
+              const r = await call(true);
+              alert(r.applied ? 'The items were put in the Sheet\'s order. Nothing was added or removed.' : 'The checklist already matches the Sheet. Nothing to update.');
+              if (r.applied) loadSponsorChecklistsDashboard();
+              return;
+            }
+            const lines = ['Update "' + c.title + '" from its Sheet?', ''];
+            lines.push(plan.added.length + ' added, ' + plan.removed.length + ' removed, ' + plan.unchanged + ' unchanged (answers kept).');
+            if (plan.added.length) { lines.push('', 'Added:'); plan.added.forEach(function (t) { lines.push('  + ' + t); }); }
+            if (plan.removed.length) { lines.push('', 'Removed:'); plan.removed.forEach(function (r) { lines.push('  − ' + r.item + (r.done || r.notes ? '  (' + [r.done ? 'checked off' : '', r.notes ? 'has a note' : ''].filter(Boolean).join(', ') + ')' : '')); }); }
+            if (answered.length) lines.push('', 'Warning: ' + answered.length + ' removed item' + (answered.length === 1 ? ' was' : 's were') + ' already answered by ' + c.sponsorName + '. Reworded items count as removed and added.');
+            if (plan.added.length && c.submittedDate) lines.push('', 'It was submitted; with new items it will need to be submitted again.');
+            lines.push('', 'Nothing is sent to ' + c.sponsorName + '. Use Send reminder to let them know.');
+            if (!confirm(lines.join('\n'))) return;
+            await call(true);
+            loadSponsorChecklistsDashboard();
+          } catch (e) {
+            setError('sponsor-checklists-error', e.message);
+          } finally {
+            updBtn.disabled = false;
+            updBtn.textContent = 'Update from Sheet';
+          }
+        });
+        actions.appendChild(updBtn);
+      }
 
       // Anyone with access to the location can close it; the recipient is
       // told it's complete.
