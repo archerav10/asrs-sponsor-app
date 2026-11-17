@@ -1,9 +1,16 @@
 const { requireSession } = require('./lib/session');
 const { createChecklist } = require('./lib/sponsor-checklists');
 
-// Creates a checklist and emails it right away to the location's
-// primary sponsor — there's no separate "send" step, matching the
-// user's "send sponsors a checklist" framing.
+// Creates a checklist (its items read from the Google Sheet) and sends the
+// location's checklist recipient its private link right away, by text when
+// they're opted in, else by email. There's no separate "send" step.
+// The site a request came in on, so a deploy preview's links point at itself.
+function siteFor(event) {
+  const h = (event && event.headers) || {};
+  const host = h['x-forwarded-host'] || h.host || '';
+  return /^[a-z0-9.-]+(:\d+)?$/i.test(host) ? 'https://' + host : '';
+}
+
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method not allowed' };
 
@@ -27,7 +34,7 @@ exports.handler = async function (event) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate || '')) return { statusCode: 400, body: JSON.stringify({ error: 'Choose a due date.' }) };
     if (!/^https:\/\//.test(driveLink)) return { statusCode: 400, body: JSON.stringify({ error: 'Paste the Google Sheet\'s link.' }) };
 
-    const checklist = await createChecklist(location, title, message, dueDate, driveLink, session.email, session.name || session.email);
+    const checklist = await createChecklist(location, title, message, dueDate, driveLink, session.email, session.name || session.email, siteFor(event));
     return { statusCode: 200, body: JSON.stringify({ checklist: checklist }) };
   } catch (err) {
     if (!err.statusCode) console.error(err);

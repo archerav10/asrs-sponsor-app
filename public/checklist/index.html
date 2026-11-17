@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ASRS Checklist</title>
+<style>
+  /* A sponsor checklist on the recipient's phone, opened from the private
+     link in their text or email (lib/sponsor-checklists.js). Each item
+     saves as it changes; Submit tells ASRS it's done. */
+  :root { --forest: #16332B; --forest-light: #2F5D45; --cream: #F6F3EC; --line: #E2DED3; --muted: #6B6B6B; --red: #B3261E; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--cream); color: #1d2433; font: 16px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { background: var(--forest); color: var(--cream); padding: 14px 16px; }
+  header .org { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; opacity: .85; }
+  header h1 { margin: 2px 0 0; font-size: 20px; line-height: 1.25; }
+  header .meta { margin-top: 4px; font-size: 14px; opacity: .9; }
+  main { max-width: 640px; margin: 0 auto; padding: 14px 16px 120px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 0 0 12px; }
+  .msg { white-space: pre-wrap; }
+  .banner { border-radius: 12px; padding: 12px 14px; margin: 0 0 12px; font-size: 15px; }
+  .banner.done { background: #E8F3EC; color: #1B5E20; border: 1px solid #C6E2CF; }
+  .banner.closed { background: #EEF0F3; color: #333; border: 1px solid #D8DCE2; }
+  .progress { display: flex; align-items: center; gap: 10px; margin: 2px 0 12px; font-size: 14px; color: var(--muted); }
+  .bar { flex: 1; height: 8px; background: #E5E1D7; border-radius: 5px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--forest-light); width: 0; transition: width .2s; }
+  .item { background: #fff; border: 1px solid var(--line); border-radius: 12px; margin: 0 0 10px; }
+  .item.is-done { border-color: #C6E2CF; background: #FBFDFB; }
+  .item-main { display: flex; gap: 12px; align-items: flex-start; padding: 14px; cursor: pointer; }
+  .box { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px; border: 2px solid #9AA39C; display: grid; place-items: center; background: #fff; margin-top: 1px; }
+  .item.is-done .box { background: var(--forest-light); border-color: var(--forest-light); }
+  .item.is-done .box::after { content: ""; width: 8px; height: 14px; border: solid #fff; border-width: 0 3px 3px 0; transform: rotate(45deg) translate(-1px, -1px); }
+  .item-text { flex: 1; font-size: 16px; }
+  .item.is-done .item-text { color: #355; }
+  .item-extra { padding: 0 14px 14px 54px; display: grid; gap: 8px; }
+  .item-extra label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+  input[type="date"], textarea { font: inherit; font-size: 16px; width: 100%; padding: 8px 10px; border: 1px solid #CFCAC0; border-radius: 8px; background: #fff; }
+  textarea { min-height: 44px; resize: vertical; }
+  .saved { font-size: 12px; color: var(--muted); min-height: 16px; }
+  .saved.err { color: var(--red); }
+  .note-toggle { background: none; border: 0; padding: 0; color: var(--forest-light); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; justify-self: start; }
+  .footer { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(246,243,236,.97); border-top: 1px solid var(--line); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .footer button { display: block; width: 100%; max-width: 640px; margin: 0 auto; padding: 15px; font: inherit; font-size: 17px; font-weight: 600; color: #fff; background: var(--forest); border: 0; border-radius: 10px; cursor: pointer; }
+  .footer button:disabled { opacity: .55; }
+  .error { color: var(--red); padding: 20px 16px; }
+  a { color: var(--forest-light); }
+  [disabled] { cursor: default; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <div class="org">Arch Support Residential Services</div>
+  <h1 id="title">Checklist</h1>
+  <div class="meta" id="meta"></div>
+</header>
+<main id="main"><p>Loading…</p></main>
+<div class="footer" id="footer" hidden><button type="button" id="submit-btn">Submit checklist</button></div>
+
+<script>
+(function () {
+  const FN = '/.netlify/functions';
+  const token = new URLSearchParams(location.search).get('t') || '';
+  const main = document.getElementById('main');
+  const footer = document.getElementById('footer');
+  const submitBtn = document.getElementById('submit-btn');
+  let data = null;
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function fmt(iso) {
+    if (!iso) return '';
+    const p = iso.slice(0, 10).split('-');
+    return Number(p[1]) + '/' + Number(p[2]) + '/' + p[0];
+  }
+  function today() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  }
+  async function call(path, body) {
+    const res = await fetch(FN + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ t: token }, body)) } : undefined);
+    const out = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error(out.error || 'Something went wrong. Please try again.');
+    return out;
+  }
+
+  function updateProgress() {
+    const done = data.items.filter(function (i) { return i.done; }).length;
+    document.getElementById('progress-text').textContent = done + ' of ' + data.items.length + ' done';
+    document.getElementById('progress-bar').style.width = (data.items.length ? Math.round(done / data.items.length * 100) : 0) + '%';
+  }
+
+  function renderItem(item, editable) {
+    const box = el('div', 'item' + (item.done ? ' is-done' : ''));
+    const row = el('div', 'item-main');
+    row.setAttribute('role', 'checkbox');
+    row.setAttribute('aria-checked', item.done ? 'true' : 'false');
+    row.tabIndex = editable ? 0 : -1;
+    row.appendChild(el('span', 'box'));
+    row.appendChild(el('span', 'item-text', item.item));
+    box.appendChild(row);
+
+    const extra = el('div', 'item-extra');
+    const dateLabel = el('label', null, 'Date done');
+    const date = document.createElement('input');
+    date.type = 'date';
+    date.value = item.date || '';
+    date.max = today();
+    date.disabled = !editable;
+    dateLabel.appendChild(date);
+
+    const notesLabel = el('label', null, 'Notes');
+    const notes = document.createElement('textarea');
+    notes.rows = 2;
+    notes.value = item.notes || '';
+    notes.disabled = !editable;
+    notes.placeholder = 'Anything ASRS should know';
+    notesLabel.appendChild(notes);
+
+    const noteToggle = el('button', 'note-toggle', 'Add a note');
+    noteToggle.type = 'button';
+    const saved = el('div', 'saved');
+
+    function layout() {
+      dateLabel.hidden = !item.done;
+      const showNotes = !!item.notes || notesOpen;
+      notesLabel.hidden = !showNotes;
+      noteToggle.hidden = showNotes || !editable;
+      extra.hidden = !item.done && !showNotes && !editable;
+    }
+    let notesOpen = false;
+    noteToggle.addEventListener('click', function () { notesOpen = true; layout(); notes.focus(); });
+
+    let saveTimer = null;
+    async function save() {
+      saved.textContent = 'Saving…';
+      saved.classList.remove('err');
+      try {
+        const r = await call('/checklist-save-item', { itemId: item.id, done: item.done, date: item.date, notes: item.notes });
+        item.date = r.date;
+        date.value = r.date || '';
+        saved.textContent = 'Saved';
+        setTimeout(function () { if (saved.textContent === 'Saved') saved.textContent = ''; }, 1500);
+      } catch (e) {
+        saved.textContent = e.message;
+        saved.classList.add('err');
+      }
+    }
+
+    if (editable) {
+      function toggle() {
+        item.done = !item.done;
+        if (item.done && !item.date) item.date = today();
+        if (!item.done) item.date = '';
+        box.classList.toggle('is-done', item.done);
+        row.setAttribute('aria-checked', item.done ? 'true' : 'false');
+        date.value = item.date;
+        layout();
+        updateProgress();
+        save();
+      }
+      row.addEventListener('click', toggle);
+      row.addEventListener('keydown', function (e) { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } });
+      date.addEventListener('change', function () { item.date = date.value; save(); });
+      notes.addEventListener('input', function () {
+        item.notes = notes.value;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(save, 800);
+      });
+    }
+
+    extra.appendChild(dateLabel);
+    extra.appendChild(notesLabel);
+    extra.appendChild(noteToggle);
+    extra.appendChild(saved);
+    layout();
+    box.appendChild(extra);
+    return box;
+  }
+
+  function render() {
+    document.getElementById('title').textContent = data.title;
+    document.getElementById('meta').textContent = data.location + (data.dueDate ? ' · Due ' + fmt(data.dueDate) : '');
+    document.title = data.title + ' · ASRS';
+    main.innerHTML = '';
+    const open = data.status === 'Open';
+
+    if (!open) main.appendChild(el('div', 'banner closed', 'This checklist is complete. Thank you! It can no longer be changed.'));
+    else if (data.submittedDate) main.appendChild(el('div', 'banner done', 'Submitted ' + fmt(data.submittedDate) + '. You can still make changes and submit again until ASRS closes it.'));
+
+    if (data.message) {
+      const card = el('div', 'card');
+      card.appendChild(el('div', 'msg', 'Hi ' + data.recipient + ',\n\n' + data.message));
+      main.appendChild(card);
+    }
+
+    // Sent before checklists had items: the Google Sheet is the checklist.
+    if (!data.items.length) {
+      const card = el('div', 'card');
+      card.appendChild(document.createTextNode('This checklist is a Google Sheet: '));
+      if (data.driveLink) {
+        const a = el('a', null, 'open the checklist');
+        a.href = data.driveLink;
+        card.appendChild(a);
+      }
+      main.appendChild(card);
+      return;
+    }
+
+    const prog = el('div', 'progress');
+    prog.appendChild(el('span', null, ''));
+    prog.firstChild.id = 'progress-text';
+    const bar = el('div', 'bar');
+    const fill = el('span');
+    fill.id = 'progress-bar';
+    bar.appendChild(fill);
+    prog.appendChild(bar);
+    main.appendChild(prog);
+    data.items.forEach(function (item) { main.appendChild(renderItem(item, open)); });
+    updateProgress();
+
+    footer.hidden = !open;
+    submitBtn.textContent = data.submittedDate ? 'Submit again' : 'Submit checklist';
+  }
+
+  submitBtn.addEventListener('click', async function () {
+    const left = data.items.filter(function (i) { return !i.done; }).length;
+    if (left && !confirm(left + ' item' + (left === 1 ? ' isn\'t' : 's aren\'t') + ' checked off yet. Submit anyway?')) return;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting…';
+    try {
+      await call('/checklist-submit', {});
+      data.submittedDate = today();
+      render();
+      window.scrollTo(0, 0);
+    } catch (e) {
+      alert(e.message);
+      submitBtn.textContent = data.submittedDate ? 'Submit again' : 'Submit checklist';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
+  call('/checklist-view?t=' + encodeURIComponent(token)).then(function (d) {
+    data = d;
+    render();
+  }).catch(function (e) {
+    main.innerHTML = '';
+    main.appendChild(el('p', 'error', e.message));
+  });
+})();
+</script>
+</body>
+</html>
