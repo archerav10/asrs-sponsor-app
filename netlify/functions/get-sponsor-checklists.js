@@ -1,5 +1,5 @@
 const { requireSession } = require('./lib/session');
-const { checklistsForLocations } = require('./lib/sponsor-checklists');
+const { checklistsForLocations, itemsFor, progress } = require('./lib/sponsor-checklists');
 
 // The Checklists tab: every checklist at the admin's granted locations.
 // Open ones lead, oldest first (longest outstanding at the top); closed
@@ -15,6 +15,12 @@ exports.handler = async function (event) {
 
     const locations = session.grantedLocations || [];
     const checklists = await checklistsForLocations(locations);
+    // Each checklist's items (the recipient's answers) and progress.
+    // Checklists sent before items existed have none.
+    await Promise.all(checklists.map(async function (c) {
+      c.items = await itemsFor(c.id);
+      c.progress = progress(c.items);
+    }));
 
     const open = checklists.filter(function (c) { return c.status === 'Open'; })
       .sort(function (a, b) { return a.createdDate < b.createdDate ? -1 : a.createdDate > b.createdDate ? 1 : 0; });

@@ -142,4 +142,16 @@ async function fileContent(fileId) {
   return { name: meta.name, contentType: exportMime || meta.mimeType || 'application/octet-stream', buffer: buffer, exported: !!exportMime };
 }
 
-module.exports = { listFolder, findChildFolder, getMeta, isWithin, fileContent, FOLDER_MIME };
+// A Google Sheet's first tab as CSV text (sponsor checklists read their
+// action items this way). Only native Google Sheets can be exported.
+async function sheetCsv(fileId) {
+  const meta = await getMeta(fileId);
+  if (meta.mimeType !== 'application/vnd.google-apps.spreadsheet') {
+    const err = new Error('That link isn\'t a Google Sheet. (An uploaded Excel file has to be opened and saved as a Google Sheet first: File → Save as Google Sheets.)');
+    err.statusCode = 400;
+    throw err;
+  }
+  return (await driveGet('files/' + encodeURIComponent(fileId) + '/export', { mimeType: 'text/csv' })).text();
+}
+
+module.exports = { listFolder, findChildFolder, getMeta, isWithin, fileContent, sheetCsv, FOLDER_MIME };

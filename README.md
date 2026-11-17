@@ -2134,41 +2134,49 @@ logging the service starts the next cycle. Dry run:
 removed entries have Active unchecked). IDs are in `lib/ids.js`. Connect
 your Notion integration to both ("..." -> Connections).
 
-### Sponsor Checklists (admin dashboard only — ad hoc checklists by email)
+### Sponsor Checklists (admin dashboard; checklists done on the sponsor's phone)
 
 **Admin Dashboard -> Checklists tab:** every granted location's open
 checklists, oldest first, grouped by location; "View closed checklists"
-toggles to the closed ones instead. "+ New checklist" (location, title,
-message, due date, and a link to a Google Sheet) sends the email right
-away — there's no separate send step. Each open row has "Open
-checklist" (the Sheet link), "Send reminder" (re-sends the same email
-on demand — there's no automatic schedule) and "Close", which only
-shows for whoever created that checklist; closing is also enforced
-server-side, so there's no way around that from the API either.
-Sponsors never see any of this — only the email with the link.
+toggles to the closed ones. "+ New checklist" (location, title, message,
+due date, and a link to a Google Sheet) sends right away. `lib/sponsor-checklists.js`.
 
-**Recipient:** a location's checklist always goes to one sponsor. With
-only one sponsor/DSP on file there, that's who gets it; with more than
-one, it goes to whichever one has **Primary Sponsor** checked on the
-**Sponsors** database — creating a checklist for a location with
-several sponsors and no Primary Sponsor set fails with a message to set
-one first.
-
-**The Google Sheet:** make one with the columns you want checked off
-(Action Item | Done | Date | Notes works well — a checkbox column via
-Insert -> Checkbox, a Date column sponsors can click to open a date
-picker, and a free-text Notes column), then share that one file (not
-its parent folder) "Anyone with the link -> Editor" so clicking it
-shows only that sheet, never your Drive. Copy it per checklist (File ->
-Make a copy) rather than reusing one, so each cycle's answers stay on
-file.
-
-**Data:** Notion **Sponsor Checklists** (`SPONSOR_CHECKLISTS_DB_ID`, in
-`lib/ids.js`) — one row per checklist (Location, Drive Link, Due Date,
-Message, Status, Sponsor Name/Email, Created By Email/Name, Created
-Date, Closed Date). Connect your Notion integration to it. Reuses the
-same EmailJS setup as Weekly Focus (`lib/email.js`) — no new email
-template or Zap needed.
+- **Items come from the Sheet.** The app reads the first column of the
+  Sheet's first tab, one action item per row (a header like "Action Item",
+  or a second column headed "Done", is skipped), once, when the checklist
+  is sent, and saves one row per item in **Sponsor Checklist Items**
+  (`SPONSOR_CHECKLIST_ITEMS_DB_ID`). Checklists are still built and edited
+  in Google Sheets; the Sheet must be in (or shared with) the ASRS Drive
+  account the app reads with, and doesn't need to be shared with the
+  sponsor. Editing the Sheet later doesn't change a checklist already sent.
+- **Recipient:** a location's one checklist recipient from the **Sponsors**
+  table: the only person there, or the one with **Primary Sponsor**
+  checked (Longstreet: the house manager). They get a private link
+  (`/checklist/?t={id}_{hmac}`) **by text** when they have a Phone Number
+  and SMS Consent Status = Opted In, otherwise **by email** (Sent Via,
+  Sponsor Phone/Email are saved on the checklist; reminders go the same
+  way).
+- **The phone page** (`public/checklist/`, `checklist-view`,
+  `checklist-save-item`, `checklist-submit`): no login; one tap checks an
+  item off (dated today, editable), with an optional note; everything saves
+  as they go. **Submit** records Submitted Date and texts the admin who sent
+  it and the location's Residential Liaison(s) (Admin Accounts → Roles)
+  with the tally. They can keep editing and submit again until it's closed;
+  a closed checklist is read-only.
+- **Dashboard rows** show who it went to and how, progress ("6 of 10 done ·
+  submitted 11/18"), **View items** (each item, date and note), **Open
+  Sheet**, **Send reminder** (manual only; confirms who it went to) and
+  **Mark complete**. Anyone granted the location can mark it complete
+  (Closed By is recorded); the recipient then gets a "complete" text or
+  email.
+- Checklists sent before items existed (Sheet link by email) still open the
+  Sheet, and their reminders email the Sheet link.
+- **Data:** Notion **Sponsor Checklists** (`SPONSOR_CHECKLISTS_DB_ID`):
+  Location, Drive Link, Due Date, Message, Status, Sponsor Name/Email/Phone,
+  Sent Via, Submitted Date, Created By Email/Name, Created Date, Closed
+  Date, Closed By. Texts use the Twilio Messaging Service (`lib/twilio.js`),
+  emails the EmailJS setup (`lib/email.js`). The Notion integration needs a
+  connection to both databases.
 
 ### Documents from Google Drive (Sponsor Guidance, past progress notes)
 

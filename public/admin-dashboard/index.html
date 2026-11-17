@@ -196,6 +196,12 @@
   .isp-staff:first-of-type { border-top: 0; }
   .isp-staff-name { font-weight: 600; margin: 0 0 2px; }
   .isp-revise { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #DDD; font-size: 13px; }
+  .sc-items { margin: 6px 0 8px; font-size: 14px; }
+  .sc-items summary { cursor: pointer; color: var(--forest-light); }
+  .sc-items ul { list-style: none; padding: 0; margin: 6px 0 0; }
+  .sc-items li { padding: 5px 0; border-top: 1px solid #EEE; }
+  .sc-items li.done { color: #1B7A3D; }
+  .sc-item-extra { display: block; color: #666; font-size: 13px; margin-left: 18px; }
   .drive-check { margin: 14px 0; padding: 12px 14px; border-radius: 10px; background: #F4F7F5; border: 1px solid #DCE6DF; font-size: 13px; color: #333; }
   .drive-check ul { margin: 6px 0 0; padding-left: 18px; }
   .drive-check li { margin: 3px 0; overflow-wrap: anywhere; }
@@ -587,7 +593,7 @@
     </div>
 
     <div id="sponsor-checklists-tab-content" style="display:none;">
-      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Send a location's primary sponsor a checklist &mdash; a message, a due date and a link to a Google Sheet they fill out. Only you, the admin who sent it, can close it; reminders go out manually with the button below.</p>
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">Send a location's checklist recipient (its Primary Sponsor in the Sponsors table; the house manager at Longstreet) a checklist to work through on their phone. They get a private link by text when they're opted in to texts, otherwise by email. When they tap Submit, you and the location's Residential Liaison get a text; closing it tells them it's complete. Reminders only go out when you click Send reminder.</p>
       <p class="error-text" id="sponsor-checklists-error"></p>
       <details class="ap-step" id="sponsor-checklist-add">
         <summary style="cursor: pointer; font-weight: 600;">+ New checklist</summary>
@@ -601,6 +607,7 @@
         <input type="date" id="sc-add-due">
         <label for="sc-add-link">Google Sheet link</label>
         <input type="url" id="sc-add-link" placeholder="https://docs.google.com/spreadsheets/...">
+        <p class="help-text">The action items are read from the Sheet's first column, one per row (a header row like "Action Item" is skipped). Build and edit them in Google Sheets as usual; the Sheet doesn't need to be shared with the sponsor.</p>
         <p class="error-text" id="sponsor-checklist-add-error"></p>
         <button type="button" id="sponsor-checklist-add-save">Send checklist</button>
       </details>
@@ -3291,7 +3298,7 @@
 
   let sponsorChecklistsShowClosed = false;
 
-  function renderSponsorChecklistRow(c, me) {
+  function renderSponsorChecklistRow(c) {
     const row = document.createElement('div');
     row.className = 'ap-step';
 
@@ -3302,20 +3309,57 @@
 
     const status = document.createElement('p');
     status.className = 'ap-step-status';
+    const sentTo = c.sponsorName + (c.sentVia === 'Text' && c.sponsorPhone ? ' (texted •••' + c.sponsorPhone.slice(-4) + ')' : (c.sponsorEmail ? ' (emailed ' + c.sponsorEmail + ')' : ''));
     status.textContent = c.status === 'Open'
-      ? 'Due ' + formatDate(c.dueDate) + ' · ' + c.sponsorName + ' · sent by ' + c.createdByName
-      : 'Closed ' + formatDate(c.closedDate) + ' · ' + c.sponsorName;
+      ? 'Due ' + formatDate(c.dueDate) + ' · sent to ' + sentTo + ' · by ' + c.createdByName
+      : 'Closed ' + formatDate(c.closedDate) + (c.closedBy ? ' by ' + c.closedBy : '') + ' · ' + sentTo;
     row.appendChild(status);
+
+    const p = c.progress || { total: 0, done: 0, notes: 0 };
+    if (p.total) {
+      const prog = document.createElement('p');
+      prog.className = 'ap-step-status' + (p.done === p.total ? ' done' : '');
+      prog.textContent = p.done + ' of ' + p.total + ' done' + (p.notes ? ' · ' + p.notes + ' note' + (p.notes === 1 ? '' : 's') : '') +
+        (c.submittedDate ? ' · submitted ' + formatDate(c.submittedDate) : ' · not submitted yet');
+      row.appendChild(prog);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'in-actions-row';
+
+    // The items and the recipient's answers.
+    if (p.total) {
+      const details = document.createElement('details');
+      details.className = 'sc-items';
+      const sum = document.createElement('summary');
+      sum.textContent = 'View items';
+      details.appendChild(sum);
+      const ul = document.createElement('ul');
+      c.items.forEach(function (it) {
+        const li = document.createElement('li');
+        li.className = it.done ? 'done' : '';
+        li.appendChild(document.createTextNode((it.done ? '✓ ' : '○ ') + it.item));
+        const extra = [];
+        if (it.done && it.date) extra.push(formatDate(it.date));
+        if (it.notes) extra.push('Note: ' + it.notes);
+        if (extra.length) {
+          const span = document.createElement('span');
+          span.className = 'sc-item-extra';
+          span.textContent = extra.join(' · ');
+          li.appendChild(span);
+        }
+        ul.appendChild(li);
+      });
+      details.appendChild(ul);
+      row.appendChild(details);
+    }
 
     const link = document.createElement('a');
     link.className = 'small-btn';
     link.href = c.driveLink;
     link.target = '_blank';
     link.rel = 'noopener';
-    link.textContent = 'Open checklist';
+    link.textContent = p.total ? 'Open Sheet' : 'Open checklist';
     actions.appendChild(link);
 
     if (c.status === 'Open') {
@@ -3324,13 +3368,14 @@
       remindBtn.className = 'secondary';
       remindBtn.textContent = 'Send reminder';
       remindBtn.addEventListener('click', async function () {
+        if (!confirm('Send ' + sentTo + ' a reminder for "' + c.title + '"?')) return;
         remindBtn.disabled = true;
         setError('sponsor-checklists-error', '');
         try {
-          await apiFetch('/send-sponsor-checklist-reminder', {
+          const r = await apiFetch('/send-sponsor-checklist-reminder', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id })
           });
-          remindBtn.textContent = 'Reminder sent';
+          remindBtn.textContent = (r.via === 'Text' ? 'Reminder texted to ' : 'Reminder emailed to ') + r.to;
         } catch (e) {
           setError('sponsor-checklists-error', e.message);
           remindBtn.disabled = false;
@@ -3338,27 +3383,27 @@
       });
       actions.appendChild(remindBtn);
 
-      if (c.createdByEmail.trim().toLowerCase() === (me || '').trim().toLowerCase()) {
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'secondary';
-        closeBtn.textContent = 'Close';
-        closeBtn.addEventListener('click', async function () {
-          if (!confirm('Close "' + c.title + '"? This can\'t be reopened.')) return;
-          closeBtn.disabled = true;
-          setError('sponsor-checklists-error', '');
-          try {
-            await apiFetch('/close-sponsor-checklist', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id })
-            });
-            loadSponsorChecklistsDashboard();
-          } catch (e) {
-            setError('sponsor-checklists-error', e.message);
-            closeBtn.disabled = false;
-          }
-        });
-        actions.appendChild(closeBtn);
-      }
+      // Anyone with access to the location can close it; the recipient is
+      // told it's complete.
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'secondary';
+      closeBtn.textContent = 'Mark complete';
+      closeBtn.addEventListener('click', async function () {
+        if (!confirm('Mark "' + c.title + '" complete and close it? ' + c.sponsorName + ' will be told it\'s complete, and it can\'t be reopened.')) return;
+        closeBtn.disabled = true;
+        setError('sponsor-checklists-error', '');
+        try {
+          await apiFetch('/close-sponsor-checklist', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checklistId: c.id })
+          });
+          loadSponsorChecklistsDashboard();
+        } catch (e) {
+          setError('sponsor-checklists-error', e.message);
+          closeBtn.disabled = false;
+        }
+      });
+      actions.appendChild(closeBtn);
     }
 
     row.appendChild(actions);
@@ -3368,7 +3413,6 @@
   function renderSponsorChecklistsList() {
     const listEl = document.getElementById('sponsor-checklists-list');
     listEl.innerHTML = '';
-    const me = lastSponsorChecklists.me;
     const rows = sponsorChecklistsShowClosed ? lastSponsorChecklists.closed : lastSponsorChecklists.open;
 
     if (!rows.length) {
@@ -3385,7 +3429,7 @@
         listEl.appendChild(title);
         lastLocation = c.location;
       }
-      listEl.appendChild(renderSponsorChecklistRow(c, me));
+      listEl.appendChild(renderSponsorChecklistRow(c));
     });
   }
 
@@ -3432,12 +3476,15 @@
     if (!/^https:\/\//.test(driveLink)) { setError('sponsor-checklist-add-error', 'Paste the Google Sheet\'s link.'); return; }
 
     btn.disabled = true;
+    btn.textContent = 'Reading the Sheet and sending…';
     try {
-      await apiFetch('/save-sponsor-checklist', {
+      const saved = await apiFetch('/save-sponsor-checklist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ location: location, title: title, message: message, dueDate: dueDate, driveLink: driveLink })
       });
+      const sc = saved.checklist || {};
+      alert('Checklist sent to ' + sc.sponsorName + (sc.sentVia === 'Text' ? ' by text (•••' + (sc.sponsorPhone || '').slice(-4) + ').' : ' by email (' + sc.sponsorEmail + ').'));
       document.getElementById('sc-add-title').value = '';
       document.getElementById('sc-add-message').value = '';
       document.getElementById('sc-add-due').value = '';
@@ -3450,6 +3497,7 @@
       setError('sponsor-checklist-add-error', e.message);
     } finally {
       btn.disabled = false;
+      btn.textContent = 'Send checklist';
     }
   });
 
