@@ -57,6 +57,14 @@ function updatePage(pageId, properties) {
   });
 }
 
+// Moves a page to Notion's trash (restorable there for 30 days).
+function trashPage(pageId) {
+  return notionFetch('/pages/' + pageId, {
+    method: 'PATCH',
+    body: JSON.stringify({ in_trash: true })
+  });
+}
+
 // Accepts a page ID with or without dashes (Notion's API normalizes
 // either form) — used when a page is addressed directly rather than
 // found via queryDatabase, e.g. staff-training.js looking up a staff
@@ -109,4 +117,4 @@ function getPlainText(prop) {
   }
 }
 
-module.exports = { notionFetch, queryDatabase, queryDatabaseAll, updatePage, createPage, getPage, getPlainText, driveFolderIdFromUrl };
+module.exports = { notionFetch, queryDatabase, queryDatabaseAll, updatePage, trashPage, createPage, getPage, getPlainText, driveFolderIdFromUrl };
