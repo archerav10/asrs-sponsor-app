@@ -3,6 +3,7 @@ const { id: configId } = require('./ids');
 const qi = require('./qi-rm');
 const cr = require('./cap-review');
 const rt = require('./risk-tool');
+const pol = require('./policies');
 
 // Everything the Monthly QI & RM Status and Compliance Report (ASRS-620-06)
 // needs for one month, gathered from the dashboard:
@@ -140,11 +141,12 @@ function itemStats(items, month) {
 async function gather(month) {
   const info = await reportInfo(month);
   const problems = [];
-  const [obj, items, caps, qs] = await Promise.all([
+  const [obj, items, caps, qs, pp] = await Promise.all([
     qi.objectivesView(month),
     qi.itemsView(),
     capSection(month).catch(function (e) { problems.push('CAP Review: ' + e.message); return null; }),
-    questionnaires(month).catch(function (e) { problems.push('Liaison questionnaires: ' + e.message); return null; })
+    questionnaires(month).catch(function (e) { problems.push('Liaison questionnaires: ' + e.message); return null; }),
+    pol.ppSummary(month).catch(function (e) { problems.push('Policy register: ' + e.message); return null; })
   ]);
   let risk = null;
   try {
@@ -184,7 +186,7 @@ async function gather(month) {
     month: month, monthLabel: monthLabel(month), due: dueDate(month), quarterEnd: quarterEnd, january: mo === 1,
     info: info, plan: obj.plan, versions: obj.versions, versionAdopted: versionAdopted, drafts: obj.drafts, draftsThisMonth: draftsThisMonth,
     goals: obj.goals, objectives: objectives, entered: entered, followUps: followUps, missingFollow: missingFollow,
-    caps: caps, questionnaires: qs, items: stats, risk: risk, prechecks: prechecks, problems: problems
+    caps: caps, questionnaires: qs, items: stats, risk: risk, policies: pp && pp.loaded ? pp : null, prechecks: prechecks, problems: problems
   };
 }
 
@@ -197,6 +199,7 @@ function summary(d) {
     caps: d.caps ? d.caps.caps.map(function (c) { return { title: c.cap.title, total: c.total, open: c.open, closedThisMonth: c.closedThisMonth, closedSince: c.closedSince.length }; }) : null,
     capsSince: d.caps ? d.caps.since : '',
     questionnaires: d.questionnaires ? d.questionnaires.length : null,
+    policies: d.policies ? { scheduled: d.policies.scheduled, triggered: d.policies.triggered.length, revised: d.policies.revised.length, overdue: d.policies.overdue.count, reviewDocs: d.policies.reviewDocs.length } : null,
     items: d.items,
     risk: r ? {
       file: r.file.name,

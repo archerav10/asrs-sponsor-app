@@ -755,6 +755,7 @@
       <div class="qi-sub" id="qi-subtabs">
         <button type="button" data-v="obj" class="on">Objectives &amp; results</button>
         <button type="button" data-v="items">Issues &amp; opportunities</button>
+        <button type="button" data-v="policies">Policies</button>
         <button type="button" data-v="report">Monthly report</button>
         <button type="button" data-v="plan">Plan &amp; drafts</button>
       </div>
@@ -4228,6 +4229,7 @@
     if (qiView === 'obj') renderQiObjectives(host);
     else if (qiView === 'items') renderQiItems(host);
     else if (qiView === 'report') renderQiReport(host);
+    else if (qiView === 'policies') renderQiPolicies(host);
     else renderQiPlan(host);
   }
 
@@ -4874,6 +4876,242 @@
     const it = s.items;
     line(it.notUpdated.length === 0, 'Section 6: improvement items ' + it.updated + ' of ' + it.active + ' updated this month' + (it.overdue.length ? '; overdue ' + it.overdue.join(', ') : '') + '.');
     box.appendChild(qiEl('p', 'help-text', 'Sections 8 to 11 are completed in the PDF. Anything marked Missing can still be filled in the PDF.'));
+    return box;
+  }
+
+  // ---------- Policies (register, reviews, documents) ----------
+  let qiPol = null;
+  let qiPolFilter = 'attention';
+  let qiPolSearch = '';
+
+  async function loadQiPolicies(host) {
+    host.innerHTML = '<p class="loading-text">Loading the policy register&hellip;</p>';
+    try {
+      qiPol = await apiFetch('/get-qi-rm?view=policies');
+      renderQiPolicies(host);
+    } catch (e) {
+      host.innerHTML = '';
+      setError('qi-error', e.message);
+    }
+  }
+
+  function renderQiPolicies(host) {
+    if (!qiPol) { loadQiPolicies(host); return; }
+    host.innerHTML = '';
+    const d = qiPol;
+    const active = d.policies.filter(function (p) { return p.active; });
+    const due = active.filter(function (p) { return p.dueThisMonth; });
+    const over = active.filter(function (p) { return p.overdue; });
+    const cap = active.filter(function (p) { return p.capTriggers.length; });
+    const docsReview = d.documents.filter(function (x) { return x.inSync === 'Review'; });
+
+    host.appendChild(qiImportPanel(!d.policies.length));
+    if (!d.policies.length) { host.appendChild(qiEl('p', 'empty-text', 'The register is empty. Import the ASRS-620-08 Policy-Document Register for each service above.')); return; }
+
+    const bar = qiEl('div', 'qi-bar');
+    const tg = qiEl('div', 'cap-filter');
+    [['attention', 'Needs attention'], ['due', 'Due this month'], ['all', 'All active'], ['docs', 'Documents'], ['repealed', 'Repealed']].forEach(function (f) {
+      const b = qiEl('button', f[0] === qiPolFilter ? 'on' : '', f[1]); b.type = 'button';
+      b.addEventListener('click', function () { qiPolFilter = f[0]; renderQiPolicies(host); });
+      tg.appendChild(b);
+    });
+    bar.appendChild(tg);
+    const chips = qiEl('div', 'qi-chips');
+    chips.appendChild(qiEl('span', 'qi-pill', active.length + ' active policies'));
+    if (due.length) chips.appendChild(qiEl('span', 'qi-pill qi-warn', due.length + ' due this month'));
+    if (over.length) chips.appendChild(qiEl('span', 'qi-pill qi-bad', over.length + ' overdue'));
+    if (cap.length) chips.appendChild(qiEl('span', 'qi-pill qi-bad', cap.length + ' with open CAP citations'));
+    if (docsReview.length) chips.appendChild(qiEl('span', 'qi-pill qi-bad', docsReview.length + ' documents to reconcile'));
+    bar.appendChild(chips);
+    host.appendChild(bar);
+    const search = document.createElement('input');
+    search.type = 'search'; search.id = 'qi-pol-search'; search.placeholder = 'Search by section or title'; search.value = qiPolSearch;
+    search.style.maxWidth = '360px'; search.style.marginBottom = '10px';
+    const list = qiEl('div');
+    search.addEventListener('input', function () { qiPolSearch = search.value; fill(); });
+    host.appendChild(search);
+    host.appendChild(list);
+
+    function fill() {
+      list.innerHTML = '';
+      const q = qiPolSearch.trim().toLowerCase();
+      const match = function (p) { return !q || (p.section + ' ' + p.title).toLowerCase().indexOf(q) !== -1; };
+      if (qiPolFilter === 'docs') {
+        const docs = d.documents.filter(function (x) { return !q || (x.document + ' ' + x.formId + ' ' + x.governing).toLowerCase().indexOf(q) !== -1; })
+          .sort(function (a, b) { return (a.inSync === 'Review' ? 0 : 1) - (b.inSync === 'Review' ? 0 : 1) || (a.number || 999) - (b.number || 999); });
+        docs.forEach(function (x) { list.appendChild(qiDocRow(x, host)); });
+        if (!docs.length) list.appendChild(qiEl('p', 'empty-text', 'No documents.'));
+        return;
+      }
+      let rows;
+      if (qiPolFilter === 'attention') rows = active.filter(function (p) { return p.overdue || p.dueThisMonth || p.capTriggers.length || p.relatedReview; });
+      else if (qiPolFilter === 'due') rows = due;
+      else if (qiPolFilter === 'repealed') rows = d.policies.filter(function (p) { return !p.active; });
+      else rows = active;
+      rows = rows.filter(match);
+      if (!rows.length) list.appendChild(qiEl('p', 'empty-text', qiPolFilter === 'attention' ? 'Nothing needs attention: no policy is overdue, due this month, cited in an open CAP, or waiting on a document.' : 'No policies.'));
+      rows.forEach(function (p) { list.appendChild(qiPolicyRow(p, host)); });
+    }
+    fill();
+  }
+
+  function qiImportPanel(open) {
+    const box = qiEl('details', 'ap-step');
+    box.open = !!open;
+    const s = qiEl('summary', null, 'Import the Policy-Document Register (.xlsx)');
+    s.style.cursor = 'pointer'; s.style.fontWeight = '600';
+    box.appendChild(s);
+    box.appendChild(qiEl('p', 'help-text', 'The ASRS-620-08 register for one licensed service (Policy Index and Document Register sheets). Import each service\'s file; a policy in both is kept once with both services. Re-importing updates the register fields and keeps the review history logged here.'));
+    const f = qiEl('div', 'qi-form'); f.style.marginTop = '8px';
+    const fileL = qiEl('label', null, 'Register file'); const file = document.createElement('input'); file.type = 'file'; file.accept = '.xlsx'; file.id = 'qi-reg-file'; fileL.appendChild(file); f.appendChild(fileL);
+    const svcL = qiEl('label', null, 'Licensed service'); const svc = document.createElement('select'); svc.id = 'qi-reg-service';
+    svc.appendChild(new Option('Choose…', '')); ['Group Home', 'Sponsored Residential', 'Community Engagement'].forEach(function (x) { svc.appendChild(new Option(x, x)); });
+    svcL.appendChild(svc); f.appendChild(svcL);
+    const out = qiEl('p', 'qi-full qi-meta');
+    const err = qiEl('p', 'error-text qi-full');
+    const go = qiEl('button', 'qi-btn', 'Import'); go.type = 'button'; go.style.display = 'none';
+    f.appendChild(out); f.appendChild(err);
+    const row = qiEl('div', 'qi-actions qi-full'); row.appendChild(go); f.appendChild(row);
+    box.appendChild(f);
+    let b64 = '';
+    async function call(apply, offset) {
+      return qiPost({ action: 'importRegister', filename: file.files[0].name, file: b64, service: svc.value, apply: apply, offset: offset || 0 });
+    }
+    async function preview() {
+      err.style.display = 'none'; out.textContent = ''; go.style.display = 'none';
+      if (!file.files[0]) return;
+      const n = file.files[0].name.toLowerCase();
+      if (!svc.value) svc.value = n.indexOf('group home') !== -1 ? 'Group Home' : n.indexOf('sponsored') !== -1 ? 'Sponsored Residential' : n.indexOf('community') !== -1 ? 'Community Engagement' : '';
+      b64 = await new Promise(function (res, rej) { const r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1] || ''); }; r.onerror = rej; r.readAsDataURL(file.files[0]); });
+      try {
+        const p = await call(false);
+        out.textContent = p.service + ': ' + p.policies + ' policies (' + p.activePolicies + ' active) and ' + p.documents + ' documents; ' + p.newPolicies + ' new policies and ' + p.newDocuments + ' new documents for the register.';
+        go.style.display = '';
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+    }
+    file.addEventListener('change', preview);
+    svc.addEventListener('change', function () { if (file.files[0]) preview(); });
+    go.addEventListener('click', async function () {
+      go.disabled = true; err.style.display = 'none';
+      try {
+        let off = 0, r;
+        do { r = await call(true, off); off = r.next; go.textContent = 'Importing… ' + Math.min(off, r.total) + ' of ' + r.total; } while (!r.done);
+        out.textContent = 'Imported ' + r.total + ' rows for ' + r.service + '.';
+        go.style.display = 'none';
+        qiPol = null;
+        renderQi();
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+      finally { go.disabled = false; go.textContent = 'Import'; }
+    });
+    return box;
+  }
+
+  function qiPolicyRow(p, host) {
+    const box = qiEl('div', 'qi-item');
+    const head = qiEl('div', 'qi-item-head');
+    head.appendChild(qiEl('span', 'qi-id', p.section));
+    head.appendChild(qiEl('span', 'qi-t', p.title));
+    if (!p.active) head.appendChild(qiEl('span', 'qi-pill', p.status || 'Repealed'));
+    if (p.overdue) head.appendChild(qiEl('span', 'qi-pill qi-bad', 'Overdue'));
+    else if (p.dueThisMonth) head.appendChild(qiEl('span', 'qi-pill qi-warn', 'Due this month'));
+    if (p.capTriggers.length) head.appendChild(qiEl('span', 'qi-pill qi-bad', 'CAP ' + p.capTriggers.join(', ')));
+    if (p.relatedReview) head.appendChild(qiEl('span', 'qi-pill qi-bad', p.relatedReview + ' document' + (p.relatedReview === 1 ? '' : 's') + ' to reconcile'));
+    box.appendChild(head);
+    box.appendChild(qiEl('div', 'qi-meta', [p.services.join(' · '), p.lastRevised ? 'Revised ' + qiUs(p.lastRevised) : '', p.lastReviewed ? 'Reviewed ' + qiUs(p.lastReviewed) : '', p.nextDue ? 'Next review due ' + qiUs(p.nextDue) : ''].filter(Boolean).join(' · ')));
+    const det = qiEl('details', 'sc-items');
+    det.appendChild(qiEl('summary', null, 'Documents and review history (' + p.related.length + ' / ' + p.reviews.length + ')'));
+    if (p.fileName) det.appendChild(qiEl('p', 'qi-meta', 'File: ' + (p.folder ? p.folder + ' / ' : '') + p.fileName));
+    if (p.related.length) {
+      det.appendChild(qiEl('p', 'qi-meta', 'Related documents:'));
+      const ul = qiEl('ul', 'cap-updates');
+      p.related.forEach(function (x) { ul.appendChild(qiEl('li', null, x.document + (x.formId ? ' (' + x.formId + ')' : '') + (x.inSync === 'Review' ? ' · needs reconciling' : ''))); });
+      det.appendChild(ul);
+    }
+    const ul2 = qiEl('ul', 'cap-updates');
+    if (!p.reviews.length) ul2.appendChild(qiEl('li', 'qi-meta', 'No reviews logged on the dashboard yet.'));
+    p.reviews.forEach(function (r) {
+      const li = qiEl('li');
+      li.appendChild(qiEl('span', 'when', qiUs(r.date) + (r.by ? ' (' + r.by + ')' : '') + ' · ' + r.trigger + (r.triggerDetail ? ' (' + r.triggerDetail + ')' : '') + ': '));
+      li.appendChild(document.createTextNode(r.revised ? 'Revised ' + qiUs(r.newRevised) + '. ' + r.whatChanged + (r.staffNotified ? ' Staff notified: ' + r.staffNotified + (r.notifiedHow ? ' (' + r.notifiedHow + ')' : '') + '.' : '') : 'Reviewed, no changes.' + (r.notes ? ' ' + r.notes : '')));
+      ul2.appendChild(li);
+    });
+    det.appendChild(ul2);
+    box.appendChild(det);
+    if (!p.active) return box;
+    const acts = qiEl('div', 'qi-actions');
+    const btn = qiEl('button', 'qi-btn', 'Mark reviewed'); btn.type = 'button';
+    const panel = qiEl('div');
+    btn.addEventListener('click', function () { if (panel.firstChild) panel.innerHTML = ''; else panel.appendChild(qiReviewForm(p, host)); });
+    acts.appendChild(btn);
+    box.appendChild(acts);
+    box.appendChild(panel);
+    return box;
+  }
+
+  function qiReviewForm(p, host) {
+    const f = qiEl('div', 'qi-panel qi-form');
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); f.appendChild(l); return node; }
+    const date = fld('Review date', document.createElement('input')); date.type = 'date'; date.value = qiToday(); date.max = qiToday();
+    const trig = fld('What prompted it', document.createElement('select')); qiPol.triggers.forEach(function (t) { trig.appendChild(new Option(t, t)); });
+    if (p.capTriggers.length) trig.value = 'Citation';
+    const detL = qiEl('label', 'qi-full', 'Trigger detail (citation, RCA/SRA, regulation change…)'); const det = document.createElement('input'); det.value = p.capTriggers.length ? 'CAP citations ' + p.capTriggers.join(', ') : ''; detL.appendChild(det); f.appendChild(detL);
+    const revL = qiEl('label', 'qi-full'); const rev = document.createElement('input'); rev.type = 'checkbox'; rev.style.width = 'auto';
+    revL.style.flexDirection = 'row'; revL.style.alignItems = 'center'; revL.style.gap = '6px';
+    revL.appendChild(rev); revL.appendChild(document.createTextNode('The policy was revised'));
+    f.appendChild(revL);
+    const revBox = qiEl('div', 'qi-full qi-form');
+    const changed = document.createElement('textarea'); changed.rows = 2;
+    const l1 = qiEl('label', 'qi-full', 'What changed'); l1.appendChild(changed); revBox.appendChild(l1);
+    const nd = document.createElement('input'); nd.type = 'date'; nd.value = qiToday();
+    const l2 = qiEl('label', null, 'New revised date'); l2.appendChild(nd); revBox.appendChild(l2);
+    const staff = document.createElement('select'); ['', 'Yes', 'No', 'N/A'].forEach(function (x) { staff.appendChild(new Option(x || 'Choose…', x)); });
+    const l3 = qiEl('label', null, 'Staff notified?'); l3.appendChild(staff); revBox.appendChild(l3);
+    const how = document.createElement('input'); how.placeholder = 'e.g. staff meeting 12/3; text to sponsors';
+    const l4 = qiEl('label', 'qi-full', 'How / when notified'); l4.appendChild(how); revBox.appendChild(l4);
+    let docChecks = null;
+    if (p.related.length) {
+      const l5 = qiEl('label', 'qi-full', 'Related documents updated with this revision (the rest are flagged to reconcile)');
+      docChecks = qiEl('div', 'qi-checks');
+      p.related.forEach(function (x) { const l = qiEl('label'); const c = document.createElement('input'); c.type = 'checkbox'; c.value = x.id; l.appendChild(c); l.appendChild(document.createTextNode(' ' + x.document)); docChecks.appendChild(l); });
+      l5.appendChild(docChecks); revBox.appendChild(l5);
+    }
+    revBox.hidden = true;
+    f.appendChild(revBox);
+    rev.addEventListener('change', function () { revBox.hidden = !rev.checked; });
+    const notes = fld('Notes', document.createElement('input'), true);
+    const err = qiEl('p', 'error-text qi-full'); f.appendChild(err);
+    const save = qiEl('button', 'qi-btn', 'Log review'); save.type = 'button';
+    const row = qiEl('div', 'qi-actions qi-full'); row.appendChild(save); f.appendChild(row);
+    save.addEventListener('click', async function () {
+      err.style.display = 'none'; save.disabled = true;
+      try {
+        await qiPost({ action: 'logPolicyReview', id: p.id, date: date.value, trigger: trig.value, triggerDetail: det.value.trim(), revised: rev.checked, whatChanged: changed.value.trim(), newRevisedDate: nd.value, staffNotified: rev.checked ? staff.value : 'N/A', notifiedHow: how.value.trim(), updatedDocs: docChecks ? Array.from(docChecks.querySelectorAll('input:checked')).map(function (c) { return c.value; }) : [], notes: notes.value.trim() });
+        qiPol = null;
+        loadQiPolicies(host);
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; save.disabled = false; }
+    });
+    return f;
+  }
+
+  function qiDocRow(x, host) {
+    const box = qiEl('div', 'qi-item');
+    const head = qiEl('div', 'qi-item-head');
+    head.appendChild(qiEl('span', 'qi-id', x.formId || '#' + (x.number || '')));
+    head.appendChild(qiEl('span', 'qi-t', x.document));
+    head.appendChild(qiEl('span', 'qi-pill ' + (x.inSync === 'Review' ? 'qi-bad' : x.inSync === 'Current' ? 'qi-ok' : ''), x.inSync === 'Review' ? 'Reconcile' : x.inSync));
+    box.appendChild(head);
+    box.appendChild(qiEl('div', 'qi-meta', ['Governing policy ' + (x.governing || '—'), x.mentions ? 'Mentioned in ' + x.mentions : '', x.whereKept, x.version ? 'Version ' + qiUs(x.version) : '', x.services.join(' · ')].filter(Boolean).join(' · ')));
+    if (x.inSync !== 'Review') return box;
+    const acts = qiEl('div', 'qi-actions');
+    const ver = document.createElement('input'); ver.type = 'date'; ver.value = qiToday(); ver.style.width = 'auto'; ver.style.margin = '0';
+    const b = qiEl('button', 'qi-btn', 'Mark reconciled'); b.type = 'button';
+    acts.appendChild(qiEl('span', 'qi-meta', 'Document version')); acts.appendChild(ver); acts.appendChild(b);
+    b.addEventListener('click', async function () {
+      b.disabled = true;
+      try { await qiPost({ action: 'reconcileDocument', id: x.id, version: ver.value }); qiPol = null; loadQiPolicies(host); }
+      catch (e) { setError('qi-error', e.message); b.disabled = false; }
+    });
+    box.appendChild(acts);
     return box;
   }
 

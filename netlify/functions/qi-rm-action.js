@@ -1,6 +1,7 @@
 const { requireSession } = require('./lib/session');
 const qi = require('./lib/qi-rm');
 const rep = require('./lib/qi-report');
+const pol = require('./lib/policies');
 
 // QI & RM changes (Executive Director and Risk Manager only).
 //   saveResult     { objectiveId, month, count?, total?, valueText?, status?, comment?, cause?, revisedAction?, followOwner?, followDue? }
@@ -10,6 +11,9 @@ const rep = require('./lib/qi-report');
 //   editGoalNotes  { id, notes }
 //   adoptVersion   { version, effective, approvedBy?, changes? }
 //   reportInfo { month } / saveReportInfo { month, preparedBy, datePrepared, meetingDate, attendees, riskToolLink }
+//   importRegister { filename, file (base64), service?, apply?, offset? }   ASRS-620-08 register, in chunks
+//   logPolicyReview { id, date, trigger, triggerDetail?, revised?, newRevisedDate?, whatChanged?, staffNotified?, notifiedHow?, updatedDocs?, notes? }
+//   reconcileDocument { id, version?, date?, notes? }
 //   createItem / editItem { id, changes } / updateItem { id, text, date?, status?, due? }
 //   completeItem   { id, evidence, evidenceLink?, date? } / dropItem { id, reason } / promoteItem { id, objective fields }
 exports.handler = async function (event) {
@@ -29,6 +33,13 @@ exports.handler = async function (event) {
       case 'adoptVersion': return json(200, await qi.adoptVersion(b, by));
       case 'reportInfo': return json(200, { info: await rep.reportInfo(b.month) });
       case 'saveReportInfo': return json(200, { info: await rep.saveReportInfo(b, by) });
+      case 'importRegister': {
+        const buf = Buffer.from(String(b.file || ''), 'base64');
+        if (!buf.length || buf.length > 4 * 1024 * 1024) return json(400, { error: 'Upload the register .xlsx (up to 4 MB).' });
+        return json(200, await pol.importRegister(buf, String(b.filename || ''), b.service, b.apply === true, b.offset));
+      }
+      case 'logPolicyReview': return json(200, await pol.logReview(b.id, b, by));
+      case 'reconcileDocument': return json(200, { document: await pol.reconcileDocument(b.id, b, by) });
       case 'createItem': return json(200, { item: await qi.createItem(b, by) });
       case 'editItem': return json(200, { item: await qi.editItem(b.id, b.changes || {}, by) });
       case 'updateItem': return json(200, { item: await qi.addItemUpdate(b.id, b, by) });
