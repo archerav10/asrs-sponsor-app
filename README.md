@@ -2373,7 +2373,7 @@ home's overall light and "N areas need attention". It opens a screen
 with one light per area, grouped Residents / Training / Home, each with
 a one-line reason and, tapped, the detail (per resident, per staff
 member). **Admin Dashboard -> Compliance tab:** one card per granted
-location, with its residents, its sponsor and all eight lights in a row;
+location, with its residents, its sponsor and every light in a row (plus the admin-only Resident Q&A);
 tap a location for exactly the detail its sponsor sees. The tab lists
 the locations first (`get-location-compliance` with no location) and
 then loads each one separately (`?location=…`, three at a time) so one
@@ -2389,6 +2389,16 @@ each area's own helpers so its lights agree with the area's own screens:
 | Quarterly Reporting | each quarter due 15 days after it ends; yellow in the last 7 of those days; red after |
 | Training & Certification | per staff member at the home: yellow 30 days before an item expires; red when expired or any item never completed |
 | First Aid, Emergency Supplies, Physical Environment, Fire Drill | unchanged from the Home screen's own lights (`lib/report-due-date.js`) |
+| Daily Progress Notes | per resident, a day counts once its note is signed. Shows the last completed day and the days missed in the 30 days before it. Red: any missed day in that window, or nothing completed for 3+ days; yellow: last completed day 2 days ago; green: today or yesterday done. `lib/compliance-records.js` |
+| Medication Administration | same rule; a day counts once every scheduled dose (each Regular medication's times of day in effect that day) has an entry (Given, Refused or Held). Reads its own full log queries (75 days) |
+| Resident Q&A (admin dashboard only) | the Liaison app's resident interview questionnaire per resident: red if any of the previous 3 calendar months has none; yellow if those are done but this month's isn't yet |
+
+**Go-live:** Daily Progress Notes and Medication Administration count only
+from the location's go-live date (Location Access Codes > `DPN MAR
+Go-Live`, set on each Compliance card; `save-compliance-golive`). Before
+it, or with none set, they read grey "Not started" (status `off`) and
+don't count toward the overall light, so testing before go-live doesn't
+affect anything.
 
 Compliance is **by location** (`locationCompliance`): resident areas
 cover every active resident at the location (up to two per home), the

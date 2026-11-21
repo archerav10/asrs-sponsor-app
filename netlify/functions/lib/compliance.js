@@ -4,6 +4,7 @@ const { loadRequirements, staffListForLocation, staffTrainingStatus } = require(
 const { appointmentsForResident, computeMedicalCompliance, residentsForLocation } = require('./medical-appointments');
 const { supplyInfoForLocation, mostRecentDrill, mostRecentUpdate } = require('./report-status-check');
 const { computeDueDate, statusForDueDate, computeSupplyDueDate, statusForSupplyDueDate } = require('./report-due-date');
+const records = require('./compliance-records');
 
 const FIRST_AID_DB_ID = process.env.FIRST_AID_DB_ID;
 const EMERGENCY_SUPPLIES_DB_ID = process.env.EMERGENCY_SUPPLIES_DB_ID;
@@ -25,6 +26,11 @@ const PHYSICAL_ENV_DB_ID = process.env.PHYSICAL_ENV_DB_ID;
 //                        expired or any item has never been completed.
 //   First Aid, Emergency Supplies, Physical Environment, Fire Drill
 //                        unchanged from the Home screen's own lights.
+//   Daily Progress Notes, Medication Administration, Resident Q&A (admin
+//                        dashboard only): lib/compliance-records.js. Notes
+//                        and MAR read "off" (Not started) until the
+//                        location's go-live date; "off" doesn't count toward
+//                        the overall light.
 //
 // An area that can't be checked (a lookup failed) reads "unknown" rather
 // than failing the whole card, and doesn't count toward the overall light.
@@ -229,9 +235,39 @@ async function fireDrillArea(location, now) {
   return monthlyDetail({ key: 'fireDrill', name: 'Fire Drill' }, last, due, statusForDueDate(last, due, now));
 }
 
-// residents: the sponsor's residents (initials).
-async function homeCompliance(location, residents, now) {
+// ---- Daily records (lib/compliance-records.js) ----
+function facilityToday(now) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(now);
+}
+
+async function dailyRecordAreas(location, residents, now, includeQa) {
+  const today = facilityToday(now);
+  const g = await records.goLiveFor(location);
+  const live = g.goLive && today >= g.goLive;
+  const out = await Promise.all([
+    safe('dpn', 'Daily Progress Notes', async function () {
+      if (!live) return records.offArea('dpn', 'Daily Progress Notes', g.goLive);
+      return area('dpn', 'Daily Progress Notes', await records.dpnDetails(location, residents, g.goLive, today), 'No residents assigned');
+    }),
+    safe('meds', 'Medication Administration', async function () {
+      if (!live) return records.offArea('meds', 'Medication Administration', g.goLive);
+      return area('meds', 'Medication Administration', await records.marDetails(location, residents, g.goLive, today), 'No residents assigned');
+    })
+  ].concat(includeQa ? [safe('qa', 'Resident Q&A', async function () {
+    return area('qa', 'Resident Q&A', await records.qaDetails(location, residents, today), 'No residents assigned');
+  })] : []));
+  return { areas: out, goLive: g.goLive || '' };
+}
+
+// residents: the sponsor's residents (initials). opts.includeQa adds the
+// admin-only Resident Q&A light.
+async function homeCompliance(location, residents, now, opts) {
   now = now || new Date();
+  opts = opts || {};
+  const daily = dailyRecordAreas(location, residents, now, !!opts.includeQa).catch(function (e) {
+    console.error('Daily record checks failed', e);
+    return { areas: [unknownArea('dpn', 'Daily Progress Notes', e), unknownArea('meds', 'Medication Administration', e)], goLive: '' };
+  });
   const areas = await Promise.all([
     safe('medical', "Residents' Medical", function () { return medicalArea(location, residents, now); }),
     safe('mar', 'Medication Review', function () { return marArea(location, residents, now); }),
@@ -243,10 +279,12 @@ async function homeCompliance(location, residents, now) {
     safe('physical', 'Physical Environment', function () { return physicalArea(location, now); }),
     safe('fireDrill', 'Fire Drill', function () { return fireDrillArea(location, now); })
   ]);
-  const known = areas.filter(function (a) { return a.status !== 'unknown'; });
-  const counts = { green: 0, yellow: 0, red: 0, unknown: 0 };
-  areas.forEach(function (a) { counts[a.status]++; });
-  return { overall: worst(known.map(function (a) { return a.status; })), counts: counts, areas: areas };
+  const d = await daily;
+  const all = areas.concat(d.areas);
+  const known = all.filter(function (a) { return a.status !== 'unknown' && a.status !== 'off'; });
+  const counts = { green: 0, yellow: 0, red: 0, unknown: 0, off: 0 };
+  all.forEach(function (a) { counts[a.status]++; });
+  return { overall: worst(known.map(function (a) { return a.status; })), counts: counts, areas: all, goLive: d.goLive };
 }
 
 // Compliance is by location (each home is its own location, with up to
@@ -256,9 +294,9 @@ async function homeCompliance(location, residents, now) {
 // Resident Initials on any one sponsor's row. The Sponsor App's My Home's
 // Compliance and the admin dashboard's Compliance tab both call this, so
 // they always match.
-async function locationCompliance(location, now) {
+async function locationCompliance(location, now, opts) {
   const residents = await residentsForLocation(location);
-  const result = await homeCompliance(location, residents, now);
+  const result = await homeCompliance(location, residents, now, opts);
   return Object.assign({ location: location, residents: residents }, result);
 }
 
