@@ -454,13 +454,16 @@ async function buildQiReportPdf(d) {
   w.table([{ label: 'Reg.', w: 1.2 }, { label: 'This month\'s review includes...', w: 6 }, { label: 'Yes / No / N/A', w: 1.1 }, { label: 'Where (section or record)', w: 2.3 }], rows9, { size: 7.4 });
   w.text('Policy and procedure review', { size: 9.5, bold: true, color: NAVY });
   w.note('Summarize this month\'s P&P Monthly Review Form here and attach the signed form.');
+  const pp = d.policies;
+  if (pp) w.note('From the policy register (QI & RM > Policies): ' + pp.activeCount + ' active policies.' + (pp.capTriggered.length ? ' Policies with open CAP citations not yet reviewed: ' + pp.capTriggered.join(', ') + '.' : ''));
+  const ppList = function (a, none) { return a && a.length ? a.join('; ') : none; };
   w.table([{ label: 'Policy and procedure review (P&P Monthly Review Form, ASRS-620-03)', w: 5 }, { label: 'Result', w: 1.3 }, { label: 'Notes / evidence', w: 4 }], [
-    ['Policies scheduled for review this month (Appendix A review month)', txt('pp_sched', '__ of __ reviewed'), txt('pp_sched_n', '')],
-    ['Triggered reviews: DBHDS regulation or guidance change, citation, RCA/SRA finding, or system change', txt('pp_trig', ''), txt('pp_trig_n', '')],
-    ['Policies updated (new review/revised date entered in the policy header and Appendix A)', txt('pp_upd', ''), txt('pp_upd_n', '')],
-    ['Staff notified of changes that affect their work', sel('pp_staff', ['', 'Yes', 'N/A'], ''), txt('pp_staff_n', '')],
-    ['Related forms, checklists and reports reconciled for each updated policy', sel('pp_rel', ['', 'Yes', 'No'], ''), txt('pp_rel_n', '')],
-    ['Policies overdue (last reviewed more than 12 months ago)', txt('pp_over', '__ of __'), txt('pp_over_n', '')],
+    ['Policies scheduled for review this month (next annual review due this month)', pp ? { text: pp.scheduled.done + ' of ' + pp.scheduled.total + ' reviewed', bold: true } : txt('pp_sched', '__ of __ reviewed'), pp ? ppList(pp.scheduled.list, 'None due this month.') : txt('pp_sched_n', '')],
+    ['Triggered reviews: DBHDS regulation or guidance change, citation, RCA/SRA finding, or system change', pp ? { text: pp.triggered.length ? String(pp.triggered.length) : 'None', bold: true } : txt('pp_trig', ''), pp ? ppList(pp.triggered, 'None.') : txt('pp_trig_n', '')],
+    ['Policies updated (new review/revised date entered in the policy header and Appendix A)', pp ? { text: String(pp.revised.length), bold: true } : txt('pp_upd', ''), pp ? ppList(pp.revised, 'None.') : txt('pp_upd_n', '')],
+    ['Staff notified of changes that affect their work', pp ? { text: pp.staffNotified, bold: true } : sel('pp_staff', ['', 'Yes', 'N/A'], ''), pp ? (pp.staffHow || (pp.revised.length ? '' : 'No policy changes this month.')) : txt('pp_staff_n', '')],
+    ['Related forms, checklists and reports reconciled for each updated policy (no documents flagged Review)', pp ? { text: pp.reconciled, bold: true, color: pp.reconciled === 'No' ? RED : INK } : sel('pp_rel', ['', 'Yes', 'No'], ''), pp ? (pp.reviewDocs.length ? 'Still to reconcile: ' + pp.reviewDocs.join('; ') : (pp.docsUpdated ? 'Updated: ' + pp.docsUpdated : 'No documents flagged.')) : txt('pp_rel_n', '')],
+    ['Policies overdue (last reviewed more than 12 months ago)', pp ? { text: pp.overdue.count + ' of ' + pp.overdue.of, bold: true, color: pp.overdue.count ? RED : INK } : txt('pp_over', '__ of __'), pp ? (pp.overdue.count ? ppList(pp.overdue.list, '') : 'None. Next due: ' + ppList(pp.nextDue, '-')) : txt('pp_over_n', '')],
     ['P&P Monthly Review Form completed, signed and attached to this report', sel('pp_form', ['', 'Yes', 'No'], ''), txt('pp_form_n', '')]
   ], { size: 7.4 });
 

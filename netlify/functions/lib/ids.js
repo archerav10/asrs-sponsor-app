@@ -17,6 +17,9 @@ const IDS = {
   QI_ITEMS_DB_ID: 'f38b0ea9-22a9-4947-a762-7f856239feb4',
   QI_ITEM_UPDATES_DB_ID: '41fff13f-62f9-8109-a961-000b65edfd4f',
   QI_REPORTS_DB_ID: '41fff13f-62f9-8150-82cc-000b22479aa7',
+  POLICIES_DB_ID: '41fff13f-62f9-8161-8af0-000b513fa83b',
+  POLICY_DOCUMENTS_DB_ID: '41fff13f-62f9-815e-9f7a-000b896d56e6',
+  POLICY_REVIEWS_DB_ID: '41fff13f-62f9-8171-83ab-000b3f22aafa',
   // The Risk Tracking Tool the first monthly report reads; each report
   // remembers its own link (QI Monthly Reports), and the next one starts
   // from the last one used.

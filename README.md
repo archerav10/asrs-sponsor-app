@@ -2192,12 +2192,33 @@ and Compliance Report (ASRS-620-06).
   Section 8 triggers pre-checked from draft objective changes, Plan
   versions and CAP imports/close-outs. Sections 8-11 and anything not
   found are fillable fields (checkboxes, Yes/No/N/A lists, text boxes).
+- **Policies** (`lib/policies.js`): the policy register from the ASRS-620-08
+  Policy-Document Register. **Import** each licensed service's .xlsx (Policy
+  Index and Document Register sheets; service picked from the file name or
+  chosen); policies match on section + title and documents on name + form
+  ID, so a policy in both registers is one row with both services; imports
+  run in chunks of 18 rows and re-importing keeps the dashboard's review
+  history. Filters: Needs attention (overdue, due this month, open CAP
+  citations of that section not yet reviewed since the inspection, related
+  documents to reconcile), Due this month, All active, Documents, Repealed.
+  **Mark reviewed** logs the review (trigger: scheduled annual, regulation
+  or guidance change, citation, RCA/SRA finding, system change, other;
+  detail required unless scheduled), moves Last Reviewed and Next Review
+  Due (+12 months), and when revised records what changed, the new revised
+  date and staff notification; related documents (governing policy or
+  "policies that mention it" include the section) updated at the same time
+  are marked Current with the new version, the rest are flagged In Sync =
+  Review until **Mark reconciled**. Feeds the report's Section 9 P&P block
+  (scheduled this month and reviewed, triggered reviews, policies updated,
+  staff notified, documents reconciled, overdue). Notion: Policy Register,
+  Policy Documents, Policy Reviews.
 - **Data (Notion, under ASRS Compliance Checklists):** QI Plan Versions,
   QI Goals, QI Objectives, QI Objective Results (one row per objective per
   month), the existing QI Improvement Items Tracker (Type, Description,
   Source Detail, Added By, Date Added, Last Updated added), QI Item
-  Updates and QI Monthly Reports. IDs in `lib/ids.js`. The Notion
-  integration needs a connection to all seven.
+  Updates, QI Monthly Reports, Policy Register, Policy Documents and Policy
+  Reviews. IDs in `lib/ids.js`. The Notion integration needs a connection
+  to all ten.
 
 ### CAP Review (admin dashboard; DBHDS Corrective Action Plans)
 
