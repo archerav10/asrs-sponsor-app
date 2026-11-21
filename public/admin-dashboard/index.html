@@ -253,6 +253,7 @@
   .qi-item-head .qi-t { flex: 1 1 240px; min-width: 0; }
   .qi-pre { white-space: pre-wrap; font-size: 14px; margin: 6px 0; }
   .qi-draft { border-top: 1px solid #EEE; padding: 8px 0; }
+  .qi-check-line { font-size: 13.5px; margin: 6px 0; }
   @media (max-width: 560px) { .qi-nums, .qi-followup { margin-left: 0; } .qi-wide { grid-column: auto; } }
   /* CAP Review */
   .cap-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
@@ -754,6 +755,7 @@
       <div class="qi-sub" id="qi-subtabs">
         <button type="button" data-v="obj" class="on">Objectives &amp; results</button>
         <button type="button" data-v="items">Issues &amp; opportunities</button>
+        <button type="button" data-v="report">Monthly report</button>
         <button type="button" data-v="plan">Plan &amp; drafts</button>
       </div>
       <div id="qi-body"><p class="loading-text">Loading&hellip;</p></div>
@@ -4225,6 +4227,7 @@
     host.innerHTML = '';
     if (qiView === 'obj') renderQiObjectives(host);
     else if (qiView === 'items') renderQiItems(host);
+    else if (qiView === 'report') renderQiReport(host);
     else renderQiPlan(host);
   }
 
@@ -4763,6 +4766,115 @@
       hist.appendChild(qiEl('p', 'qi-meta', 'Version ' + v.version + ' · effective ' + qiUs(v.effective) + (v.supersededOn ? ' · superseded ' + qiUs(v.supersededOn) : ' · in effect') + (v.changes ? ' · ' + v.changes : '')));
     });
     host.appendChild(hist);
+  }
+
+  // ---------- Monthly report (ASRS-620-06) ----------
+  let qiReportMonth = '';
+  function renderQiReport(host) {
+    if (!qiReportMonth) qiReportMonth = qiMonth || qiDefaultMonth();
+    const top = qiEl('div', 'ap-step');
+    top.appendChild(qiEl('p', 'ap-step-title', 'Monthly QI & RM Status and Compliance Report (ASRS-620-06)'));
+    top.appendChild(qiEl('p', 'help-text', 'Built from the dashboard and the Risk Tracking Tool, following the report template. Sections 8 to 11 (and anything the dashboard couldn\'t find) are fillable in the PDF: open it in Adobe Acrobat Reader or Preview, click the boxes and type, then save and sign.'));
+    const f = qiEl('div', 'qi-form');
+    f.style.marginTop = '10px';
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); f.appendChild(l); return node; }
+    const ms = document.createElement('select'); ms.id = 'qi-rep-month';
+    const base = qiToday().slice(0, 7);
+    for (let i = 0; i >= -12; i--) { const m = qiShift(base, i); ms.appendChild(new Option(qiMonthLabel(m), m)); }
+    ms.value = qiReportMonth;
+    fld('Report month', ms);
+    const pb = fld('Prepared by (Risk Manager)', document.createElement('input')); pb.id = 'qi-rep-by';
+    const dp = fld('Date prepared', document.createElement('input')); dp.type = 'date'; dp.id = 'qi-rep-date';
+    const md = fld('Leadership review meeting date', document.createElement('input')); md.type = 'date'; md.id = 'qi-rep-meeting';
+    const at = fld('Attendees (names / roles)', document.createElement('input'), true); at.id = 'qi-rep-attendees';
+    const rl = fld('Risk Tracking Tool (Google Drive link to the .xlsx)', document.createElement('input'), true); rl.id = 'qi-rep-link'; rl.type = 'url';
+    const err = qiEl('p', 'error-text qi-full'); f.appendChild(err);
+    const row = qiEl('div', 'qi-actions qi-full');
+    const save = qiEl('button', 'qi-btn qi-ghost', 'Save details'); save.type = 'button';
+    const check = qiEl('button', 'qi-btn qi-ghost', 'Check what the report will contain'); check.type = 'button';
+    const gen = qiEl('button', 'qi-btn', 'Generate PDF'); gen.type = 'button';
+    row.appendChild(save); row.appendChild(check); row.appendChild(gen);
+    f.appendChild(row);
+    top.appendChild(f);
+    host.appendChild(top);
+    const out = qiEl('div');
+    host.appendChild(out);
+
+    function values() { return { month: ms.value, preparedBy: pb.value.trim(), datePrepared: dp.value, meetingDate: md.value, attendees: at.value.trim(), riskToolLink: rl.value.trim() }; }
+    async function load() {
+      err.style.display = 'none';
+      out.innerHTML = '';
+      try {
+        const r = await qiPost({ action: 'reportInfo', month: ms.value });
+        const i = r.info;
+        pb.value = i.preparedBy || qiData.me || '';
+        dp.value = i.datePrepared || '';
+        md.value = i.meetingDate || '';
+        at.value = i.attendees || '';
+        rl.value = i.riskToolLink || '';
+        if (i.generatedDate) out.appendChild(qiEl('p', 'help-text', 'Last generated ' + qiUs(i.generatedDate) + (i.generatedBy ? ' by ' + i.generatedBy : '') + (i.riskToolFile ? ' from ' + i.riskToolFile : '') + '.'));
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+    }
+    async function saveInfo() { await qiPost(Object.assign({ action: 'saveReportInfo' }, values())); }
+    ms.addEventListener('change', function () { qiReportMonth = ms.value; load(); });
+    save.addEventListener('click', async function () {
+      save.disabled = true; err.style.display = 'none';
+      try { await saveInfo(); save.textContent = 'Saved'; setTimeout(function () { save.textContent = 'Save details'; }, 1500); }
+      catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+      finally { save.disabled = false; }
+    });
+    check.addEventListener('click', async function () {
+      check.disabled = true; err.style.display = 'none';
+      check.textContent = 'Reading the dashboard and the Risk Tracking Tool…';
+      try {
+        await saveInfo();
+        const s = await apiFetch('/qi-report?check=1&month=' + ms.value);
+        out.innerHTML = '';
+        out.appendChild(qiReportSummary(s));
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+      finally { check.disabled = false; check.textContent = 'Check what the report will contain'; }
+    });
+    gen.addEventListener('click', async function () {
+      gen.disabled = true; err.style.display = 'none';
+      const label = gen.textContent;
+      gen.textContent = 'Building the report…';
+      try {
+        await saveInfo();
+        const stored = getStoredSession();
+        const res = await fetch(FN_BASE + '/qi-report?month=' + ms.value, { headers: { 'Authorization': 'Bearer ' + (stored ? stored.sessionToken : '') } });
+        if (!res.ok) { let msg = 'Couldn’t build the report.'; try { msg = (await res.json()).error || msg; } catch (e2) { /* not JSON */ } throw new Error(msg); }
+        const blob = await res.blob();
+        const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = m ? m[1] : 'Monthly QI & RM Status and Compliance Report - ' + ms.value + '.pdf';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; }
+      finally { gen.disabled = false; gen.textContent = label; }
+    });
+    load();
+  }
+
+  function qiReportSummary(s) {
+    const box = qiEl('div', 'ap-step');
+    box.appendChild(qiEl('p', 'ap-step-title', s.monthLabel + ' · due ' + qiUs(s.due) + (s.quarterEnd ? ' · quarter-end month (Section 7)' : '')));
+    function line(ok, text) { const p = qiEl('p', 'qi-check-line'); p.appendChild(qiEl('span', 'qi-pill ' + (ok === true ? 'qi-ok' : ok === false ? 'qi-bad' : 'qi-warn'), ok === true ? 'Ready' : ok === false ? 'Missing' : 'Check')); p.appendChild(document.createTextNode(' ' + text)); box.appendChild(p); }
+    s.problems.forEach(function (p) { line(false, p); });
+    const o = s.objectives;
+    line(o.entered === o.total, 'Section 2: ' + o.entered + ' of ' + o.total + ' objectives have a result for the month.');
+    line(o.missingFollow.length === 0, 'Section 3: ' + o.followUps + ' At risk / Not met' + (o.missingFollow.length ? '; cause or revised action missing for ' + o.missingFollow.join(', ') : ''));
+    if (s.caps) line(true, 'Section 4: ' + s.caps.map(function (c) { return c.title + ' (' + c.open + ' open, ' + c.closedThisMonth + ' closed this month)'; }).join('; ') + '; closed since ' + qiUs(s.capsSince) + ': ' + s.caps.reduce(function (n, c) { return n + c.closedSince; }, 0) + '.');
+    if (s.risk) {
+      line(s.risk.complianceComplete ? true : (s.risk.complianceRows ? false : null), 'Section 5: ' + s.risk.file + ' · incidents I/II/III ' + s.risk.incidents.join('/') + ' · Compliance Log ' + (s.risk.complianceRows ? s.risk.complianceRows + ' rows, ' + s.risk.complianceUnmarked + ' unmarked' : 'no rows for the month yet') + ' · ' + s.risk.findings + ' findings.');
+      line(s.risk.reviews > 0 ? true : null, 'Review Log: ' + (s.risk.reviews ? s.risk.reviews + ' entry for the month' : 'no entry for the month yet') + '.');
+      if (s.risk.quarter) line(s.risk.quarter.worksheetFilled && s.risk.quarter.sraDone ? true : null, 'Section 7 (Q' + s.risk.quarter.n + '): Quarterly worksheet ' + (s.risk.quarter.worksheetFilled ? 'filled in' : 'not filled in yet') + '; SRA ' + (s.risk.quarter.sraDone ? 'completed' : 'not completed yet') + '.');
+    }
+    if (s.questionnaires !== null) line(s.questionnaires > 0 ? true : null, 'Section 6: ' + s.questionnaires + ' Liaison app questionnaire' + (s.questionnaires === 1 ? '' : 's') + ' completed in the month.');
+    const it = s.items;
+    line(it.notUpdated.length === 0, 'Section 6: improvement items ' + it.updated + ' of ' + it.active + ' updated this month' + (it.overdue.length ? '; overdue ' + it.overdue.join(', ') : '') + '.');
+    box.appendChild(qiEl('p', 'help-text', 'Sections 8 to 11 are completed in the PDF. Anything marked Missing can still be filled in the PDF.'));
+    return box;
   }
 
   document.getElementById('qi-subtabs').addEventListener('click', function (e) {

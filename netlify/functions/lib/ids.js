@@ -16,6 +16,11 @@ const IDS = {
   QI_RESULTS_DB_ID: '41fff13f-62f9-81bd-b942-000b2ab306dc',
   QI_ITEMS_DB_ID: 'f38b0ea9-22a9-4947-a762-7f856239feb4',
   QI_ITEM_UPDATES_DB_ID: '41fff13f-62f9-8109-a961-000b65edfd4f',
+  QI_REPORTS_DB_ID: '41fff13f-62f9-8150-82cc-000b22479aa7',
+  // The Risk Tracking Tool the first monthly report reads; each report
+  // remembers its own link (QI Monthly Reports), and the next one starts
+  // from the last one used.
+  RISK_TOOL_DEFAULT_LINK: 'https://docs.google.com/spreadsheets/d/1IYow1mF8XuLqxTRdB9rsD7QBHD2r8mn5/edit',
   WEEKLY_FOCUS_DB_ID: 'e0ab3391-ddb7-45d8-9ca6-9f1aed7f1a23',
   WEEKLY_FOCUS_RESPONSES_DB_ID: '42a2aa61-dc05-4fe7-95fa-ca147346b783',
   FACILITY_REPORTING_ROOT_FOLDER_ID: '19lpJYy9FIKZAb1aacyTrOpVNv-y05Gdv',

@@ -2171,12 +2171,33 @@ and Compliance Report (ASRS-620-06).
   link optional), **Promote to Plan** (baseline, target and target date
   required; makes a draft objective), **Drop** (reason required), Edit.
   Overdue = Open/On hold past the due date.
+- **Monthly report** (`qi-report`, `lib/qi-report.js`, `lib/qi-report-pdf.js`):
+  the Monthly QI & RM Status and Compliance Report (ASRS-620-06) as a
+  fillable PDF laid out like the Word template (landscape, Sections 1-11,
+  template footer). Report details (prepared by, dates, attendees, the
+  Risk Tracking Tool link) are saved per month in **QI Monthly Reports**;
+  a new month starts from the last month's tool link
+  (`RISK_TOOL_DEFAULT_LINK` the first time). "Check what the report will
+  contain" shows what was found and what's missing before generating.
+  Sources: Section 1 sources pre-checked where the record exists;
+  Sections 2-3 from objectives and results; Section 4 from CAP Review
+  (every open citation, and those closed since the start of the previous
+  quarter); Section 5 and 7 from the **Risk Tracking Tool** (`lib/risk-tool.js`
+  reads the .xlsx from Drive with `lib/xlsx.js`: Individual Log incidents
+  and RCA due dates, Care Concerns & Risk Triggers month column, Compliance
+  Log rows/unmarked/findings, Compliance Summary check, Review Log, and in
+  January/April/July/October the Quarterly & Annual Worksheet, quarter
+  findings and the SRA sheet); Section 6 lists the Liaison app
+  questionnaires completed in the month and the improvement item counts;
+  Section 8 triggers pre-checked from draft objective changes, Plan
+  versions and CAP imports/close-outs. Sections 8-11 and anything not
+  found are fillable fields (checkboxes, Yes/No/N/A lists, text boxes).
 - **Data (Notion, under ASRS Compliance Checklists):** QI Plan Versions,
   QI Goals, QI Objectives, QI Objective Results (one row per objective per
   month), the existing QI Improvement Items Tracker (Type, Description,
-  Source Detail, Added By, Date Added, Last Updated added) and QI Item
-  Updates. IDs in `lib/ids.js`. The Notion integration needs a connection
-  to all six.
+  Source Detail, Added By, Date Added, Last Updated added), QI Item
+  Updates and QI Monthly Reports. IDs in `lib/ids.js`. The Notion
+  integration needs a connection to all seven.
 
 ### CAP Review (admin dashboard; DBHDS Corrective Action Plans)
 
