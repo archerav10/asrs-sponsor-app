@@ -38,7 +38,9 @@ const AREAS = [
   { key: 'G', title: 'Resident health' },
   { key: 'H', title: 'Resident quality of life' },
   { key: 'I', title: 'Staff & sponsors' },
-  { key: 'J', title: 'Liaison oversight' }
+  { key: 'J', title: 'Liaison oversight' },
+  { key: 'K', title: 'Daily progress notes' },
+  { key: 'L', title: 'Medication administration' }
 ];
 
 // Same ranges as the Physical Environment screen.
@@ -185,7 +187,6 @@ async function areaB(ctx) {
 async function areaC(ctx) {
   const { findPeriodPage } = require('./mar-review-state');
   const sc = require('./mar-storage-checks');
-  const ma = require('./medication-administration');
   const items = [];
   if (!ctx.residents.length) return [item('n', 'Medications', 'No residents with medications on file.', 'MAR Review')];
   for (const r of ctx.residents) {
@@ -205,9 +206,6 @@ async function areaC(ctx) {
       else if (v) items.push(item('n', req, c.na || v, 'MAR storage check'));
       else items.push(item('m', req, 'Not answered.', 'MAR storage check'));
     });
-    const logs = await ma.logsInRange(ctx.location, r, ctx.b.start, ctx.asOf < ctx.b.end ? ctx.asOf : ctx.b.end);
-    const refused = logs.filter(function (l) { return /refus/i.test(l.status); }).length;
-    items.push(item(logs.length ? 'g' : 'm', r + ': Doses logged in Give Meds', logs.length + ' doses logged' + (refused ? ', ' + refused + ' refused' : ', none refused') + '.', 'Give Meds'));
   }
   return items;
 }
@@ -240,7 +238,6 @@ async function areaF(ctx) {
   const ap = require('./annual-planning');
   const comp = require('./compliance');
   const qr = require('./quarterly-reporting');
-  const dpn = require('./daily-progress-notes');
   const items = [];
   const asOfDate = new Date(ctx.asOf + 'T12:00:00');
   for (const r of ctx.residents) {
@@ -267,16 +264,6 @@ async function areaF(ctx) {
         }
       } catch (e) { /* quarterly not set up */ }
     }
-    const covers = (await dpn.findAllCovers(ctx.location, r)).filter(function (c) { return inMonth(c.date, ctx.b) && c.signedAt; });
-    const signedDays = {};
-    covers.forEach(function (c) { signedDays[d10(c.date)] = true; });
-    const lastDay = ctx.final ? ctx.b.end : addDays(ctx.asOf, -1);
-    const missing = [];
-    for (let d = ctx.b.start; d <= lastDay && d <= ctx.b.end; d = addDays(d, 1)) if (!signedDays[d]) missing.push(d);
-    const expected = Math.max(0, daysBetween(ctx.b.start, lastDay < ctx.b.end ? lastDay : ctx.b.end) + 1);
-    const text = 'Signed notes on ' + (expected - missing.length) + ' of ' + expected + ' days' + (ctx.final ? '' : ' so far') +
-      (missing.length ? ' (missing ' + missing.slice(0, 6).map(fmtShort).join(', ') + (missing.length > 6 ? ' and ' + (missing.length - 6) + ' more' : '') + ').' : '.');
-    items.push(item(missing.length ? notDone(ctx) : 'g', r + ': Daily progress notes (680, 880)', text, 'Daily Progress Notes'));
   }
   items.push(item('m', 'Personal funds ledger reconciled; spending forms complete (240)', 'Not captured in the app.', 'Reviewer'));
   return items;
@@ -388,8 +375,74 @@ async function areaJ(ctx) {
   return items;
 }
 
-const BUILDERS = { A: areaA, B: areaB, C: areaC, D: areaD, E: areaE, F: areaF, G: areaG, H: areaH, I: areaI, J: areaJ };
-const OWNER = { A: 'Sponsor', B: 'Sponsor', C: 'Sponsor', D: 'Sponsor', E: 'Sponsor', F: 'Program Director', G: 'Program Director', H: 'Residential Liaison', I: 'Program Director', J: 'Residential Liaison' };
+// ---- K and L: daily records, from the location's go-live date ----
+// A day counts once its note is signed (K) / once every scheduled dose
+// has an entry, Given, Refused or Held (L): the same rules as the
+// Compliance tab's lights (lib/compliance-records.js). Days before the
+// location's go-live date (Location Access Codes > DPN MAR Go-Live) don't
+// count; with none set, or one after the month, the area is N/A.
+// Final: any day in the month not done is red. Month to date: through
+// yesterday; yesterday alone not done is yellow, any earlier day red.
+async function dailyRecordWindow(ctx) {
+  const rec = require('./compliance-records');
+  const g = await rec.goLiveFor(ctx.location);
+  if (!g.goLive || g.goLive > ctx.b.end) return { goLive: g.goLive, days: null };
+  const from = g.goLive > ctx.b.start ? g.goLive : ctx.b.start;
+  const to = ctx.final ? ctx.b.end : addDays(ctx.asOf, -1);
+  const days = [];
+  for (let d = from; d <= to && d <= ctx.b.end; d = addDays(d, 1)) days.push(d);
+  return { goLive: g.goLive, from: from, days: days };
+}
+
+function dailyRecordItem(ctx, label, src, w, done, extra) {
+  if (!w.days) return item('n', label, w.goLive ? 'Starts ' + fmt(w.goLive) + ' (go-live).' : 'Not started: no go-live date set for this home.', src);
+  if (!w.days.length) return item('g', label, 'Nothing due yet (go-live ' + fmt(w.goLive) + ').', src);
+  const missing = w.days.filter(function (d) { return !done(d); });
+  const doneDays = w.days.filter(done);
+  const last = doneDays.length ? doneDays[doneDays.length - 1] : '';
+  let s = 'g';
+  if (missing.length) {
+    if (ctx.final) s = 'r';
+    else s = missing.length === 1 && missing[0] === w.days[w.days.length - 1] ? 'y' : 'r';
+  }
+  const text = 'Completed ' + (w.days.length - missing.length) + ' of ' + w.days.length + ' days' + (w.from > ctx.b.start ? ' since go-live ' + fmt(w.goLive) : '') + (ctx.final ? '' : ' so far') +
+    (missing.length ? ' (missed ' + missing.slice(0, 8).map(fmtShort).join(', ') + (missing.length > 8 ? ' and ' + (missing.length - 8) + ' more' : '') + ')' : '') +
+    '. Last completed ' + (last ? fmt(last) : 'none this month') + '.' + (extra ? ' ' + extra : '');
+  return item(s, label, text, src);
+}
+
+async function areaK(ctx) {
+  const rec = require('./compliance-records');
+  if (!ctx.residents.length) return [item('n', 'Daily progress notes', 'No residents on file.', 'Daily Progress Notes')];
+  const w = await dailyRecordWindow(ctx);
+  const items = [];
+  for (const r of ctx.residents) {
+    const signed = w.days && w.days.length ? await rec.signedNoteDays(ctx.location, r, w.from) : new Set();
+    items.push(dailyRecordItem(ctx, r + ': Daily progress note signed every day (680, 880)', 'Daily Progress Notes', w, function (d) { return signed.has(d); }));
+  }
+  return items;
+}
+
+async function areaL(ctx) {
+  const rec = require('./compliance-records');
+  if (!ctx.residents.length) return [item('n', 'Medication administration', 'No residents with medications on file.', 'Give Meds')];
+  const w = await dailyRecordWindow(ctx);
+  const items = [];
+  for (const r of ctx.residents) {
+    if (!w.days || !w.days.length) { items.push(dailyRecordItem(ctx, r + ': Every scheduled dose logged each day (770)', 'Give Meds', w, function () { return true; })); continue; }
+    const chk = await rec.marDayChecker(ctx.location, r, w.from, ctx.final ? ctx.b.end : ctx.asOf);
+    const inRange = chk.logs.filter(function (l) { return l.date >= w.from && l.date <= (ctx.final ? ctx.b.end : ctx.asOf); });
+    const refused = inRange.filter(function (l) { return /refus/i.test(l.status); }).length;
+    const held = inRange.filter(function (l) { return /held|hold/i.test(l.status); }).length;
+    const extra = inRange.length + ' dose entr' + (inRange.length === 1 ? 'y' : 'ies') + (refused ? ', ' + refused + ' refused' : '') + (held ? ', ' + held + ' held' : '') + '.';
+    if (!w.days.some(function (d) { return chk.scheduled(d) > 0; })) items.push(item('n', r + ': Every scheduled dose logged each day (770)', 'No scheduled doses on file (PRN only or none). ' + extra, 'Give Meds'));
+    else items.push(dailyRecordItem(ctx, r + ': Every scheduled dose logged each day (770)', 'Give Meds', w, chk.done, extra));
+  }
+  return items;
+}
+
+const BUILDERS = { A: areaA, B: areaB, C: areaC, D: areaD, E: areaE, F: areaF, G: areaG, H: areaH, I: areaI, J: areaJ, K: areaK, L: areaL };
+const OWNER = { A: 'Sponsor', B: 'Sponsor', C: 'Sponsor', D: 'Sponsor', E: 'Sponsor', F: 'Program Director', G: 'Program Director', H: 'Residential Liaison', I: 'Program Director', J: 'Residential Liaison', K: 'Sponsor', L: 'Sponsor' };
 
 // ---- Liaison flags ----
 function flagFromPage(page) {

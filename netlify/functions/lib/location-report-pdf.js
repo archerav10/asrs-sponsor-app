@@ -25,6 +25,8 @@ function fmtDateTime(iso) {
 function fmt(iso) { const p = String(iso || '').slice(0, 10).split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) + '/' + p[0] : ''; }
 
 async function buildLocationReportPdf(report) {
+  // Findings take the letter after the last area (M with areas A–L).
+  const findingsLetter = String.fromCharCode(65 + report.areas.length);
   const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -136,7 +138,7 @@ async function buildLocationReportPdf(report) {
   const findingsPage = detailPages.length + 1;
   y -= 4;
   page.drawRectangle({ x: M, y: y - 14, width: 15, height: 15, color: C('forest') });
-  page.drawText('K', { x: M + 4.5, y: y - 10.5, size: 9, font: bold, color: rgb(1, 1, 1) });
+  page.drawText(findingsLetter, { x: M + 4.5, y: y - 10.5, size: 9, font: bold, color: rgb(1, 1, 1) });
   text(page, 'Findings & corrective actions' + (final ? '' : ' (open so far)'), M + 21, y - 11, { size: 11, bold: true, color: 'forest' });
   y -= 22;
   wrap('Red items the app finds land here automatically. Concerns from interviews and questionnaires land here when the liaison flags them; the liaison escalates them to the QA/Issues log as needed. Owner and fix-by date are suggestions the reviewer can change.', font, 7.5, CW).forEach(function (l) { text(page, l, M, y - 8, { size: 7.5, color: 'muted' }); y -= 10; });
@@ -233,7 +235,7 @@ async function buildLocationReportPdf(report) {
   text(page, 'PAGE', W - M - bold.widthOfTextAtSize('PAGE', 6.5), y - 8, { size: 6.5, bold: true, color: 'muted' });
   y -= 12; hline(page, y, 'ink', 0.9);
   const dashRows = report.areas.map(function (a) { return { s: a.status, area: a.key + '. ' + a.title, sum: summary(a), open: counts(a.items), pg: 'p. ' + areaPage[a.key] }; });
-  dashRows.push({ s: report.findings.length ? 'r' : 'g', area: 'K. Findings & corrective actions', sum: report.findings.filter(function (f) { return f.raisedBy === 'App'; }).length + ' found by the app, ' + report.findings.filter(function (f) { return f.raisedBy !== 'App'; }).length + ' flagged by the liaison.', open: report.findings.length + ' open', pg: 'p. ' + findingsPage });
+  dashRows.push({ s: report.findings.length ? 'r' : 'g', area: findingsLetter + '. Findings & corrective actions', sum: report.findings.filter(function (f) { return f.raisedBy === 'App'; }).length + ' found by the app, ' + report.findings.filter(function (f) { return f.raisedBy !== 'App'; }).length + ' flagged by the liaison.', open: report.findings.length + ' open', pg: 'p. ' + findingsPage });
   dashRows.forEach(function (r) {
     const al = wrap(r.area, bold, 8.5, D.areaW);
     const sl = wrap(r.sum, font, 7.5, D.sumW).slice(0, 3);

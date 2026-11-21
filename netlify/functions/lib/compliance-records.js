@@ -112,7 +112,7 @@ async function doseLogs(location, resident, from, to) {
     { property: 'Date', date: { on_or_after: from } },
     { property: 'Date', date: { on_or_before: to } }
   ] });
-  return pages.map(function (p) { return { date: getPlainText(p.properties['Date']), timeOfDay: getPlainText(p.properties['Time of Day']), itemName: getPlainText(p.properties['Item Name']) }; });
+  return pages.map(function (p) { return { date: getPlainText(p.properties['Date']), timeOfDay: getPlainText(p.properties['Time of Day']), itemName: getPlainText(p.properties['Item Name']), status: getPlainText(p.properties['Status']) }; });
 }
 
 async function marDetails(location, residents, goLive, today) {
@@ -154,4 +154,19 @@ async function qaDetails(location, residents, today) {
   });
 }
 
-module.exports = { goLiveFor, setGoLive, judge, offArea, dpnDetails, marDetails, qaDetails, addDays };
+// Per day, whether the MAR was complete: { done(date), logs, meds }.
+async function marDayChecker(location, resident, from, to) {
+  const [meds, logs] = await Promise.all([ma.fetchMedicationsRaw(location, resident), doseLogs(location, resident, from, to)]);
+  const byDate = {};
+  logs.forEach(function (l) { (byDate[l.date] = byDate[l.date] || []).push(l); });
+  return {
+    logs: logs,
+    scheduled: function (d) { return ma.expectedSlotsForMedications(ma.medicationsInEffectOn(meds, d).filter(function (m) { return m.medicationType === 'Regular'; })).length; },
+    done: function (d) {
+      const slots = ma.expectedSlotsForMedications(ma.medicationsInEffectOn(meds, d).filter(function (m) { return m.medicationType === 'Regular'; }));
+      return ma.isDayComplete(slots, byDate[d] || []);
+    }
+  };
+}
+
+module.exports = { goLiveFor, setGoLive, judge, offArea, dpnDetails, marDetails, qaDetails, addDays, signedNoteDays, doseLogs, marDayChecker };
