@@ -2134,6 +2134,53 @@ logging the service starts the next cycle. Dry run:
 removed entries have Active unchecked). IDs are in `lib/ids.js`. Connect
 your Notion integration to both ("..." -> Connections).
 
+### CAP Review (admin dashboard; DBHDS Corrective Action Plans)
+
+**Admin Dashboard -> CAP Review tab:** every CAP at the admin's granted
+locations, newest inspection first, with counts (open, overdue, closed).
+`lib/cap-review.js`, `get-caps`, `cap-import`, `cap-action`, `cap-report`.
+
+- **Upload a CAP (.docx):** the CAP Response and Tracker Word file.
+  `lib/docx.js` reads it without a library (a .docx is a zip; the body is
+  `word/document.xml`). The parser expects the **header table** (License #,
+  Date of Inspection, Organization Name, Program Type / Facility Name,
+  Location, Licensing Specialist), the **citations table** (#, Standard(s)
+  Cited, Comp, Description of Noncompliance, Actions to be Taken, Planned
+  Comp. Date) with a citation number like `L-01`/`J-01` in the first
+  column, and each citation's **status row** below it ("L-01 status, notes
+  and updates ...": `Status: Open|Closed` and dated entries
+  `11/18/2026 (AA): ...`, newest first; lines without a date continue the
+  entry above). An entry naming `OLR Accepted|Partially Accepted|Not
+  Accepted {date}` sets the citation's OLR status (newest wins). Paragraphs
+  after the table up to the "C = Substantial Compliance" key (the ECTA
+  statement and DBHDS General Comments) are kept as the CAP's notes. The
+  admin sees what was read before importing; a CAP already imported (same
+  License # and inspection date) is refused: delete it first to re-import.
+- **Each citation:** standard and its text, Comp, DBHDS's description,
+  ASRS's actions, planned completion date (overdue when past and open),
+  OLR status/date, and its updates. **Add update** (dated; optionally OLR's
+  response, which sets the OLR status, and/or a new planned completion
+  date, noted in the update). **Close out** needs a reason and a
+  description of the supporting evidence (10+ characters each); an
+  evidence link (https) and close-out date are optional. **Reopen** needs a
+  reason; the earlier close-out stays in the updates. A CAP is Closed when
+  all its citations are, and reopens with any of them.
+- **Reports (PDF, download):** **CAP report** (one CAP, every citation open
+  and closed, with description, actions, close-out and all updates, plus
+  the CAP notes) and **Open items report** (every open citation at the
+  admin's locations, grouped by CAP, with the latest 3 updates).
+  `lib/cap-report-pdf.js` (pdf-lib).
+- **Delete this CAP** (typed confirmation) moves the CAP, its citations and
+  updates to Notion's trash.
+- **Data (Notion, under Longstreet Dashboard):** **CAPs** (`CAPS_DB_ID`),
+  **CAP Items** (`CAP_ITEMS_DB_ID`: Citation, CAP ID, Location, Order,
+  Standard, Standard Text, Compliance, Description, Actions, Planned
+  Completion Date, Status, OLR Status, OLR Date, Closed Date/By, Closure
+  Reason, Closure Evidence, Evidence Link, Last Updated) and **CAP
+  Updates** (`CAP_UPDATES_DB_ID`: Item ID, CAP ID, Date, By, Text, Kind =
+  Update/OLR Response/Closed/Reopened/Imported, OLR Status). IDs in
+  `lib/ids.js`. The Notion integration needs a connection to all three.
+
 ### Sponsor Checklists (admin dashboard; checklists done on the sponsor's phone)
 
 **Admin Dashboard -> Checklists tab:** every granted location's open
