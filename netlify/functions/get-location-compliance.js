@@ -26,7 +26,7 @@ exports.handler = async function (event) {
     if (granted.indexOf(location) === -1) {
       return { statusCode: 403, body: JSON.stringify({ error: 'Not authorized for that location.' }) };
     }
-    const results = await Promise.all([locationCompliance(location), activeSponsors()]);
+    const results = await Promise.all([locationCompliance(location, null, { includeQa: true }), activeSponsors()]);
     const sponsors = results[1].filter(function (s) { return s.location === location; }).map(function (s) { return s.name; }).sort();
     return { statusCode: 200, body: JSON.stringify(Object.assign({ sponsors: sponsors }, results[0])) };
   } catch (err) {

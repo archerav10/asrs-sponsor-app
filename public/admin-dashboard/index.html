@@ -254,6 +254,9 @@
   .qi-pre { white-space: pre-wrap; font-size: 14px; margin: 6px 0; }
   .qi-draft { border-top: 1px solid #EEE; padding: 8px 0; }
   .qi-check-line { font-size: 13.5px; margin: 6px 0; }
+  .cp-golive { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; margin: 10px 0 4px; padding: 8px 10px; background: #F6F8F6; border-radius: 8px; }
+  .cp-golive input[type="date"] { width: auto; max-width: 170px; margin: 0; padding: 5px 8px; font-size: 13px; }
+  .cp-golive button { width: auto; margin: 0; padding: 5px 12px; font-size: 13px; }
   @media (max-width: 560px) { .qi-nums, .qi-followup { margin-left: 0; } .qi-wide { grid-column: auto; } }
   /* CAP Review */
   .cap-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
@@ -473,7 +476,7 @@
   .cp-lights { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: 10px; }
   .cp-light { text-align: center; font-size: 10px; color: #777; line-height: 1.2; }
   .cp-light .status-dot { display: block; margin: 0 auto 3px; width: 14px; height: 14px; }
-  .status-dot.status-unknown { background: #C9C3B3; }
+  .status-dot.status-unknown, .status-dot.status-off { background: #C9C3B3; }
   .cp-area { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 14px; }
   .cp-group { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--forest-light); font-weight: 700; padding: 10px 14px 4px; border-top: 1px solid var(--border); }
   .cp-area-head { display: flex; gap: 8px; align-items: center; font-weight: 600; }
@@ -6321,8 +6324,8 @@
   // --- Compliance (by location) ---
   // Lists the granted locations, then loads each one separately so a slow
   // home never holds up (or times out) the whole tab.
-  const CP_SHORT = { medical: 'Medical', mar: 'Med review', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
-  const CP_ORDER = ['medical', 'mar', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
+  const CP_SHORT = { medical: 'Medical', mar: 'Med review', dpn: 'Progress notes', meds: 'MAR', qa: 'Resident Q&A', annual: 'Annual', quarterly: 'Quarterly', training: 'Training', firstAid: 'First aid', emergency: 'Emergency', physical: 'Physical env.', fireDrill: 'Fire drill' };
+  const CP_ORDER = ['medical', 'mar', 'dpn', 'meds', 'qa', 'annual', 'quarterly', 'training', 'firstAid', 'emergency', 'physical', 'fireDrill'];
   let cpLoadId = 0;
 
   function cpRenderCard(card, location, data) {
@@ -6363,12 +6366,35 @@
     // Details: exactly what the sponsor sees under My Home's Compliance —
     // every item, same groups, same order.
     const groups = [
-      { label: 'Residents', keys: ['medical', 'mar', 'annual', 'quarterly'] },
+      { label: 'Residents', keys: ['medical', 'mar', 'dpn', 'meds', 'qa', 'annual', 'quarterly'] },
       { label: 'Training', keys: ['training'] },
       { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
     ];
     const byKeyAll = {};
     data.areas.forEach(function (a) { byKeyAll[a.key] = a; });
+    // Go-live: when this location's Daily Progress Notes and Medication
+    // Administration checks start counting (before it they read Not started).
+    const gl = wfEl('div', 'cp-golive');
+    gl.appendChild(wfEl('span', null, 'Daily Progress Notes & MAR go-live: '));
+    const gi = document.createElement('input');
+    gi.type = 'date'; gi.value = data.goLive || ''; gi.id = 'cp-golive-' + location.replace(/\W/g, '');
+    gl.appendChild(gi);
+    const gb = wfEl('button', 'small secondary', 'Save'); gb.type = 'button';
+    const gs = wfEl('span', 'cp-sub', data.goLive ? '' : 'Not set: those checks read Not started.');
+    gb.addEventListener('click', async function () {
+      gb.disabled = true; gs.textContent = 'Saving…';
+      try {
+        await apiFetch('/save-compliance-golive', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: location, date: gi.value }) });
+        gs.textContent = 'Saved. Refreshing…';
+        const res = await apiFetch('/get-location-compliance?location=' + encodeURIComponent(location));
+        const wasOpen = card.open;
+        cpRenderCard(card, location, res);
+        card.open = wasOpen;
+      } catch (e) { gs.textContent = e.message; gb.disabled = false; }
+    });
+    gl.appendChild(gb); gl.appendChild(gs);
+    card.appendChild(gl);
+
     groups.forEach(function (group) {
       card.appendChild(wfEl('div', 'cp-group', group.label));
       group.keys.forEach(function (key) {

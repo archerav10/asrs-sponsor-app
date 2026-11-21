@@ -657,7 +657,7 @@
   .wf-done { border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 15px; display: none; }
   .wf-past { width: 100%; text-align: left; background: #fff; color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 0 0 8px; font-weight: 400; font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
   .wf-past.current { border-color: var(--forest-light); }
-  .status-dot.status-unknown { background: #C9C3B3; }
+  .status-dot.status-unknown, .status-dot.status-off { background: #C9C3B3; }
   .mc-overall { display: flex; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 14px 16px; margin-bottom: 14px; }
   .mc-light { width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; color: #fff; font-size: 20px; font-weight: 700; }
   .mc-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -4682,11 +4682,11 @@
   // every color). Grouped the way sponsors think about it: residents,
   // training, and the home itself.
   const MC_GROUPS = [
-    { label: 'Residents', keys: ['medical', 'mar', 'annual', 'quarterly'] },
+    { label: 'Residents', keys: ['medical', 'mar', 'dpn', 'meds', 'annual', 'quarterly'] },
     { label: 'Training', keys: ['training'] },
     { label: 'Home', keys: ['firstAid', 'emergency', 'physical', 'fireDrill'] }
   ];
-  const MC_COLORS = { green: '#1B7A3D', yellow: '#C9A227', red: 'var(--error)', unknown: '#C9C3B3' };
+  const MC_COLORS = { green: '#1B7A3D', yellow: '#C9A227', red: 'var(--error)', unknown: '#C9C3B3', off: '#C9C3B3' };
 
   async function loadHomeCompliance() {
     const dot = document.getElementById('home-compliance-dot');
@@ -4935,7 +4935,7 @@
         body.appendChild(det);
       });
     });
-    body.appendChild(wfEl('p', 'help-text', 'Green: up to date · Yellow: coming due · Red: overdue, expired or missing. Tap an area for details.'));
+    body.appendChild(wfEl('p', 'help-text', 'Green: up to date · Yellow: coming due · Red: overdue, expired or missing · Gray: not started yet. Tap an area for details.'));
   }
 
 
