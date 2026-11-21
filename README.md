@@ -2134,6 +2134,50 @@ logging the service starts the next cycle. Dry run:
 removed entries have Active unchecked). IDs are in `lib/ids.js`. Connect
 your Notion integration to both ("..." -> Connections).
 
+### QI & RM (admin dashboard; Plan objectives, monthly results, issues and opportunities)
+
+**Admin Dashboard -> QI & RM tab**, for admins holding the **Executive
+Director** or **Risk Manager** role (Admin Accounts > Roles; checked on
+every request, `requireQiAccess`). `lib/qi-rm.js`, `get-qi-rm`,
+`qi-rm-action`. Feeds Sections 2, 3 and 6 of the Monthly QI & RM Status
+and Compliance Report (ASRS-620-06).
+
+- **Objectives & results:** every objective of the Plan version in effect,
+  grouped by goal (with the goal's notes, editable). Pick a month (defaults
+  to last month until the 15th, then the current month). Each objective
+  shows target, baseline and last month; enter this month's result as
+  "count of total" (shown as %) or text, a status and a comment. The app
+  **suggests** a status: "Reach by date" objectives are compared with a
+  straight line from the baseline (on the Plan's effective date) to the
+  target (on the target date): at or above the line On track, up to 10
+  points below At risk, further Not met, at the target Met; "Hold each
+  period" objectives must be at the target. At risk / Not met opens the
+  **follow-up** (cause, revised action, owner, due; Policy 620 B) and shows
+  **quarters not met in a row** (latest result in each quarter). 6a is
+  filled from CAP Review (citations closed of all citations).
+- **Plan versions (Policy 620 G):** owner, data source and review change in
+  place. Changing an objective's wording, measure, baseline, target, target
+  date, trend, service or goal, adding an objective, or marking one to be
+  removed, makes a **draft for the next version** (Plan & drafts). **Adopt
+  a new Plan version** (yyyymmdd, effective date) makes drafts the
+  objectives in effect, retires the ones they replace or that were marked,
+  carries the rest over and sets the previous version's Superseded On.
+  Results follow an objective across versions (via Replaces).
+- **Issues & opportunities:** the QI Improvement Items Tracker (ASRS-620-09),
+  one log with **Type** Issue/Opportunity, **Source** (SRA, RCA, CAP, input
+  from individuals, inspection, leadership, risk management, reporting,
+  staff, other) and **Source detail** (free text). Add update (dated; can
+  change status and due date), **Complete** (date and evidence required,
+  link optional), **Promote to Plan** (baseline, target and target date
+  required; makes a draft objective), **Drop** (reason required), Edit.
+  Overdue = Open/On hold past the due date.
+- **Data (Notion, under ASRS Compliance Checklists):** QI Plan Versions,
+  QI Goals, QI Objectives, QI Objective Results (one row per objective per
+  month), the existing QI Improvement Items Tracker (Type, Description,
+  Source Detail, Added By, Date Added, Last Updated added) and QI Item
+  Updates. IDs in `lib/ids.js`. The Notion integration needs a connection
+  to all six.
+
 ### CAP Review (admin dashboard; DBHDS Corrective Action Plans)
 
 **Admin Dashboard -> CAP Review tab:** every CAP at the admin's granted
