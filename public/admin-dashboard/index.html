@@ -196,6 +196,64 @@
   .isp-staff:first-of-type { border-top: 0; }
   .isp-staff-name { font-weight: 600; margin: 0 0 2px; }
   .isp-revise { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #DDD; font-size: 13px; }
+  /* QI & RM */
+  #qi-tab-content [hidden] { display: none !important; }
+  .qi-sub { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: 0 0 14px; overflow-x: auto; }
+  .qi-sub button { width: auto; margin: 0; background: none; color: #666; border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 9px 12px; font-size: 14px; white-space: nowrap; }
+  .qi-sub button.on { color: var(--forest); border-bottom-color: var(--forest-light); }
+  .qi-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
+  .qi-bar label { font-size: 12px; color: #666; display: flex; flex-direction: column; gap: 3px; }
+  .qi-bar select { margin: 0; width: auto; }
+  .qi-plan-line { font-size: 13px; color: #444; }
+  .qi-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .qi-pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #EEF0F3; color: #444; white-space: nowrap; }
+  .qi-ok { background: #E3F2E8; color: #1B6B35; } .qi-warn { background: #FFF4D6; color: #7A5600; }
+  .qi-bad { background: #FBE3E1; color: #9B1C14; } .qi-info { background: #E4ECF6; color: #23466F; }
+  .qi-warn-text { color: #7A5600; }
+  .qi-goal { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 14px; background: #fff; overflow: hidden; }
+  .qi-goal-head { padding: 10px 14px; background: #F1F5F2; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .qi-goal-head h3 { margin: 0; font-size: 15px; }
+  .qi-goal-notes { padding: 8px 14px; font-size: 13px; color: #666; border-bottom: 1px solid #EEE; display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+  .qi-goal-notes textarea { margin: 0; width: 100%; font-size: 14px; }
+  .qi-obj { padding: 12px 14px; border-top: 1px solid #EEE; }
+  .qi-obj.qi-retiring { background: #FFFBF0; }
+  .qi-obj-top { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
+  .qi-code { font-weight: 800; font-size: 15px; }
+  .qi-obj-text { min-width: 0; }
+  .qi-t { font-weight: 600; font-size: 14px; }
+  .qi-meta { font-size: 12.5px; color: #666; margin-top: 3px; }
+  .qi-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 10px 0 0 54px; align-items: start; }
+  .qi-cell { font-size: 12px; color: #666; min-width: 0; }
+  .qi-cell b { display: block; color: #1d2433; font-size: 13.5px; }
+  .qi-cell select, .qi-cell input { margin: 3px 0 0; font-size: 14px; padding: 6px 8px; }
+  .qi-wide { grid-column: span 2; }
+  .qi-entry { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .qi-entry input[type="number"] { width: 70px; }
+  .qi-entry b { display: inline; }
+  .qi-of { font-size: 13px; color: #666; }
+  .qi-suggest { font-size: 12px; margin-top: 4px; color: #555; }
+  .qi-followup { margin: 10px 0 0 54px; padding: 10px 12px; border-left: 3px solid #C99A06; background: #FFF8E3; border-radius: 0 8px 8px 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .qi-followup.qi-followup-bad { border-left-color: #B3261E; background: #FDF0EE; }
+  .qi-followup label, .qi-form label { font-size: 12.5px; font-weight: 600; display: flex; flex-direction: column; gap: 3px; color: #333; }
+  .qi-followup textarea, .qi-followup input, .qi-form textarea, .qi-form input, .qi-form select { margin: 0; font-size: 14px; padding: 6px 8px; }
+  .qi-full { grid-column: 1 / -1; }
+  .qi-qnm { font-size: 13px; font-weight: 400; }
+  .qi-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .qi-btn { width: auto; margin: 0; padding: 7px 13px; font-size: 13.5px; border-radius: 7px; }
+  .qi-btn.qi-ghost { background: transparent; color: var(--forest); border: 1px solid var(--forest); }
+  .qi-link { width: auto; margin: 0; padding: 0; background: none; color: var(--forest-light); font-size: 13px; font-weight: 600; text-decoration: underline; border: 0; }
+  .qi-panel { margin-top: 10px; padding: 10px 12px; border: 1px dashed #CCD3CE; border-radius: 8px; background: #FBFCFB; }
+  .qi-form { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .qi-checks { display: flex; gap: 6px 12px; flex-wrap: wrap; font-weight: 400; }
+  .qi-checks label { flex-direction: row; align-items: center; font-weight: 400; gap: 4px; }
+  .qi-checks input { width: auto; }
+  .qi-item { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .qi-item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .qi-id { font-weight: 800; color: #666; }
+  .qi-item-head .qi-t { flex: 1 1 240px; min-width: 0; }
+  .qi-pre { white-space: pre-wrap; font-size: 14px; margin: 6px 0; }
+  .qi-draft { border-top: 1px solid #EEE; padding: 8px 0; }
+  @media (max-width: 560px) { .qi-nums, .qi-followup { margin-left: 0; } .qi-wide { grid-column: auto; } }
   /* CAP Review */
   .cap-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
   .cap-toolbar button { width: auto; margin: 0; padding: 8px 14px; font-size: 14px; }
@@ -546,6 +604,7 @@
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
       <button class="tab-button" id="tab-sponsor-checklists" type="button">Checklists</button>
       <button class="tab-button" id="tab-cap" type="button">CAP Review</button>
+      <button class="tab-button" id="tab-qi" type="button">QI &amp; RM</button>
       <button class="tab-button" id="tab-modules" type="button">Training Modules</button>
       <button class="tab-button" id="tab-reports" type="button">Reports</button>
     </div>
@@ -687,6 +746,17 @@
         <div id="cap-items"></div>
         <button type="button" class="secondary" id="cap-delete" style="width:auto; margin-top: 24px; color: var(--error); border-color: var(--error);">Delete this CAP</button>
       </div>
+    </div>
+
+    <div id="qi-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">The Quality Improvement and Risk Management Plan: each objective's result and status every month (620.C.5), the follow-up when one is At risk or Not met (Policy 620 B), and the issues and opportunities log (QI Improvement Items Tracker, ASRS-620-09). For the Executive Director and the Risk Manager.</p>
+      <p class="error-text" id="qi-error"></p>
+      <div class="qi-sub" id="qi-subtabs">
+        <button type="button" data-v="obj" class="on">Objectives &amp; results</button>
+        <button type="button" data-v="items">Issues &amp; opportunities</button>
+        <button type="button" data-v="plan">Plan &amp; drafts</button>
+      </div>
+      <div id="qi-body"><p class="loading-text">Loading&hellip;</p></div>
     </div>
 
     <div id="modules-tab-content" style="display:none;">
@@ -1361,6 +1431,7 @@
     vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
     sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard },
     cap: { button: document.getElementById('tab-cap'), content: document.getElementById('cap-tab-content'), load: loadCapDashboard },
+    qi: { button: document.getElementById('tab-qi'), content: document.getElementById('qi-tab-content'), load: loadQiDashboard },
     modules: { button: document.getElementById('tab-modules'), content: document.getElementById('modules-tab-content'), load: loadModulesDashboard },
     reports: { button: document.getElementById('tab-reports'), content: document.getElementById('reports-tab-content'), load: loadReportsDashboard }
   };
@@ -4100,6 +4171,605 @@
       btn.disabled = false;
       btn.textContent = 'Import this CAP';
     }
+  });
+
+  // --- QI & RM ---
+  // Plan objectives with monthly results, the issues and opportunities log,
+  // and Plan drafts/versions (lib/qi-rm.js). Executive Director and Risk
+  // Manager only; the server checks the role.
+  let qiData = null;
+  let qiView = 'obj';
+  let qiMonth = '';
+  let qiItemFilter = 'Active';
+
+  function qiEl(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function qiToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()); }
+  function qiUs(iso) { if (!iso) return ''; const p = iso.slice(0, 10).split('-'); return Number(p[1]) + '/' + Number(p[2]) + '/' + p[0]; }
+  function qiMonthLabel(m) { return MONTH_ABBR[Number(m.slice(5, 7)) - 1] + ' ' + m.slice(0, 4); }
+  function qiShift(m, n) { const d = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1)); return d.toISOString().slice(0, 7); }
+  // Results are entered for the month just ended until the 15th (when the
+  // monthly report is due), then for the current month.
+  function qiDefaultMonth() { const t = qiToday(); return Number(t.slice(8, 10)) <= 15 ? qiShift(t.slice(0, 7), -1) : t.slice(0, 7); }
+  function qiPillClass(s) { return s === 'On track' || s === 'Met' ? 'qi-ok' : s === 'At risk' ? 'qi-warn' : s === 'Not met' ? 'qi-bad' : ''; }
+  function qiResultText(r) {
+    if (!r) return '—';
+    if (r.total !== null && r.total !== '' && r.total !== undefined && Number(r.total) > 0) return r.count + ' of ' + r.total + ' (' + Math.round(r.count / r.total * 100) + '%)';
+    return r.valueText || '—';
+  }
+  async function qiPost(body) {
+    return apiFetch('/qi-rm-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  }
+
+  async function loadQiDashboard() {
+    setError('qi-error', '');
+    if (!qiMonth) qiMonth = qiDefaultMonth();
+    const host = document.getElementById('qi-body');
+    if (!qiData) host.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      qiData = await apiFetch('/get-qi-rm?month=' + qiMonth);
+      renderQi();
+    } catch (e) {
+      host.innerHTML = '';
+      setError('qi-error', e.message);
+    }
+  }
+
+  function renderQi() {
+    document.querySelectorAll('#qi-subtabs button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === qiView); });
+    const host = document.getElementById('qi-body');
+    host.innerHTML = '';
+    if (qiView === 'obj') renderQiObjectives(host);
+    else if (qiView === 'items') renderQiItems(host);
+    else renderQiPlan(host);
+  }
+
+  // ---------- Objectives & results ----------
+  function renderQiObjectives(host) {
+    const d = qiData;
+    const bar = qiEl('div', 'qi-bar');
+    const ml = qiEl('label', null, 'Month');
+    const ms = document.createElement('select');
+    ms.id = 'qi-month';
+    const base = qiToday().slice(0, 7);
+    for (let i = 1; i >= -12; i--) { const m = qiShift(base, i); ms.appendChild(new Option(qiMonthLabel(m), m)); }
+    ms.value = qiMonth;
+    ms.addEventListener('change', function () { qiMonth = ms.value; loadQiDashboard(); });
+    ml.appendChild(ms);
+    bar.appendChild(ml);
+    const pv = qiEl('div', 'qi-plan-line', 'Plan Version ' + d.plan.version + ' · in effect since ' + qiUs(d.plan.effective) + (d.drafts.length ? ' · ' + d.drafts.length + ' draft change' + (d.drafts.length === 1 ? '' : 's') + ' for the next version' : ''));
+    bar.appendChild(pv);
+    const counts = qiEl('div', 'qi-chips');
+    const tally = {};
+    d.objectives.forEach(function (o) { const s = o.result && o.result.status ? o.result.status : ''; tally[s] = (tally[s] || 0) + 1; });
+    ['On track', 'Met', 'At risk', 'Not met'].forEach(function (s) { if (tally[s]) counts.appendChild(qiEl('span', 'qi-pill ' + qiPillClass(s), tally[s] + ' ' + s)); });
+    if (tally['']) counts.appendChild(qiEl('span', 'qi-pill', tally[''] + ' not entered'));
+    const needFollow = d.objectives.filter(function (o) { return o.result && (o.result.status === 'At risk' || o.result.status === 'Not met') && (!o.result.cause || !o.result.revisedAction); }).length;
+    if (needFollow) counts.appendChild(qiEl('span', 'qi-pill qi-bad', needFollow + ' need follow-up'));
+    bar.appendChild(counts);
+    host.appendChild(bar);
+
+    d.goals.forEach(function (g) {
+      const box = qiEl('div', 'qi-goal');
+      const head = qiEl('div', 'qi-goal-head');
+      head.appendChild(qiEl('h3', null, 'Goal ' + g.number + ' · ' + g.name));
+      if (g.tag) head.appendChild(qiEl('span', 'qi-pill qi-info', g.tag));
+      box.appendChild(head);
+      box.appendChild(qiGoalNotes(g));
+      d.objectives.filter(function (o) { return Number(o.goalNumber) === Number(g.number); }).forEach(function (o) { box.appendChild(qiObjectiveRow(o)); });
+      host.appendChild(box);
+    });
+    host.appendChild(qiEl('p', 'help-text', 'Owner, data source and review frequency change right away. Changing an objective\'s wording, measure, baseline, target or target date, adding one, or removing one is saved as a draft for the next Plan version (Policy 620 G) and shows under Plan & drafts. Monthly results never need a new version.'));
+  }
+
+  function qiGoalNotes(g) {
+    const wrap = qiEl('div', 'qi-goal-notes');
+    function show() {
+      wrap.innerHTML = '';
+      wrap.appendChild(qiEl('span', null, g.notes ? 'Notes: ' + g.notes : 'No notes.'));
+      const b = qiEl('button', 'qi-link', 'Edit notes');
+      b.type = 'button';
+      b.addEventListener('click', edit);
+      wrap.appendChild(b);
+    }
+    function edit() {
+      wrap.innerHTML = '';
+      const t = document.createElement('textarea');
+      t.rows = 3; t.value = g.notes || ''; t.id = 'qi-goal-notes-' + g.number;
+      wrap.appendChild(t);
+      const save = qiEl('button', 'qi-btn', 'Save notes'); save.type = 'button';
+      const cancel = qiEl('button', 'qi-btn qi-ghost', 'Cancel'); cancel.type = 'button';
+      cancel.addEventListener('click', show);
+      save.addEventListener('click', async function () {
+        save.disabled = true;
+        try { const r = await qiPost({ action: 'editGoalNotes', id: g.id, notes: t.value }); g.notes = r.goal.notes; show(); }
+        catch (e) { setError('qi-error', e.message); save.disabled = false; }
+      });
+      const row = qiEl('div', 'qi-actions'); row.appendChild(save); row.appendChild(cancel);
+      wrap.appendChild(row);
+    }
+    show();
+    return wrap;
+  }
+
+  function qiObjectiveRow(o) {
+    const d = qiData;
+    const row = qiEl('div', 'qi-obj' + (o.status === 'Retire at next version' ? ' qi-retiring' : ''));
+    const top = qiEl('div', 'qi-obj-top');
+    top.appendChild(qiEl('div', 'qi-code', o.code));
+    const tx = qiEl('div', 'qi-obj-text');
+    tx.appendChild(qiEl('div', 'qi-t', (o.service ? o.service + ': ' : '') + o.objective));
+    const meta = qiEl('div', 'qi-meta', 'Data: ' + (o.dataSource || '—') + ' · Owner: ' + (o.owner || '—') + ' · Review: ' + (o.review || '—'));
+    tx.appendChild(meta);
+    if (o.status === 'Retire at next version') tx.appendChild(qiEl('div', 'qi-meta qi-warn-text', 'Marked to be removed at the next Plan version.'));
+    top.appendChild(tx);
+    row.appendChild(top);
+
+    const r = o.result || {};
+    const nums = qiEl('div', 'qi-nums');
+    function cell(label, val) { const c = qiEl('div', 'qi-cell', label); c.appendChild(qiEl('b', null, val)); return c; }
+    nums.appendChild(cell('Target', o.target || '—'));
+    nums.appendChild(cell('Baseline', o.baseline || '—'));
+    nums.appendChild(cell('Last month', qiResultText(o.lastResult) + (o.lastResult && o.lastResult.status ? ' · ' + o.lastResult.status : '')));
+
+    const now = qiEl('div', 'qi-cell', 'This month');
+    const entry = qiEl('div', 'qi-entry');
+    const sug = qiEl('div', 'qi-suggest');
+    let cIn = null, tIn = null, vIn = null;
+    const key = o.id.replace(/-/g, '').slice(0, 12);
+    if (o.fromCap) {
+      const cp = d.cap ? d.cap.closed + ' of ' + d.cap.total + ' citations closed' : 'CAP Review not available';
+      entry.appendChild(qiEl('b', null, cp));
+    } else if (o.measureType === 'Count of total') {
+      cIn = document.createElement('input'); cIn.type = 'number'; cIn.min = '0'; cIn.step = '1'; cIn.id = 'qi-c-' + key; cIn.setAttribute('aria-label', o.code + ' count');
+      tIn = document.createElement('input'); tIn.type = 'number'; tIn.min = '1'; tIn.step = '1'; tIn.id = 'qi-t-' + key; tIn.setAttribute('aria-label', o.code + ' total');
+      if (r.total) { cIn.value = r.count; tIn.value = r.total; }
+      entry.appendChild(cIn); entry.appendChild(qiEl('span', 'qi-of', 'of')); entry.appendChild(tIn);
+    } else {
+      vIn = document.createElement('input'); vIn.type = 'text'; vIn.id = 'qi-v-' + key; vIn.value = r.valueText || ''; vIn.placeholder = 'Result'; vIn.setAttribute('aria-label', o.code + ' result');
+      entry.appendChild(vIn);
+    }
+    const pct = qiEl('b', 'qi-pct');
+    entry.appendChild(pct);
+    now.appendChild(entry);
+    now.appendChild(sug);
+    nums.appendChild(now);
+
+    const st = qiEl('div', 'qi-cell', 'Status');
+    const sel = document.createElement('select');
+    sel.id = 'qi-s-' + key;
+    sel.appendChild(new Option('Choose…', ''));
+    d.statuses.forEach(function (s) { sel.appendChild(new Option(s, s)); });
+    sel.value = r.status || '';
+    st.appendChild(sel);
+    nums.appendChild(st);
+
+    const cm = qiEl('div', 'qi-cell qi-wide', 'Comment / evidence');
+    const ci = document.createElement('input'); ci.type = 'text'; ci.id = 'qi-m-' + key; ci.value = r.comment || ''; ci.placeholder = 'e.g. Therap audit 11/30';
+    cm.appendChild(ci);
+    nums.appendChild(cm);
+    row.appendChild(nums);
+
+    const fu = qiEl('div', 'qi-followup');
+    fu.appendChild(qiEl('div', 'qi-full qi-meta', 'Required for At risk or Not met: cause and revised action within 30 days (Policy 620 B). Goes to Section 3 of the monthly report.'));
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); fu.appendChild(l); return node; }
+    const cause = fld('Why (brief cause)', document.createElement('textarea'), true); cause.rows = 2; cause.value = r.cause || ''; cause.id = 'qi-cause-' + key;
+    const act = fld('Revised action', document.createElement('textarea'), true); act.rows = 2; act.value = r.revisedAction || ''; act.id = 'qi-act-' + key;
+    const fo = fld('Owner', document.createElement('input')); fo.value = r.followOwner || o.owner || ''; fo.id = 'qi-fo-' + key;
+    const fd = fld('Due', document.createElement('input')); fd.type = 'date'; fd.value = r.followDue || ''; fd.id = 'qi-fd-' + key;
+    const qn = qiEl('div', 'qi-qnm');
+    fld('Quarters not met in a row', qn);
+    row.appendChild(fu);
+
+    const actions = qiEl('div', 'qi-actions');
+    const save = qiEl('button', 'qi-btn', r.id ? 'Save changes' : 'Save result'); save.type = 'button';
+    const saved = qiEl('span', 'qi-meta');
+    if (r.enteredDate) saved.textContent = 'Saved ' + qiUs(r.enteredDate) + (r.enteredBy ? ' by ' + r.enteredBy : '');
+    const edit = qiEl('button', 'qi-link', 'Edit objective'); edit.type = 'button';
+    actions.appendChild(save); actions.appendChild(saved); actions.appendChild(edit);
+    row.appendChild(actions);
+    const editHost = qiEl('div');
+    row.appendChild(editHost);
+
+    function suggestion() {
+      if (o.fromCap) return null;
+      if (!cIn || !tIn) return null;
+      const c = Number(cIn.value), t = Number(tIn.value);
+      if (cIn.value === '' || !(t > 0)) return null;
+      const p = Math.round(c / t * 100);
+      const target = Number(o.targetValue);
+      if (o.targetValue === null || o.targetValue === '') return { pct: p, status: null, why: '' };
+      if (o.trend === 'Hold each period') return { pct: p, status: p >= target ? 'On track' : 'Not met', why: 'needs ' + target + '% every period' };
+      if (p >= target) return { pct: p, status: 'Met', why: 'target reached' };
+      const b = Number(o.baselineValue);
+      if (o.baselineValue === null || o.baselineValue === '' || !o.targetDate) return { pct: p, status: 'On track', why: 'below the ' + target + '% target' };
+      const end = new Date(Date.UTC(+qiMonth.slice(0, 4), +qiMonth.slice(5, 7), 0)).toISOString().slice(0, 10);
+      const span = Date.parse(o.targetDate) - Date.parse(d.plan.effective);
+      const share = span > 0 ? Math.max(0, Math.min(1, (Date.parse(end) - Date.parse(d.plan.effective)) / span)) : 1;
+      const expected = Math.round(b + (target - b) * share);
+      return { pct: p, status: p >= expected ? 'On track' : p >= expected - 10 ? 'At risk' : 'Not met', why: 'expected about ' + expected + '% by ' + qiUs(end) };
+    }
+    let touched = !!r.status;
+    function refresh() {
+      const s = suggestion();
+      pct.textContent = s ? ' ' + s.pct + '%' : (o.fromCap && d.cap && d.cap.total ? ' ' + Math.round(d.cap.closed / d.cap.total * 100) + '%' : '');
+      sug.textContent = s && s.status ? 'Suggested: ' + s.status + ' (' + s.why + ')' : (o.measureType === 'Text' ? 'Choose a status' : (o.fromCap ? 'Filled from CAP Review when you save' : 'Enter the count and the total'));
+      if (!touched && s && s.status) sel.value = s.status;
+      const need = sel.value === 'At risk' || sel.value === 'Not met';
+      fu.hidden = !need;
+      fu.classList.toggle('qi-followup-bad', sel.value === 'Not met');
+      const q = o.quartersNotMet || 0;
+      qn.textContent = sel.value === 'Not met' ? (q > 1 ? q + ': goes to the Executive Director and into a new Plan version' : '1 (this quarter); a second quarter in a row goes to the Executive Director') : String(q);
+    }
+    [cIn, tIn].forEach(function (x) { if (x) x.addEventListener('input', refresh); });
+    sel.addEventListener('change', function () { touched = true; refresh(); });
+    refresh();
+
+    save.addEventListener('click', async function () {
+      save.disabled = true;
+      const label = save.textContent;
+      save.textContent = 'Saving…';
+      try {
+        const res = await qiPost({
+          action: 'saveResult', objectiveId: o.id, month: qiMonth,
+          count: cIn ? cIn.value : '', total: tIn ? tIn.value : '', valueText: vIn ? vIn.value : '',
+          status: sel.value, comment: ci.value,
+          cause: fu.hidden ? '' : cause.value, revisedAction: fu.hidden ? '' : act.value,
+          followOwner: fu.hidden ? '' : fo.value, followDue: fu.hidden ? '' : fd.value
+        });
+        o.result = res.result;
+        saved.textContent = 'Saved ' + qiUs(res.result.enteredDate);
+        save.textContent = 'Save changes';
+        if ((sel.value === 'At risk' || sel.value === 'Not met') && (!cause.value.trim() || !act.value.trim())) saved.textContent += ' · cause and revised action still needed';
+      } catch (e) {
+        setError('qi-error', e.message);
+        save.textContent = label;
+      } finally {
+        save.disabled = false;
+      }
+    });
+
+    edit.addEventListener('click', function () {
+      if (editHost.firstChild) { editHost.innerHTML = ''; return; }
+      editHost.appendChild(qiObjectiveForm(o, function () { loadQiDashboard(); }));
+    });
+    return row;
+  }
+
+  // Edit (existing objective) or new draft (o = null).
+  function qiObjectiveForm(o, done) {
+    const f = qiEl('div', 'qi-panel qi-form');
+    const isNew = !o;
+    o = o || { goalNumber: 1, measureType: 'Count of total', trend: 'Reach by date' };
+    if (!isNew) f.appendChild(qiEl('p', 'qi-full qi-meta', 'Owner, data source and review save right away. The other fields are a draft for the next Plan version; the objective in effect stays as it is until then.'));
+    else f.appendChild(qiEl('p', 'qi-full qi-meta', 'A new objective is a draft for the next Plan version. Plan objectives must be measurable: baseline, target amount and target date.'));
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); f.appendChild(l); return node; }
+    function input(type, val) { const i = document.createElement('input'); i.type = type; if (val !== undefined && val !== null) i.value = val; return i; }
+    function sel(opts, val) { const s = document.createElement('select'); opts.forEach(function (x) { s.appendChild(new Option(x[1], x[0])); }); s.value = val == null ? '' : val; return s; }
+    const goal = fld('Goal', sel(qiData.goals.map(function (g) { return [String(g.number), g.number + ' · ' + g.name]; }), String(o.goalNumber)));
+    const svc = fld('Service (if reported by service)', sel([['', 'All services'], ['Group Home', 'Group Home'], ['Sponsored Residential', 'Sponsored Residential'], ['Community Engagement', 'Community Engagement']], o.service || ''));
+    const text = fld('Objective (how much, by when)', document.createElement('textarea'), true); text.rows = 2; text.value = o.objective || '';
+    const mt = fld('Measure', sel([['Count of total', 'Count of total (shown as %)'], ['Text', 'Text']], o.measureType));
+    const tr = fld('Progress expected', sel([['Reach by date', 'Rise to the target by the target date'], ['Hold each period', 'Hold the target every period']], o.trend));
+    const bl = fld('Baseline (as written)', input('text', o.baseline)); bl.placeholder = 'e.g. 55%';
+    const bv = fld('Baseline % (number)', input('number', o.baselineValue));
+    const tg = fld('Target (as written)', input('text', o.target)); tg.placeholder = 'e.g. 90% by 6/30/2027';
+    const tv = fld('Target % (number)', input('number', o.targetValue));
+    const td = fld('Target date', input('date', o.targetDate));
+    const ds = fld('Data source', input('text', o.dataSource));
+    const ow = fld('Owner', input('text', o.owner));
+    const rv = fld('Review', input('text', o.review)); rv.placeholder = 'Monthly';
+    const err = qiEl('p', 'error-text qi-full');
+    f.appendChild(err);
+    const row = qiEl('div', 'qi-actions qi-full');
+    const save = qiEl('button', 'qi-btn', isNew ? 'Save draft objective' : 'Save'); save.type = 'button';
+    row.appendChild(save);
+    if (!isNew) {
+      const ret = qiEl('button', 'qi-btn qi-ghost', o.status === 'Retire at next version' ? 'Keep in the next version' : 'Remove at the next version'); ret.type = 'button';
+      ret.addEventListener('click', async function () {
+        ret.disabled = true;
+        try { await qiPost({ action: 'retireObjective', id: o.id, retire: o.status !== 'Retire at next version' }); done(); }
+        catch (e) { err.textContent = e.message; err.style.display = 'block'; ret.disabled = false; }
+      });
+      row.appendChild(ret);
+    }
+    f.appendChild(row);
+    save.addEventListener('click', async function () {
+      err.style.display = 'none';
+      const fields = {
+        goalNumber: goal.value, service: svc.value, objective: text.value.trim(), measureType: mt.value, trend: tr.value,
+        baseline: bl.value.trim(), baselineValue: bv.value, target: tg.value.trim(), targetValue: tv.value, targetDate: td.value,
+        dataSource: ds.value.trim(), owner: ow.value.trim(), review: rv.value.trim()
+      };
+      save.disabled = true;
+      try {
+        const r = isNew ? await qiPost(Object.assign({ action: 'addObjective' }, fields)) : await qiPost({ action: 'editObjective', id: o.id, changes: fields });
+        if (!isNew && r.draft) alert('Saved. The change to ' + o.code + ' is a draft for the next Plan version (see Plan & drafts); the objective in effect is unchanged until then.');
+        done();
+      } catch (e) {
+        err.textContent = e.message; err.style.display = 'block'; save.disabled = false;
+      }
+    });
+    return f;
+  }
+
+  // ---------- Issues & opportunities ----------
+  function qiIsClosed(i) { return ['Completed', 'Dropped', 'Promoted to Plan'].indexOf(i.status) !== -1; }
+
+  function renderQiItems(host) {
+    const d = qiData;
+    const add = qiEl('details', 'ap-step');
+    add.id = 'qi-add-item';
+    const sum = qiEl('summary', null, '+ Log an issue or opportunity');
+    sum.style.cursor = 'pointer'; sum.style.fontWeight = '600';
+    add.appendChild(sum);
+    add.appendChild(qiItemForm(null, function () { loadQiDashboard(); }));
+    host.appendChild(add);
+
+    const bar = qiEl('div', 'qi-bar');
+    const tg = qiEl('div', 'cap-filter');
+    ['Active', 'Ideas', 'Closed', 'All'].forEach(function (f) {
+      const b = qiEl('button', f === qiItemFilter ? 'on' : '', f); b.type = 'button';
+      b.addEventListener('click', function () { qiItemFilter = f; renderQi(); });
+      tg.appendChild(b);
+    });
+    bar.appendChild(tg);
+    const chips = qiEl('div', 'qi-chips');
+    const active = d.items.filter(function (i) { return i.status === 'Open' || i.status === 'On hold'; });
+    chips.appendChild(qiEl('span', 'qi-pill', active.length + ' active'));
+    const over = d.items.filter(function (i) { return i.overdue; }).length;
+    if (over) chips.appendChild(qiEl('span', 'qi-pill qi-bad', over + ' overdue'));
+    chips.appendChild(qiEl('span', 'qi-pill', d.items.filter(function (i) { return i.status === 'Idea'; }).length + ' ideas'));
+    bar.appendChild(chips);
+    host.appendChild(bar);
+
+    const list = d.items.filter(function (i) {
+      if (qiItemFilter === 'Active') return i.status === 'Open' || i.status === 'On hold';
+      if (qiItemFilter === 'Ideas') return i.status === 'Idea';
+      if (qiItemFilter === 'Closed') return qiIsClosed(i);
+      return true;
+    }).sort(function (a, b) {
+      if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      return (a.due || '9999') < (b.due || '9999') ? -1 : (a.due || '9999') > (b.due || '9999') ? 1 : (b.number || 0) - (a.number || 0);
+    });
+    if (!list.length) host.appendChild(qiEl('p', 'empty-text', 'Nothing here.'));
+    list.forEach(function (i) { host.appendChild(qiItemCard(i)); });
+  }
+
+  function qiChecks(name, options, picked) {
+    const w = qiEl('div', 'qi-checks');
+    options.forEach(function (o) {
+      const l = qiEl('label');
+      const c = document.createElement('input'); c.type = 'checkbox'; c.value = o; c.name = name; c.checked = picked.indexOf(o) !== -1;
+      l.appendChild(c); l.appendChild(document.createTextNode(' ' + o));
+      w.appendChild(l);
+    });
+    w.values = function () { return Array.from(w.querySelectorAll('input:checked')).map(function (c) { return c.value; }); };
+    return w;
+  }
+
+  // New item (i = null) or edit.
+  function qiItemForm(i, done) {
+    const o = qiData.options;
+    const isNew = !i;
+    i = i || { type: 'Issue', status: 'Open', locations: ['All'], goals: [] };
+    const f = qiEl('div', 'qi-form');
+    f.style.marginTop = '10px';
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); f.appendChild(l); return node; }
+    function sel(opts, val, blank) { const s = document.createElement('select'); if (blank) s.appendChild(new Option(blank, '')); opts.forEach(function (x) { s.appendChild(new Option(x, x)); }); s.value = val || ''; return s; }
+    function input(type, val) { const x = document.createElement('input'); x.type = type; x.value = val || ''; return x; }
+    const type = fld('Type', sel(o.types, i.type));
+    const status = isNew ? fld('Status', sel(['Open', 'Idea'], i.status)) : null;
+    const t = fld('Title (short)', input('text', i.title), true);
+    const desc = fld('Description and measure (what it is; from what to what, by when)', document.createElement('textarea'), true); desc.rows = 3; desc.value = i.description || '';
+    const src = fld('Source', sel(o.sources, i.source, 'Choose…'));
+    const sd = fld('Source detail (where it came from)', input('text', i.sourceDetail)); sd.placeholder = 'e.g. Reigel Q3 2026 SRA; resident conversation 11/12 at Janeway';
+    const area = fld('Area', sel(o.areas, i.area, 'Choose…'));
+    const owner = fld('Owner', input('text', i.owner || (isNew ? qiData.me : '')));
+    const due = fld('Due date', input('date', i.due));
+    const locs = fld('Location / service', qiChecks('qi-loc', o.locations, i.locations), true);
+    const goals = fld('Supports goal', qiChecks('qi-goal', o.goals, i.goals), true);
+    const err = qiEl('p', 'error-text qi-full'); f.appendChild(err);
+    const save = qiEl('button', 'qi-btn', isNew ? 'Save item' : 'Save changes'); save.type = 'button';
+    const row = qiEl('div', 'qi-actions qi-full'); row.appendChild(save); f.appendChild(row);
+    save.addEventListener('click', async function () {
+      err.style.display = 'none';
+      if (!t.value.trim()) { err.textContent = 'Give the item a short title.'; err.style.display = 'block'; return; }
+      const fields = { type: type.value, title: t.value.trim(), description: desc.value.trim(), source: src.value, sourceDetail: sd.value.trim(), area: area.value, owner: owner.value.trim(), due: due.value, locations: locs.values(), goals: goals.values() };
+      if (status) fields.status = status.value;
+      save.disabled = true;
+      try {
+        if (isNew) await qiPost(Object.assign({ action: 'createItem' }, fields));
+        else await qiPost({ action: 'editItem', id: i.id, changes: fields });
+        done();
+      } catch (e) { err.textContent = e.message; err.style.display = 'block'; save.disabled = false; }
+    });
+    return f;
+  }
+
+  function qiItemCard(i) {
+    const box = qiEl('div', 'qi-item');
+    const head = qiEl('div', 'qi-item-head');
+    head.appendChild(qiEl('span', 'qi-id', 'QI-' + (i.number || '?')));
+    head.appendChild(qiEl('span', 'qi-t', i.title));
+    if (i.type) head.appendChild(qiEl('span', 'qi-pill ' + (i.type === 'Issue' ? 'qi-warn' : 'qi-info'), i.type));
+    head.appendChild(qiEl('span', 'qi-pill ' + (i.status === 'Completed' ? 'qi-ok' : i.status === 'Promoted to Plan' ? 'qi-info' : ''), i.status));
+    if (i.overdue) head.appendChild(qiEl('span', 'qi-pill qi-bad', 'Overdue'));
+    box.appendChild(head);
+    const bits = [];
+    if (i.source) bits.push('Source: ' + i.source + (i.sourceDetail ? ' (' + i.sourceDetail + ')' : ''));
+    if (i.area) bits.push(i.area);
+    if (i.locations.length) bits.push(i.locations.join(', '));
+    if (i.goals.length) bits.push('Goal ' + i.goals.join(', '));
+    if (i.owner) bits.push('Owner: ' + i.owner);
+    if (i.due) bits.push('Due ' + qiUs(i.due));
+    if (i.completed) bits.push('Completed ' + qiUs(i.completed));
+    box.appendChild(qiEl('div', 'qi-meta', bits.join(' · ')));
+    if (i.promotedTo) box.appendChild(qiEl('div', 'qi-meta', i.promotedTo));
+
+    const det = qiEl('details', 'sc-items');
+    det.appendChild(qiEl('summary', null, 'Details and updates (' + i.updates.length + ')'));
+    if (i.description) { const p = qiEl('p', 'qi-pre', i.description); det.appendChild(p); }
+    if (i.notes) det.appendChild(qiEl('p', 'qi-pre qi-meta', 'Notes: ' + i.notes));
+    if (i.evidence) { const p = qiEl('p', 'qi-meta', 'Evidence: '); const a = qiEl('a', null, i.evidence); a.href = i.evidence; a.target = '_blank'; a.rel = 'noopener'; p.appendChild(a); det.appendChild(p); }
+    const ul = qiEl('ul', 'cap-updates');
+    if (!i.updates.length && i.latestUpdate) ul.appendChild(qiEl('li', null, i.latestUpdate));
+    if (!i.updates.length && !i.latestUpdate) ul.appendChild(qiEl('li', 'qi-meta', 'No updates yet.'));
+    i.updates.forEach(function (u) {
+      const li = qiEl('li');
+      li.appendChild(qiEl('span', 'when', qiUs(u.date) + (u.by ? ' (' + u.by + ')' : '') + (u.kind !== 'Update' ? ' · ' + u.kind : '') + ': '));
+      li.appendChild(document.createTextNode(u.text));
+      ul.appendChild(li);
+    });
+    det.appendChild(ul);
+    box.appendChild(det);
+
+    if (qiIsClosed(i)) return box;
+    const acts = qiEl('div', 'qi-actions');
+    const panel = qiEl('div');
+    function open(kind) {
+      if (panel.dataset.kind === kind) { panel.innerHTML = ''; panel.dataset.kind = ''; return; }
+      panel.dataset.kind = kind;
+      panel.innerHTML = '';
+      if (kind === 'edit') { const p = qiEl('div', 'qi-panel'); p.appendChild(qiItemForm(i, function () { loadQiDashboard(); })); panel.appendChild(p); return; }
+      const p = qiEl('div', 'qi-panel qi-form');
+      function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); p.appendChild(l); return node; }
+      function input(type, val) { const x = document.createElement('input'); x.type = type; x.value = val == null ? '' : val; return x; }
+      const err = qiEl('p', 'error-text qi-full');
+      let btn;
+      if (kind === 'update') {
+        const t = fld('Update', document.createElement('textarea'), true); t.rows = 2; t.placeholder = 'What happened since the last update';
+        const dt = fld('Date', input('date', qiToday()));
+        const s = document.createElement('select'); ['Open', 'On hold', 'Idea'].forEach(function (x) { s.appendChild(new Option(x, x)); }); s.value = i.status; fld('Status', s);
+        const nd = fld('Due date', input('date', i.due));
+        btn = qiEl('button', 'qi-btn', 'Save update');
+        btn.addEventListener('click', function () { qiItemAction(btn, err, { action: 'updateItem', id: i.id, text: t.value, date: dt.value, status: s.value, due: nd.value }); });
+      } else if (kind === 'complete') {
+        p.appendChild(qiEl('p', 'qi-full qi-meta', 'Completing needs the date and the evidence that the improvement happened (it goes in the monthly report).'));
+        const dt = fld('Completed date', input('date', qiToday())); dt.max = qiToday();
+        const ev = fld('Evidence (required)', document.createElement('textarea'), true); ev.rows = 2; ev.placeholder = 'What shows it is done, with dates';
+        const ln = fld('Evidence link (optional)', input('url', '')); ln.placeholder = 'https://drive.google.com/...';
+        btn = qiEl('button', 'qi-btn', 'Complete QI-' + i.number);
+        btn.addEventListener('click', function () { qiItemAction(btn, err, { action: 'completeItem', id: i.id, date: dt.value, evidence: ev.value, evidenceLink: ln.value }); });
+      } else if (kind === 'promote') {
+        p.appendChild(qiEl('p', 'qi-full qi-meta', 'Promoting makes a draft objective for the next Plan version. Plan objectives must be measurable, so the baseline, target and target date are required.'));
+        const g = document.createElement('select'); qiData.goals.forEach(function (x) { g.appendChild(new Option(x.number + ' · ' + x.name, x.number)); }); fld('Goal', g);
+        const ob = fld('Objective (how much, by when)', document.createElement('textarea'), true); ob.rows = 2; ob.value = i.title;
+        const bl = fld('Baseline (required)', input('text', '')); bl.placeholder = 'e.g. 20%';
+        const bv = fld('Baseline % (number)', input('number', ''));
+        const tg = fld('Target (required)', input('text', '')); tg.placeholder = 'e.g. 100% by 3/31/2027';
+        const tv = fld('Target % (number)', input('number', ''));
+        const td = fld('Target date', input('date', ''));
+        const ds = fld('Data source', input('text', ''));
+        const ow = fld('Owner', input('text', i.owner));
+        btn = qiEl('button', 'qi-btn', 'Promote to Plan');
+        btn.addEventListener('click', function () { qiItemAction(btn, err, { action: 'promoteItem', id: i.id, goalNumber: g.value, objective: ob.value.trim(), baseline: bl.value.trim(), baselineValue: bv.value, target: tg.value.trim(), targetValue: tv.value, targetDate: td.value, dataSource: ds.value.trim(), owner: ow.value.trim(), measureType: 'Count of total', trend: 'Reach by date', review: 'Monthly' }); });
+      } else if (kind === 'drop') {
+        const r = fld('Why it is being dropped (required)', document.createElement('textarea'), true); r.rows = 2;
+        btn = qiEl('button', 'qi-btn', 'Drop QI-' + i.number);
+        btn.addEventListener('click', function () { qiItemAction(btn, err, { action: 'dropItem', id: i.id, reason: r.value }); });
+      }
+      btn.type = 'button';
+      p.appendChild(err);
+      const row = qiEl('div', 'qi-actions qi-full'); row.appendChild(btn); p.appendChild(row);
+      panel.appendChild(p);
+    }
+    [['Add update', 'update', ''], ['Complete', 'complete', ''], ['Edit', 'edit', 'qi-ghost'], ['Promote to Plan', 'promote', 'qi-ghost'], ['Drop', 'drop', 'qi-ghost']].forEach(function (a) {
+      const b = qiEl('button', 'qi-btn ' + a[2], a[0]); b.type = 'button';
+      b.addEventListener('click', function () { open(a[1]); });
+      acts.appendChild(b);
+    });
+    box.appendChild(acts);
+    box.appendChild(panel);
+    return box;
+  }
+
+  async function qiItemAction(btn, err, body) {
+    err.style.display = 'none';
+    btn.disabled = true;
+    try { await qiPost(body); await loadQiDashboard(); }
+    catch (e) { err.textContent = e.message; err.style.display = 'block'; btn.disabled = false; }
+  }
+
+  // ---------- Plan & drafts ----------
+  function renderQiPlan(host) {
+    const d = qiData;
+    const cur = qiEl('div', 'ap-step');
+    cur.appendChild(qiEl('p', 'ap-step-title', 'Plan Version ' + d.plan.version + ' (in effect since ' + qiUs(d.plan.effective) + ')'));
+    cur.appendChild(qiEl('p', 'ap-step-status', d.objectives.length + ' objectives · ' + d.goals.length + ' goals' + (d.plan.approvedBy ? ' · approved by ' + d.plan.approvedBy : '')));
+    host.appendChild(cur);
+
+    const dr = qiEl('div', 'ap-step');
+    dr.appendChild(qiEl('p', 'ap-step-title', 'Draft changes for the next version (' + d.drafts.length + ')'));
+    const retiring = d.objectives.filter(function (o) { return o.status === 'Retire at next version'; });
+    if (!d.drafts.length && !retiring.length) dr.appendChild(qiEl('p', 'help-text', 'No draft changes. Changes to an objective\'s wording, measure, baseline, target or target date, new objectives and promoted items show here.'));
+    d.drafts.forEach(function (o) {
+      const r = qiEl('div', 'qi-draft');
+      r.appendChild(qiEl('div', 'qi-t', o.code + (o.service ? ' (' + o.service + ')' : '') + ': ' + o.objective));
+      r.appendChild(qiEl('div', 'qi-meta', 'Baseline ' + (o.baseline || '—') + ' · Target ' + (o.target || '—') + (o.targetDate ? ' (' + qiUs(o.targetDate) + ')' : '') + ' · Owner ' + (o.owner || '—')));
+      if (o.draftNote) r.appendChild(qiEl('div', 'qi-meta', o.draftNote));
+      const acts = qiEl('div', 'qi-actions');
+      const ed = qiEl('button', 'qi-link', 'Edit draft'); ed.type = 'button';
+      const hostE = qiEl('div');
+      ed.addEventListener('click', function () { if (hostE.firstChild) hostE.innerHTML = ''; else hostE.appendChild(qiObjectiveForm(o, function () { loadQiDashboard(); })); });
+      const ds = qiEl('button', 'qi-link', 'Discard draft'); ds.type = 'button';
+      ds.addEventListener('click', async function () {
+        if (!confirm('Discard the draft for ' + o.code + '?')) return;
+        try { await qiPost({ action: 'retireObjective', id: o.id }); loadQiDashboard(); } catch (e) { setError('qi-error', e.message); }
+      });
+      acts.appendChild(ed); acts.appendChild(ds);
+      r.appendChild(acts); r.appendChild(hostE);
+      dr.appendChild(r);
+    });
+    retiring.forEach(function (o) {
+      dr.appendChild(qiEl('div', 'qi-draft qi-meta', o.code + (o.service ? ' (' + o.service + ')' : '') + ' will be removed at the next version.'));
+    });
+    const addB = qiEl('button', 'qi-btn qi-ghost', '+ New objective (draft)'); addB.type = 'button';
+    const addHost = qiEl('div');
+    addB.addEventListener('click', function () { if (addHost.firstChild) addHost.innerHTML = ''; else addHost.appendChild(qiObjectiveForm(null, function () { loadQiDashboard(); })); });
+    dr.appendChild(addB); dr.appendChild(addHost);
+    host.appendChild(dr);
+
+    const ad = qiEl('details', 'ap-step');
+    ad.appendChild(qiEl('summary', null, 'Adopt a new Plan version'));
+    ad.firstChild.style.cursor = 'pointer'; ad.firstChild.style.fontWeight = '600';
+    ad.appendChild(qiEl('p', 'help-text', 'Do this after the new version of the Plan document is signed (Policy 620 G). Drafts become the objectives in effect, objectives they replace or that are marked for removal are retired, and Version ' + d.plan.version + ' gets its Superseded On date. Results history carries over.'));
+    const f = qiEl('div', 'qi-form');
+    function fld(label, node, full) { const l = qiEl('label', full ? 'qi-full' : null, label); l.appendChild(node); f.appendChild(l); return node; }
+    const ver = fld('New version (yyyymmdd)', document.createElement('input')); ver.placeholder = qiToday().replace(/-/g, ''); ver.id = 'qi-new-version';
+    const eff = fld('Effective date', document.createElement('input')); eff.type = 'date'; eff.value = qiToday(); eff.id = 'qi-new-effective';
+    const appr = fld('Approved by', document.createElement('input')); appr.value = d.me; appr.id = 'qi-new-approved';
+    const ch = fld('What changed', document.createElement('textarea'), true); ch.rows = 2; ch.id = 'qi-new-changes';
+    const err = qiEl('p', 'error-text qi-full'); f.appendChild(err);
+    const btn = qiEl('button', 'qi-btn', 'Adopt new version'); btn.type = 'button';
+    btn.addEventListener('click', async function () {
+      err.style.display = 'none';
+      if (!confirm('Adopt Version ' + ver.value + ' effective ' + qiUs(eff.value) + '? Version ' + d.plan.version + ' will be superseded.')) return;
+      btn.disabled = true;
+      try { await qiPost({ action: 'adoptVersion', version: ver.value.trim(), effective: eff.value, approvedBy: appr.value.trim(), changes: ch.value.trim() }); loadQiDashboard(); }
+      catch (e) { err.textContent = e.message; err.style.display = 'block'; btn.disabled = false; }
+    });
+    const row = qiEl('div', 'qi-actions qi-full'); row.appendChild(btn); f.appendChild(row);
+    ad.appendChild(f);
+    host.appendChild(ad);
+
+    const hist = qiEl('div', 'ap-step');
+    hist.appendChild(qiEl('p', 'ap-step-title', 'Version history'));
+    d.versions.forEach(function (v) {
+      hist.appendChild(qiEl('p', 'qi-meta', 'Version ' + v.version + ' · effective ' + qiUs(v.effective) + (v.supersededOn ? ' · superseded ' + qiUs(v.supersededOn) : ' · in effect') + (v.changes ? ' · ' + v.changes : '')));
+    });
+    host.appendChild(hist);
+  }
+
+  document.getElementById('qi-subtabs').addEventListener('click', function (e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    qiView = b.dataset.v;
+    if (qiData) renderQi();
   });
 
   let currentVehicle = null;
