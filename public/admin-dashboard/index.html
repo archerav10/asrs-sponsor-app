@@ -196,6 +196,45 @@
   .isp-staff:first-of-type { border-top: 0; }
   .isp-staff-name { font-weight: 600; margin: 0 0 2px; }
   .isp-revise { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #DDD; font-size: 13px; }
+  /* CAP Review */
+  .cap-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
+  .cap-toolbar button { width: auto; margin: 0; padding: 8px 14px; font-size: 14px; }
+  .cap-pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; background: #EEF0F3; color: #444; }
+  .cap-pill.open { background: #FFF4D6; color: #7A5600; }
+  .cap-pill.overdue { background: #FBE3E1; color: #9B1C14; }
+  .cap-pill.closed { background: #E3F2E8; color: #1B6B35; }
+  .cap-pill.olr-Accepted { background: #E3F2E8; color: #1B6B35; }
+  .cap-pill.olr-Partially { background: #FFF4D6; color: #7A5600; }
+  .cap-pill.olr-Not { background: #FBE3E1; color: #9B1C14; }
+  .cap-item { border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+  .cap-item.is-closed { background: #FAFCFA; }
+  .cap-item-head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  .cap-item-head .cite { font-weight: 700; font-size: 15px; }
+  .cap-item-head .std { font-size: 14px; color: #333; }
+  .cap-item-meta { font-size: 13px; color: #666; margin: 4px 0 0; }
+  .cap-item-meta .late { color: #9B1C14; font-weight: 600; }
+  .cap-item details { margin-top: 8px; font-size: 14px; }
+  .cap-item details > summary { cursor: pointer; color: var(--forest-light); }
+  .cap-block { margin: 8px 0 0; }
+  .cap-block h4 { margin: 0 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #666; }
+  .cap-block p { margin: 0; white-space: pre-wrap; font-size: 14px; line-height: 1.4; }
+  .cap-updates { list-style: none; padding: 0; margin: 4px 0 0; }
+  .cap-updates li { border-top: 1px solid #EEE; padding: 6px 0; font-size: 13.5px; white-space: pre-wrap; }
+  .cap-updates li .when { font-weight: 600; color: #333; }
+  .cap-form { margin-top: 10px; padding: 10px 12px; border: 1px dashed #CCD3CE; border-radius: 8px; background: #FBFCFB; }
+  .cap-form label { font-size: 13px; font-weight: 600; display: block; margin: 8px 0 3px; }
+  .cap-form textarea, .cap-form input, .cap-form select { margin: 0; font-size: 14px; }
+  .cap-form .row2 { display: flex; gap: 10px; flex-wrap: wrap; }
+  .cap-form .row2 > div { flex: 1; min-width: 150px; }
+  .cap-form button { width: auto; padding: 8px 14px; font-size: 14px; margin-top: 10px; }
+  .cap-closure { margin-top: 8px; padding: 8px 10px; border-left: 3px solid #1B7A3D; background: #F1F8F3; font-size: 14px; }
+  .cap-closure p { margin: 2px 0; white-space: pre-wrap; }
+  .cap-filter { display: inline-flex; gap: 4px; }
+  .cap-filter button { width: auto; margin: 0; padding: 6px 12px; font-size: 13px; background: #fff; color: var(--forest); border: 1px solid #CCD3CE; }
+  .cap-filter button.on { background: var(--forest); color: #fff; border-color: var(--forest); }
+  .cap-preview { font-size: 14px; margin-top: 10px; }
+  .cap-preview table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  .cap-preview td, .cap-preview th { text-align: left; padding: 4px 6px; border-top: 1px solid #EEE; vertical-align: top; }
   .sc-items { margin: 6px 0 8px; font-size: 14px; }
   .sc-items summary { cursor: pointer; color: var(--forest-light); }
   .sc-items ul { list-style: none; padding: 0; margin: 6px 0 0; }
@@ -506,6 +545,7 @@
       <button class="tab-button" id="tab-compliance" type="button">Compliance</button>
       <button class="tab-button" id="tab-vehicles" type="button">Vehicles</button>
       <button class="tab-button" id="tab-sponsor-checklists" type="button">Checklists</button>
+      <button class="tab-button" id="tab-cap" type="button">CAP Review</button>
       <button class="tab-button" id="tab-modules" type="button">Training Modules</button>
       <button class="tab-button" id="tab-reports" type="button">Reports</button>
     </div>
@@ -613,6 +653,40 @@
       </details>
       <div id="sponsor-checklists-list" style="margin-top: 18px;"><p class="loading-text">Loading&hellip;</p></div>
       <button type="button" id="sponsor-checklists-view-closed" class="secondary" style="margin-top: 18px;">View closed checklists</button>
+    </div>
+
+    <div id="cap-tab-content" style="display:none;">
+      <p class="meta" style="margin: -6px 0 16px; font-size: 13px; color: #777;">DBHDS Corrective Action Plans, tracked citation by citation. Upload a CAP Response and Tracker (.docx) to bring in its citations, actions, planned dates and existing status notes; then add dated updates (with OLR's response when you get one) and close citations out. Closing a citation needs the reason and a description of the evidence that supports it.</p>
+      <p class="error-text" id="cap-error"></p>
+      <div id="cap-list-view">
+        <div class="cap-toolbar">
+          <button type="button" id="cap-open-report">Open items report (PDF)</button>
+        </div>
+        <details class="ap-step" id="cap-upload">
+          <summary style="cursor: pointer; font-weight: 600;">+ Upload a CAP (.docx)</summary>
+          <p class="help-text">The CAP Response and Tracker as a Word file: the License # header table, the citations table (#, Standard(s) Cited, Comp, Description, Actions to be Taken, Planned Comp. Date) and each citation's status row. You'll see what was read before anything is saved.</p>
+          <input type="file" id="cap-upload-file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" style="margin-top: 10px;">
+          <div id="cap-upload-preview" class="cap-preview"></div>
+          <p class="error-text" id="cap-upload-error"></p>
+          <button type="button" id="cap-upload-import" style="display:none;">Import this CAP</button>
+        </details>
+        <div id="cap-list" style="margin-top: 14px;"><p class="loading-text">Loading&hellip;</p></div>
+      </div>
+      <div id="cap-detail-view" style="display:none;">
+        <div class="cap-toolbar">
+          <button type="button" class="secondary" id="cap-back" style="margin:0;">&larr; All CAPs</button>
+          <button type="button" id="cap-report-btn">CAP report (PDF)</button>
+        </div>
+        <div id="cap-detail-head" class="ap-step"></div>
+        <div class="cap-toolbar">
+          <span class="cap-filter" id="cap-filter">
+            <button type="button" data-f="all" class="on">All</button><button type="button" data-f="open">Open</button><button type="button" data-f="closed">Closed</button>
+          </span>
+          <span class="help-text" id="cap-filter-count" style="margin:0;"></span>
+        </div>
+        <div id="cap-items"></div>
+        <button type="button" class="secondary" id="cap-delete" style="width:auto; margin-top: 24px; color: var(--error); border-color: var(--error);">Delete this CAP</button>
+      </div>
     </div>
 
     <div id="modules-tab-content" style="display:none;">
@@ -1286,6 +1360,7 @@
     compliance: { button: document.getElementById('tab-compliance'), content: document.getElementById('compliance-tab-content'), load: loadComplianceDashboard },
     vehicles: { button: document.getElementById('tab-vehicles'), content: document.getElementById('vehicles-tab-content'), load: loadVehiclesDashboard },
     sponsorChecklists: { button: document.getElementById('tab-sponsor-checklists'), content: document.getElementById('sponsor-checklists-tab-content'), load: loadSponsorChecklistsDashboard },
+    cap: { button: document.getElementById('tab-cap'), content: document.getElementById('cap-tab-content'), load: loadCapDashboard },
     modules: { button: document.getElementById('tab-modules'), content: document.getElementById('modules-tab-content'), load: loadModulesDashboard },
     reports: { button: document.getElementById('tab-reports'), content: document.getElementById('reports-tab-content'), load: loadReportsDashboard }
   };
@@ -3562,6 +3637,468 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Send checklist';
+    }
+  });
+
+  // --- CAP Review ---
+  // Corrective Action Plans (lib/cap-review.js): a list of CAPs, one CAP's
+  // citations with updates, close-out and reopen, and the two PDF reports.
+  let capList = [];
+  let capCurrent = null;   // { cap, items }
+  let capFilter = 'all';
+  let capUploadFile = null;
+  let capOlrStatuses = ['Pending', 'Accepted', 'Partially Accepted', 'Not Accepted'];
+
+  function capEl(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function capToday() {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+  }
+  function capPill(text, cls) { return capEl('span', 'cap-pill ' + (cls || ''), text); }
+  function capOlrPill(s) { return capPill('OLR: ' + (s || 'Pending'), 'olr-' + String(s || 'Pending').split(' ')[0]); }
+
+  async function capDownload(query, btn, fallbackName) {
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Building PDF…';
+    setError('cap-error', '');
+    try {
+      const stored = getStoredSession();
+      const res = await fetch(FN_BASE + '/cap-report?' + query, { headers: { 'Authorization': 'Bearer ' + (stored ? stored.sessionToken : '') } });
+      if (!res.ok) {
+        let msg = 'Couldn’t build the report.';
+        try { msg = (await res.json()).error || msg; } catch (e) { /* not JSON */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : fallbackName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    } catch (e) {
+      setError('cap-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  function capShow(view) {
+    document.getElementById('cap-list-view').style.display = view === 'list' ? '' : 'none';
+    document.getElementById('cap-detail-view').style.display = view === 'detail' ? '' : 'none';
+  }
+
+  async function loadCapDashboard() {
+    setError('cap-error', '');
+    if (capCurrent) { capShow('detail'); return capOpen(capCurrent.cap.id); }
+    capShow('list');
+    const listEl = document.getElementById('cap-list');
+    listEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-caps');
+      capList = data.caps || [];
+      if (data.olrStatuses) capOlrStatuses = data.olrStatuses;
+      renderCapList();
+    } catch (e) {
+      listEl.innerHTML = '';
+      setError('cap-error', e.message);
+    }
+  }
+
+  function capCountsText(c) {
+    return c.total + ' citations · ' + c.open + ' open' + (c.overdue ? ' (' + c.overdue + ' overdue)' : '') + ' · ' + c.closed + ' closed';
+  }
+
+  function renderCapList() {
+    const listEl = document.getElementById('cap-list');
+    listEl.innerHTML = '';
+    if (!capList.length) {
+      listEl.innerHTML = '<p class="empty-text">No CAPs yet. Use "+ Upload a CAP (.docx)" above.</p>';
+      return;
+    }
+    capList.forEach(function (c) {
+      const row = capEl('div', 'ap-step');
+      const t = capEl('p', 'ap-step-title');
+      t.appendChild(document.createTextNode(c.title));
+      t.appendChild(capPill(c.status === 'Closed' ? 'Closed' : 'Open', c.status === 'Closed' ? 'closed' : 'open'));
+      if (c.counts.overdue) t.appendChild(capPill(c.counts.overdue + ' overdue', 'overdue'));
+      row.appendChild(t);
+      row.appendChild(capEl('p', 'ap-step-status' + (c.status === 'Closed' ? ' done' : ''), capCountsText(c.counts) + ' · ' + (c.facilityName || '') + (c.specialist ? ' · LS ' + c.specialist : '')));
+      const actions = capEl('div', 'in-actions-row');
+      const view = capEl('button', '', 'View citations');
+      view.type = 'button';
+      view.addEventListener('click', function () { capOpen(c.id); });
+      actions.appendChild(view);
+      const rep = capEl('button', 'secondary', 'CAP report (PDF)');
+      rep.type = 'button';
+      rep.addEventListener('click', function () { capDownload('capId=' + encodeURIComponent(c.id), rep, 'CAP Report.pdf'); });
+      actions.appendChild(rep);
+      row.appendChild(actions);
+      listEl.appendChild(row);
+    });
+  }
+
+  async function capOpen(capId) {
+    setError('cap-error', '');
+    capShow('detail');
+    const itemsEl = document.getElementById('cap-items');
+    itemsEl.innerHTML = '<p class="loading-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-caps?capId=' + encodeURIComponent(capId));
+      if (data.olrStatuses) capOlrStatuses = data.olrStatuses;
+      capCurrent = { cap: data.cap, items: data.items };
+      renderCapDetail();
+    } catch (e) {
+      itemsEl.innerHTML = '';
+      setError('cap-error', e.message);
+    }
+  }
+
+  function renderCapDetail() {
+    const cap = capCurrent.cap;
+    const head = document.getElementById('cap-detail-head');
+    head.innerHTML = '';
+    const t = capEl('p', 'ap-step-title');
+    t.appendChild(document.createTextNode(cap.title));
+    t.appendChild(capPill(cap.status === 'Closed' ? 'Closed' : 'Open', cap.status === 'Closed' ? 'closed' : 'open'));
+    head.appendChild(t);
+    head.appendChild(capEl('p', 'ap-step-status', capCountsText(cap.counts)));
+    head.appendChild(capEl('p', 'help-text', 'License ' + cap.licenseNumber + ' · ' + (cap.facilityName || cap.location) + ' · Inspection ' + formatDate(cap.inspectionDate) + (cap.specialist ? ' · Licensing Specialist ' + cap.specialist : '') + (cap.importedDate ? ' · Imported ' + formatDate(cap.importedDate) + (cap.importedBy ? ' by ' + cap.importedBy : '') : '')));
+    if (cap.notes) {
+      const d = capEl('details', 'sc-items');
+      d.appendChild(capEl('summary', '', 'ECTA statement and DBHDS comments'));
+      const p = capEl('p', '', cap.notes);
+      p.style.whiteSpace = 'pre-wrap';
+      p.style.fontSize = '13.5px';
+      d.appendChild(p);
+      head.appendChild(d);
+    }
+    renderCapItems();
+  }
+
+  function renderCapItems() {
+    const itemsEl = document.getElementById('cap-items');
+    itemsEl.innerHTML = '';
+    const items = capCurrent.items.filter(function (i) {
+      return capFilter === 'all' || (capFilter === 'open' ? i.status !== 'Closed' : i.status === 'Closed');
+    });
+    document.getElementById('cap-filter-count').textContent = items.length + ' shown';
+    if (!items.length) itemsEl.innerHTML = '<p class="empty-text">No ' + (capFilter === 'all' ? '' : capFilter + ' ') + 'citations.</p>';
+    items.forEach(function (i) { itemsEl.appendChild(renderCapItem(i)); });
+  }
+
+  function capBlock(label, text) {
+    const b = capEl('div', 'cap-block');
+    b.appendChild(capEl('h4', '', label));
+    b.appendChild(capEl('p', '', text));
+    return b;
+  }
+
+  function renderCapItem(i) {
+    const closed = i.status === 'Closed';
+    const box = capEl('div', 'cap-item' + (closed ? ' is-closed' : ''));
+    const head = capEl('div', 'cap-item-head');
+    head.appendChild(capEl('span', 'cite', i.citation));
+    head.appendChild(capEl('span', 'std', i.standard));
+    head.appendChild(closed ? capPill('Closed ' + formatDate(i.closedDate), 'closed') : capPill(i.overdue ? 'Open · overdue' : 'Open', i.overdue ? 'overdue' : 'open'));
+    head.appendChild(capOlrPill(i.olrStatus));
+    if (i.compliance) head.appendChild(capPill(i.compliance));
+    box.appendChild(head);
+
+    const meta = capEl('p', 'cap-item-meta');
+    const planned = capEl('span', i.overdue ? 'late' : '', 'Planned completion ' + (i.plannedDate ? formatDate(i.plannedDate) : 'not set'));
+    meta.appendChild(planned);
+    if (i.olrDate) meta.appendChild(document.createTextNode(' · OLR response ' + formatDate(i.olrDate)));
+    const latest = i.updates[0];
+    if (latest) meta.appendChild(document.createTextNode(' · Last update ' + formatDate(latest.date)));
+    box.appendChild(meta);
+
+    if (closed) {
+      const c = capEl('div', 'cap-closure');
+      c.appendChild(capEl('p', '', 'Closed ' + formatDate(i.closedDate) + (i.closedBy ? ' by ' + i.closedBy : '')));
+      c.appendChild(capEl('p', '', 'Reason: ' + i.closureReason));
+      c.appendChild(capEl('p', '', 'Evidence: ' + i.closureEvidence));
+      if (i.evidenceLink) {
+        const p = capEl('p', '', 'Link: ');
+        const a = capEl('a', '', i.evidenceLink);
+        a.href = i.evidenceLink;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        p.appendChild(a);
+        c.appendChild(p);
+      }
+      box.appendChild(c);
+    }
+
+    const det = capEl('details');
+    det.appendChild(capEl('summary', '', 'Details and updates (' + i.updates.length + ')'));
+    if (i.standardText) det.appendChild(capBlock('Standard', i.standardText));
+    if (i.description) det.appendChild(capBlock('Description of noncompliance (DBHDS)', i.description));
+    if (i.actions) det.appendChild(capBlock('Actions to be taken', i.actions));
+    const ub = capEl('div', 'cap-block');
+    ub.appendChild(capEl('h4', '', 'Status, notes and updates (newest first)'));
+    if (!i.updates.length) ub.appendChild(capEl('p', 'help-text', 'No updates yet.'));
+    else {
+      const ul = capEl('ul', 'cap-updates');
+      i.updates.forEach(function (u) {
+        const li = capEl('li');
+        li.appendChild(capEl('span', 'when', formatDate(u.date) + (u.by ? ' (' + u.by + ')' : '') + (u.kind && u.kind !== 'Update' && u.kind !== 'Imported' ? ' · ' + u.kind : '') + ': '));
+        li.appendChild(document.createTextNode(u.text));
+        ul.appendChild(li);
+      });
+      ub.appendChild(ul);
+    }
+    det.appendChild(ub);
+    box.appendChild(det);
+
+    const actions = capEl('div', 'in-actions-row');
+    const formHost = capEl('div');
+    function toggleForm(build) {
+      const open = formHost.firstChild && formHost.firstChild.dataset.kind === build.name;
+      formHost.innerHTML = '';
+      if (!open) { const f = build(); f.dataset.kind = build.name; formHost.appendChild(f); }
+    }
+    if (!closed) {
+      const up = capEl('button', 'secondary', 'Add update');
+      up.type = 'button';
+      up.addEventListener('click', function () { toggleForm(function updateForm() { return capUpdateForm(i); }); });
+      actions.appendChild(up);
+      const cl = capEl('button', '', 'Close out');
+      cl.type = 'button';
+      cl.addEventListener('click', function () { toggleForm(function closeForm() { return capCloseForm(i); }); });
+      actions.appendChild(cl);
+    } else {
+      const ro = capEl('button', 'secondary', 'Reopen');
+      ro.type = 'button';
+      ro.addEventListener('click', function () { toggleForm(function reopenForm() { return capReopenForm(i); }); });
+      actions.appendChild(ro);
+    }
+    box.appendChild(actions);
+    box.appendChild(formHost);
+    return box;
+  }
+
+  function capField(form, label, input) {
+    const l = capEl('label', '', label);
+    form.appendChild(l);
+    form.appendChild(input);
+    return input;
+  }
+  function capInput(type, value) {
+    const e = document.createElement(type === 'textarea' ? 'textarea' : 'input');
+    if (type !== 'textarea') e.type = type;
+    if (value) e.value = value;
+    return e;
+  }
+
+  async function capSubmit(form, btn, body, okLabel) {
+    const err = form.querySelector('.error-text');
+    err.style.display = 'none';
+    btn.disabled = true;
+    const label = btn.textContent;
+    btn.textContent = 'Saving…';
+    try {
+      await apiFetch('/cap-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      await capOpen(capCurrent.cap.id);
+    } catch (e) {
+      err.textContent = e.message;
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  function capUpdateForm(i) {
+    const f = capEl('div', 'cap-form');
+    const text = capField(f, 'Update', capInput('textarea'));
+    text.rows = 3;
+    text.placeholder = 'What was done, submitted or decided';
+    const row = capEl('div', 'row2');
+    const d1 = capEl('div'), d2 = capEl('div'), d3 = capEl('div');
+    const date = capField(d1, 'Date', capInput('date', capToday()));
+    const olr = capField(d2, 'OLR response (optional)', document.createElement('select'));
+    olr.appendChild(new Option('No OLR response', ''));
+    capOlrStatuses.forEach(function (s) { olr.appendChild(new Option(s, s)); });
+    const planned = capField(d3, 'Planned completion date', capInput('date', i.plannedDate || ''));
+    row.appendChild(d1); row.appendChild(d2); row.appendChild(d3);
+    f.appendChild(row);
+    const olrDateWrap = capEl('div');
+    olrDateWrap.style.display = 'none';
+    const olrDate = capField(olrDateWrap, 'Date of OLR\'s response', capInput('date', capToday()));
+    f.appendChild(olrDateWrap);
+    olr.addEventListener('change', function () { olrDateWrap.style.display = olr.value ? '' : 'none'; });
+    f.appendChild(capEl('p', 'help-text', 'Choosing an OLR response updates the citation\'s OLR status. Changing the planned date is noted in the update.'));
+    f.appendChild(capEl('p', 'error-text'));
+    const btn = capEl('button', '', 'Save update');
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      capSubmit(f, btn, { action: 'update', itemId: i.id, text: text.value.trim(), date: date.value, olrStatus: olr.value, olrDate: olr.value ? olrDate.value : '', plannedDate: planned.value !== (i.plannedDate || '') ? planned.value : '' });
+    });
+    f.appendChild(btn);
+    return f;
+  }
+
+  function capCloseForm(i) {
+    const f = capEl('div', 'cap-form');
+    f.appendChild(capEl('p', 'help-text', 'Closing ' + i.citation + ' needs why it is being closed and the evidence that supports it. Both are kept on the citation and in the CAP report.'));
+    const reason = capField(f, 'Reason for closing (required)', capInput('textarea'));
+    reason.rows = 3;
+    reason.placeholder = 'e.g. Corrective actions completed and verified; OLR accepted the CAP response on 12/2/2026.';
+    const evidence = capField(f, 'Supporting evidence (required)', capInput('textarea'));
+    evidence.rows = 3;
+    evidence.placeholder = 'What shows it\'s corrected: documents, dates, versions, audits (e.g. Policy 440 rev. 11/5/2026; new-hire file audit 11/20/2026, 3 of 3 checklists signed).';
+    const row = capEl('div', 'row2');
+    const d1 = capEl('div'), d2 = capEl('div');
+    const link = capField(d1, 'Evidence link (optional)', capInput('url'));
+    link.placeholder = 'https://drive.google.com/...';
+    const date = capField(d2, 'Close-out date', capInput('date', capToday()));
+    date.max = capToday();
+    row.appendChild(d1); row.appendChild(d2);
+    f.appendChild(row);
+    f.appendChild(capEl('p', 'error-text'));
+    const btn = capEl('button', '', 'Close ' + i.citation);
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      if (reason.value.trim().length < 10) { const e = f.querySelector('.error-text'); e.textContent = 'Explain why it is being closed.'; e.style.display = 'block'; return; }
+      if (evidence.value.trim().length < 10) { const e = f.querySelector('.error-text'); e.textContent = 'Describe the supporting evidence.'; e.style.display = 'block'; return; }
+      if (!confirm('Close ' + i.citation + ' (' + i.standard + ')?')) return;
+      capSubmit(f, btn, { action: 'close', itemId: i.id, reason: reason.value.trim(), evidence: evidence.value.trim(), evidenceLink: link.value.trim(), date: date.value });
+    });
+    f.appendChild(btn);
+    return f;
+  }
+
+  function capReopenForm(i) {
+    const f = capEl('div', 'cap-form');
+    const reason = capField(f, 'Why is ' + i.citation + ' being reopened?', capInput('textarea'));
+    reason.rows = 2;
+    reason.placeholder = 'e.g. OLR did not accept the close-out on 12/10/2026.';
+    f.appendChild(capEl('p', 'help-text', 'The earlier close-out stays in the updates.'));
+    f.appendChild(capEl('p', 'error-text'));
+    const btn = capEl('button', '', 'Reopen ' + i.citation);
+    btn.type = 'button';
+    btn.addEventListener('click', function () {
+      capSubmit(f, btn, { action: 'reopen', itemId: i.id, reason: reason.value.trim() });
+    });
+    f.appendChild(btn);
+    return f;
+  }
+
+  document.getElementById('cap-back').addEventListener('click', function () {
+    capCurrent = null;
+    loadCapDashboard();
+  });
+  document.getElementById('cap-report-btn').addEventListener('click', function () {
+    if (capCurrent) capDownload('capId=' + encodeURIComponent(capCurrent.cap.id), this, 'CAP Report.pdf');
+  });
+  document.getElementById('cap-open-report').addEventListener('click', function () {
+    capDownload('open=1', this, 'CAP Open Items.pdf');
+  });
+  document.getElementById('cap-filter').addEventListener('click', function (e) {
+    const b = e.target.closest('button');
+    if (!b) return;
+    capFilter = b.dataset.f;
+    this.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    renderCapItems();
+  });
+  document.getElementById('cap-delete').addEventListener('click', async function () {
+    if (!capCurrent) return;
+    const cap = capCurrent.cap;
+    if (!confirm('Delete "' + cap.title + '" and all ' + cap.counts.total + ' citations and their updates?\n\nThey go to Notion\'s trash (restorable there for 30 days). Use this to re-import a corrected tracker.')) return;
+    if (prompt('Type DELETE to confirm.') !== 'DELETE') return;
+    const btn = this;
+    btn.disabled = true;
+    setError('cap-error', '');
+    try {
+      await apiFetch('/cap-action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'deleteCap', capId: cap.id }) });
+      capCurrent = null;
+      loadCapDashboard();
+    } catch (e) {
+      setError('cap-error', e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Upload: read the file, preview what the app found, then import.
+  function capFileBase64(file) {
+    return new Promise(function (resolve, reject) {
+      const r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(',')[1] || ''); };
+      r.onerror = function () { reject(new Error('Couldn\'t read the file.')); };
+      r.readAsDataURL(file);
+    });
+  }
+  async function capUploadCall(apply) {
+    return apiFetch('/cap-import', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: capUploadFile.name, file: await capFileBase64(capUploadFile), apply: apply })
+    });
+  }
+  document.getElementById('cap-upload-file').addEventListener('change', async function () {
+    const prev = document.getElementById('cap-upload-preview');
+    const importBtn = document.getElementById('cap-upload-import');
+    setError('cap-upload-error', '');
+    prev.innerHTML = '';
+    importBtn.style.display = 'none';
+    capUploadFile = this.files[0] || null;
+    if (!capUploadFile) return;
+    prev.innerHTML = '<p class="loading-text">Reading the CAP&hellip;</p>';
+    try {
+      const r = await capUploadCall(false);
+      prev.innerHTML = '';
+      const c = r.cap;
+      prev.appendChild(capEl('p', '', c.title));
+      prev.lastChild.style.fontWeight = '700';
+      prev.appendChild(capEl('p', 'help-text', [c.organization, c.facilityName, 'Licensing Specialist ' + c.specialist].filter(Boolean).join(' · ')));
+      const withUpdates = r.items.filter(function (i) { return i.updates; }).length;
+      prev.appendChild(capEl('p', '', r.items.length + ' citations found' + (withUpdates ? ', ' + withUpdates + ' with status notes' : '') + (c.notes ? '; ECTA statement / DBHDS comments included.' : '.')));
+      const table = capEl('table');
+      const hr = capEl('tr');
+      ['#', 'Standard', 'Comp', 'Planned', 'Status', 'OLR', 'Notes'].forEach(function (h) { hr.appendChild(capEl('th', '', h)); });
+      table.appendChild(hr);
+      r.items.forEach(function (i) {
+        const tr = capEl('tr');
+        [i.citation, i.standard, i.compliance, i.plannedDate ? formatDate(i.plannedDate) : '—', i.status, i.olrStatus, String(i.updates)].forEach(function (v) { tr.appendChild(capEl('td', '', v)); });
+        table.appendChild(tr);
+      });
+      prev.appendChild(table);
+      if (r.existing) {
+        setError('cap-upload-error', 'This CAP is already in CAP Review ("' + r.existing.title + '"). Delete it there first to import it again.');
+      } else {
+        importBtn.style.display = '';
+      }
+    } catch (e) {
+      prev.innerHTML = '';
+      setError('cap-upload-error', e.message);
+    }
+  });
+  document.getElementById('cap-upload-import').addEventListener('click', async function () {
+    if (!capUploadFile) return;
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+    setError('cap-upload-error', '');
+    try {
+      const r = await capUploadCall(true);
+      document.getElementById('cap-upload-file').value = '';
+      document.getElementById('cap-upload-preview').innerHTML = '';
+      document.getElementById('cap-upload').open = false;
+      btn.style.display = 'none';
+      capUploadFile = null;
+      await capOpen(r.capId);
+    } catch (e) {
+      setError('cap-upload-error', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Import this CAP';
     }
   });
 
