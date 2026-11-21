@@ -1,5 +1,6 @@
 const { requireSession } = require('./lib/session');
 const qi = require('./lib/qi-rm');
+const rep = require('./lib/qi-report');
 
 // QI & RM changes (Executive Director and Risk Manager only).
 //   saveResult     { objectiveId, month, count?, total?, valueText?, status?, comment?, cause?, revisedAction?, followOwner?, followDue? }
@@ -8,6 +9,7 @@ const qi = require('./lib/qi-rm');
 //   retireObjective { id, retire }        mark (or unmark) to retire at the next version; discards a draft
 //   editGoalNotes  { id, notes }
 //   adoptVersion   { version, effective, approvedBy?, changes? }
+//   reportInfo { month } / saveReportInfo { month, preparedBy, datePrepared, meetingDate, attendees, riskToolLink }
 //   createItem / editItem { id, changes } / updateItem { id, text, date?, status?, due? }
 //   completeItem   { id, evidence, evidenceLink?, date? } / dropItem { id, reason } / promoteItem { id, objective fields }
 exports.handler = async function (event) {
@@ -25,6 +27,8 @@ exports.handler = async function (event) {
       case 'retireObjective': return json(200, await qi.setRetire(b.id, b.retire !== false, by));
       case 'editGoalNotes': return json(200, { goal: await qi.editGoalNotes(b.id, b.notes) });
       case 'adoptVersion': return json(200, await qi.adoptVersion(b, by));
+      case 'reportInfo': return json(200, { info: await rep.reportInfo(b.month) });
+      case 'saveReportInfo': return json(200, { info: await rep.saveReportInfo(b, by) });
       case 'createItem': return json(200, { item: await qi.createItem(b, by) });
       case 'editItem': return json(200, { item: await qi.editItem(b.id, b.changes || {}, by) });
       case 'updateItem': return json(200, { item: await qi.addItemUpdate(b.id, b, by) });

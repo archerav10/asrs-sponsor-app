@@ -7,7 +7,9 @@ const zlib = require('zlib');
 // Text keeps line breaks between a cell's paragraphs; tracked deletions are
 // dropped, insertions kept.
 
-function unzipEntry(buf, wanted) {
+// The bytes of one file in a zip (wanted: its path, e.g. word/document.xml).
+// Throws when it isn't there; with `optional`, returns null instead.
+function unzipEntry(buf, wanted, optional) {
   // End of central directory: last 22+ bytes, signature 0x06054b50.
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
@@ -36,7 +38,8 @@ function unzipEntry(buf, wanted) {
     }
     p += 46 + nameLen + extraLen + commentLen;
   }
-  throw new Error('Not a Word document (no word/document.xml).');
+  if (optional) return null;
+  throw new Error(wanted === 'word/document.xml' ? 'Not a Word document (no word/document.xml).' : 'The file has no ' + wanted + '.');
 }
 
 function decode(s) {
@@ -121,4 +124,4 @@ function readDocx(buffer) {
   return blocks;
 }
 
-module.exports = { readDocx };
+module.exports = { readDocx, unzipEntry, decode };
