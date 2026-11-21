@@ -82,7 +82,7 @@
   </section>
 
   <section>
-    <h2>2. Where to put it</h2>
+    <h2 id="where">2. Where to put it</h2>
     <div class="table-wrap"><table>
       <tr><th>Module</th><th>Folder</th><th>Date in the name</th></tr>
       <tr><td>Staff Training</td><td>The person's <b>Training</b> folder (the link saved on their Staff Training screen). A folder inside it is fine too.</td><td><b>Required</b> for renewing items (the completion date). Optional for one-time items.</td></tr>
@@ -115,29 +115,29 @@
   <div id="problems"></div>
 
   <section>
-    <h2>4. Staff Training codes</h2>
+    <h2 id="staff">4. Staff Training codes</h2>
     <p class="muted">From the Training Requirements checklist in Notion. This list is always current.</p>
     <div id="staff-codes" class="table-wrap"></div>
   </section>
 
   <section>
-    <h2>5. Annual Planning codes</h2>
+    <h2 id="annual">5. Annual Planning codes</h2>
     <div id="annual-codes" class="table-wrap"></div>
   </section>
 
   <section>
-    <h2>6. Quarterly Reporting codes</h2>
+    <h2 id="quarterly">6. Quarterly Reporting codes</h2>
     <div id="quarterly-codes" class="table-wrap"></div>
   </section>
 
   <section>
-    <h2>7. Medical appointment codes</h2>
+    <h2 id="medical">7. Medical appointment codes</h2>
     <p class="muted">Physical, Dental, Labwork and TB Test count toward the home's yearly compliance. The rest are kept as history.</p>
     <div id="medical-codes" class="table-wrap"></div>
   </section>
 
   <section>
-    <h2>8. Intake step numbers</h2>
+    <h2 id="intake">8. Intake step numbers</h2>
     <p class="muted">From the Intake Steps checklists in Notion. Always current.</p>
     <div id="intake-codes" class="table-wrap"></div>
   </section>
@@ -293,6 +293,10 @@
       document.getElementById('problems').appendChild(box);
     }
     msg.textContent = 'Codes are current as of ' + new Date().toLocaleString();
+    // Opened from a tab's link (e.g. #medical): the tables above it just
+    // grew, so jump to that section again now that the page is complete.
+    const target = location.hash && document.getElementById(location.hash.slice(1));
+    if (target) target.scrollIntoView();
   }).catch(function (e) {
     msg.textContent = '';
     ['staff-codes', 'annual-codes', 'quarterly-codes', 'medical-codes', 'intake-codes', 'legacy-codes'].forEach(function (id) {
