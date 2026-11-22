@@ -2998,13 +2998,21 @@ flag, with a suggested owner and fix-by date) and, on the Final, sign-off
 for the Residential Liaison and the Executive Director. Areas: A emergency &
 fire (fire drills, walkthrough fire/CO/exit items, emergency supplies),
 B first aid & equipment, C medications (MAR review finalized in the month,
-storage check, Give Meds doses), D physical environment (readings in range
+storage check), D physical environment (readings in range
 and checked that month), E vehicles, F resident plans (Annual Planning incl.
-Risk Protocols / Care Plans / BSP, quarterly, daily notes signed per day),
+Risk Protocols / Care Plans / BSP, quarterly),
 G health (physical, dental, labwork, TB, flu season, reassessment after
 incidents), H quality of life (resident interview, community outings,
 liaison flags), I staff (training), J liaison oversight (on-site visit with
-its location check, weekly calls, sponsor/DSP questionnaire).
+its location check, weekly calls, sponsor/DSP questionnaire), K daily
+progress notes (a signed note every day, per resident), L medication
+administration (every scheduled Regular dose logged, Given/Refused/Held,
+every day, per resident; with refused/held counts). K and L use the same
+day rules as the Compliance tab and start on the home's DPN/MAR go-live
+date (Compliance tab); before it, or with none set, they read N/A. Final:
+any day in the month not done is red. Month to date (through yesterday):
+yesterday alone not done is yellow, an earlier missed day red. Each row
+gives days completed, the missed dates and the last completed day.
 
 Readings like temperatures are kept as the latest value, so a Final for a
 month generated long after it ended can only show what is on file now (an
