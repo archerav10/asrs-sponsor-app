@@ -85,14 +85,15 @@ function questionFromPage(page) {
 // version ever created — used both to resolve "what applied on date X"
 // and by the admin template-management screen to show version history.
 async function findAllQuestionRows(location, resident) {
-  const result = await queryDatabase(QUESTIONS_DB_ID, {
+  // Every page (a resident's versions add up past Notion's 100-row page).
+  const pages = await queryDatabaseAll(QUESTIONS_DB_ID, {
     and: [
       { property: 'Location', select: { equals: location } },
       { property: 'Resident Initials', rich_text: { equals: resident } },
       { property: 'Active', checkbox: { equals: true } }
     ]
   });
-  return (result.results || []).map(questionFromPage);
+  return pages.map(questionFromPage);
 }
 
 // Every resident who has at least one question template on file at this
@@ -314,14 +315,15 @@ async function findCover(location, resident, date) {
 // Every cover row on file for this resident, most recent date first —
 // used to find the earliest not-yet-signed day to walk forward from.
 async function findAllCovers(location, resident) {
-  const result = await queryDatabase(NOTES_DB_ID, {
+  // Every page: one cover a day passes Notion's 100-row page in ~3 months.
+  const pages = await queryDatabaseAll(NOTES_DB_ID, {
     and: [
       { property: 'Location', select: { equals: location } },
       { property: 'Resident Initials', rich_text: { equals: resident } },
       { property: 'Active', checkbox: { equals: true } }
     ]
   });
-  return (result.results || [])
+  return pages
     .map(coverFromPage)
     .sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
 }
@@ -605,6 +607,62 @@ function missingQuestions(questions, answersByKey) {
   return missing;
 }
 
+// ---- Recent signed notes (read-only, in the sponsor/liaison app) ----
+// Signed notes dated in the last `days` days, newest first, each with its
+// questions (the version in effect that day, in order) and answers, so a
+// note can be read right after it's signed, before the nightly PDF.
+async function recentSignedNotes(location, resident, days, now) {
+  const today = facilityToday(now);
+  const from = addDaysISO(today, -(days - 1));
+  const filter = function (extra) {
+    return { and: [
+      { property: 'Location', select: { equals: location } },
+      { property: 'Resident Initials', rich_text: { equals: resident } },
+      { property: 'Active', checkbox: { equals: true } },
+      { property: 'Date', date: { on_or_after: from } }
+    ].concat(extra || []) };
+  };
+  const [coverPages, answerPages, questionRows] = await Promise.all([
+    queryDatabaseAll(NOTES_DB_ID, filter()),
+    queryDatabaseAll(ANSWERS_DB_ID, filter()),
+    findAllQuestionRows(location, resident)
+  ]);
+  const covers = coverPages.map(coverFromPage).filter(function (c) { return c.signedAt; })
+    .sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+  const answersByDate = {};
+  answerPages.forEach(function (p) {
+    const d = getPlainText(p.properties['Date']);
+    (answersByDate[d] = answersByDate[d] || {})[getPlainText(p.properties['Question Key'])] = answerFromPage(p);
+  });
+  // The version in effect on a date (same rule as findQuestionsForDate).
+  const byEff = {};
+  questionRows.forEach(function (q) { (byEff[q.effectiveDate] = byEff[q.effectiveDate] || []).push(q); });
+  const versionFor = function (date) {
+    const effs = Object.keys(byEff).filter(function (e) { return e <= date; }).sort().reverse();
+    for (const e of effs) {
+      const term = byEff[e][0].terminationDate;
+      if (!term || term > date) return byEff[e].slice().sort(function (a, b) { return a.order - b.order; });
+    }
+    return [];
+  };
+  return covers.map(function (c) {
+    const answers = answersByDate[c.date] || {};
+    const used = {};
+    const items = versionFor(c.date).map(function (q) {
+      used[q.key] = true;
+      const a = answers[q.key] || {};
+      return { text: a.text || q.text, type: a.type || q.type, checklistItems: q.checklistItems, answerText: a.answerText || '', checklistAnswers: a.checklistAnswers || {} };
+    });
+    // Answers whose question isn't in that version (shouldn't happen) still show.
+    Object.keys(answers).sort().forEach(function (k) {
+      if (used[k]) return;
+      const a = answers[k];
+      items.push({ text: a.text, type: a.type, checklistItems: Object.keys(a.checklistAnswers || {}), answerText: a.answerText, checklistAnswers: a.checklistAnswers || {} });
+    });
+    return { date: c.date, timesCovered: c.timesCovered, enteredBy: c.enteredBy, signedBy: c.signedBy, signedAt: c.signedAt, community: c.community, pdfDriveUrl: c.pdfDriveUrl, questions: items };
+  });
+}
+
 // ---- Exceptional days ----
 // A per-resident template question (type "Exceptional Day"). The admin
 // writes, as the question text, what an exceptional day is for that
@@ -653,6 +711,7 @@ async function signAndFinalize(location, resident, date, signedBy, strokes) {
 }
 
 module.exports = {
+  recentSignedNotes,
   EXCEPTIONAL_TYPE,
   EXCEPTIONAL_ITEM,
   exceptionalAnswer,
