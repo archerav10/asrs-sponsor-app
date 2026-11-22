@@ -1,5 +1,5 @@
 const { id: configId } = require('./ids');
-const { queryDatabase, updatePage, createPage, getPlainText } = require('./notion');
+const { queryDatabase, queryDatabaseAll, updatePage, createPage, getPlainText } = require('./notion');
 
 const QUESTIONS_DB_ID = configId('DAILY_PROGRESS_NOTE_QUESTIONS_DB_ID');
 const NOTES_DB_ID = configId('DAILY_PROGRESS_NOTES_DB_ID');
@@ -589,7 +589,11 @@ function missingQuestions(questions, answersByKey) {
   const missing = [];
   questions.forEach(function (q) {
     const answer = answersByKey[q.key];
-    if (q.type === 'Checklist') {
+    if (q.type === EXCEPTIONAL_TYPE) {
+      const yn = exceptionalAnswer(answer).value;
+      if (!yn) missing.push('Was today an exceptional day?');
+      else if (yn === 'Yes' && !(answer.answerText || '').trim()) missing.push('Describe the exceptional day');
+    } else if (q.type === 'Checklist') {
       const done = answer && q.checklistItems.every(function (item) {
         return answer.checklistAnswers && (answer.checklistAnswers[item] === 'Yes' || answer.checklistAnswers[item] === 'No');
       });
@@ -599,6 +603,38 @@ function missingQuestions(questions, answersByKey) {
     }
   });
   return missing;
+}
+
+// ---- Exceptional days ----
+// A per-resident template question (type "Exceptional Day"). The admin
+// writes, as the question text, what an exceptional day is for that
+// resident (something they love and look forward to, planned for, not a
+// typical day). The provider answers Yes/No; on Yes, describes the day.
+// Stored on the answer row: Checklist Answers {"Exceptional day": "Yes"},
+// Answer Text = the description. Listed on the Monthly Location
+// Compliance Report (lib/location-report.js).
+const EXCEPTIONAL_TYPE = 'Exceptional Day';
+const EXCEPTIONAL_ITEM = 'Exceptional day';
+
+function exceptionalAnswer(answer) {
+  const v = answer && answer.checklistAnswers ? answer.checklistAnswers[EXCEPTIONAL_ITEM] : '';
+  return { value: v === 'Yes' || v === 'No' ? v : '', description: v === 'Yes' ? ((answer && answer.answerText) || '').trim() : '' };
+}
+
+// Every Exceptional Day answer at a location between two dates (inclusive).
+async function exceptionalAnswers(location, from, to) {
+  const pages = await queryDatabaseAll(ANSWERS_DB_ID, { and: [
+    { property: 'Location', select: { equals: location } },
+    { property: 'Question Type', select: { equals: EXCEPTIONAL_TYPE } },
+    { property: 'Active', checkbox: { equals: true } },
+    { property: 'Date', date: { on_or_after: from } },
+    { property: 'Date', date: { on_or_before: to } }
+  ] });
+  return pages.map(function (p) {
+    const a = answerFromPage(p);
+    const e = exceptionalAnswer(a);
+    return { resident: getPlainText(p.properties['Resident Initials']), date: getPlainText(p.properties['Date']), definition: a.text, value: e.value, description: e.description };
+  });
 }
 
 async function signAndFinalize(location, resident, date, signedBy, strokes) {
@@ -617,6 +653,10 @@ async function signAndFinalize(location, resident, date, signedBy, strokes) {
 }
 
 module.exports = {
+  EXCEPTIONAL_TYPE,
+  EXCEPTIONAL_ITEM,
+  exceptionalAnswer,
+  exceptionalAnswers,
   COMMUNITY_CHOSEN_BY,
   cleanCommunity,
   missingCommunity,

@@ -1124,7 +1124,7 @@ that admins edit themselves.
     filling it in instead; see below), `Effective
     Date`/`Termination Date` (date), `Question Key` (rich_text, e.g.
     `q1`), `Question Text` (rich_text), `Question Type` (select:
-    `Text`/`Checklist`), `Checklist Items` (rich_text, newline-delimited
+    `Text`/`Checklist`/`Exceptional Day`; see Exceptional days below), `Checklist Items` (rich_text, newline-delimited
     — only for `Checklist` questions), `Order` (number), `Active`
     (checkbox — never flipped false; a terminated version's rows stay on
     file, just with a `Termination Date` set).
@@ -1144,6 +1144,18 @@ that admins edit themselves.
     stays self-describing even after the template changes again),
     `Answer Text` (rich_text), `Checklist Answers` (rich_text, JSON map
     of item label -> `Yes`/`No`).
+- **Exceptional days.** A resident's template can include one
+  `Exceptional Day` question. Its text is what an exceptional day is for
+  that resident (something they love and look forward to, that excites
+  them, not a typical day, something you plan for). On the note the
+  provider sees that definition, answers "Was today an exceptional day?"
+  and, on Yes, describes the day (dictation works). Stored on the answer
+  row as `Checklist Answers` `{"Exceptional day": "Yes"}` and the
+  description in `Answer Text`; both are required to sign. Printed on the
+  note PDF and listed on the Monthly Location Compliance Report (area M).
+  To add it to an existing resident: Manage Question Templates, pick the
+  resident, **Start a new version from these questions** on the current
+  version, add the question, set the effective date and publish.
 - **Versioned template, resolved per-date, not "today's version."**
   `findQuestionsForDate` (`lib/daily-progress-notes.js`) picks the LATEST
   version whose Effective Date is on or before the day in question and
@@ -3013,6 +3025,11 @@ date (Compliance tab); before it, or with none set, they read N/A. Final:
 any day in the month not done is red. Month to date (through yesterday):
 yesterday alone not done is yellow, an earlier missed day red. Each row
 gives days completed, the missed dates and the last completed day.
+M exceptional days is a record, not a check: per resident, the
+definition and every day their note answered Yes, with the description,
+any community outing that day and who signed the note. A resident with
+none this month, or no Exceptional day question, reads N/A. Findings are
+the letter after the last area (N).
 
 Readings like temperatures are kept as the latest value, so a Final for a
 month generated long after it ended can only show what is on file now (an

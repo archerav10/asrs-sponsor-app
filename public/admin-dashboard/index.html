@@ -7728,7 +7728,9 @@
       '<select class="dpn-t-q-type">' +
         '<option value="Text"' + (question.type === 'Text' ? ' selected' : '') + '>Text</option>' +
         '<option value="Checklist"' + (question.type === 'Checklist' ? ' selected' : '') + '>Checklist (Yes/No items)</option>' +
+        '<option value="Exceptional Day"' + (question.type === 'Exceptional Day' ? ' selected' : '') + '>Exceptional day (Yes/No, then describe)</option>' +
       '</select>' +
+      '<p class="dpn-t-q-exc-hint" style="display:' + (question.type === 'Exceptional Day' ? 'block' : 'none') + ';font-size:12.5px;color:#5B6B66;margin:4px 0 8px;">Write, as the question text, what an exceptional day is for this resident: something they love and look forward to, that excites them, not a typical day, something you plan for. The provider sees it, answers "Was today an exceptional day?" and on Yes describes the day. Exceptional days are listed on the Monthly Location Compliance Report.</p>' +
       '<div class="dpn-t-q-checklist-wrap" style="display:' + (question.type === 'Checklist' ? 'block' : 'none') + ';">' +
         '<label>Checklist Items (one per line)</label>' +
         '<textarea class="dpn-t-q-items" rows="3">' + escapeHtml((question.checklistItems || []).join('\n')) + '</textarea>' +
@@ -7737,6 +7739,7 @@
 
     wrap.querySelector('.dpn-t-q-type').addEventListener('change', function () {
       wrap.querySelector('.dpn-t-q-checklist-wrap').style.display = this.value === 'Checklist' ? 'block' : 'none';
+      wrap.querySelector('.dpn-t-q-exc-hint').style.display = this.value === 'Exceptional Day' ? 'block' : 'none';
     });
     wrap.querySelector('.remove-question').addEventListener('click', function () {
       wrap.remove();
@@ -7784,10 +7787,22 @@
     const ol = document.createElement('ol');
     v.questions.forEach(function (q) {
       const li = document.createElement('li');
-      li.textContent = q.text + (q.type === 'Checklist' ? ' (Checklist: ' + q.checklistItems.join(', ') + ')' : '');
+      li.textContent = (q.type === 'Exceptional Day' ? 'Exceptional day: ' : '') + q.text + (q.type === 'Checklist' ? ' (Checklist: ' + q.checklistItems.join(', ') + ')' : '');
       ol.appendChild(li);
     });
     wrap.appendChild(ol);
+    // Copy this version's questions into the builder below, to edit and
+    // publish as a new version (e.g. to add an Exceptional day question).
+    const copy = document.createElement('button');
+    copy.type = 'button'; copy.className = 'secondary small'; copy.style.width = 'auto';
+    copy.textContent = 'Start a new version from these questions';
+    copy.addEventListener('click', function () {
+      const container = document.getElementById('dpn-t-questions');
+      container.innerHTML = '';
+      v.questions.forEach(function (q) { container.appendChild(renderDpnTQuestionRow({ text: q.text, type: q.type, checklistItems: q.checklistItems || [] })); });
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    wrap.appendChild(copy);
     return wrap;
   }
 

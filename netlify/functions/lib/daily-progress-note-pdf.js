@@ -90,8 +90,12 @@ async function buildDailyProgressNotePdf(data) {
 
   data.questions.forEach(function (q, index) {
     newPageIfNeeded(20);
-    drawLine((index + 1) + '. ' + q.text, { size: 11, bold: true });
-    if (q.type === 'Checklist') {
+    drawLine((index + 1) + '. ' + (q.type === 'Exceptional Day' ? 'Exceptional day. ' : '') + q.text, { size: 11, bold: true });
+    if (q.type === 'Exceptional Day') {
+      const v = (q.checklistAnswers && q.checklistAnswers['Exceptional day']) || '—';
+      drawLine('   • Today was an exceptional day: ' + v, { size: 10 });
+      if (v === 'Yes') drawLine(q.answerText || '—', { size: 10 });
+    } else if (q.type === 'Checklist') {
       const items = q.checklistItems || [];
       items.forEach(function (item) {
         const value = (q.checklistAnswers && q.checklistAnswers[item]) || '—';
