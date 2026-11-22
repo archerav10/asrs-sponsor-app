@@ -2367,6 +2367,15 @@ and the browser only ever talks to this app with its normal session.
   Notes`, where the nightly PDFs land, found by name from the sponsor's
   own location and resident (full name from the resident's DPN
   template). Month folders show as "October 2026".
+- **Recent notes** (just below Past notes): the resident's signed notes
+  from the last 14 days, read-only, straight from Notion
+  (`get-recent-progress-notes`, `recentSignedNotes` in
+  `lib/daily-progress-notes.js`), so a note can be read the moment it's
+  signed instead of after the 9:30 AM PDF run. Each day shows every
+  question and answer (the template version in effect that day), the
+  exceptional day, community, who entered and signed it, and a link to
+  the PDF once it's filed. Same resident check as the note itself: only
+  residents at the session's home.
 
 `get-drive-folder` lists a folder and `get-drive-file` streams a file
 (Google Docs/Sheets/Slides as PDF; up to 4 MB, Netlify's response

@@ -558,6 +558,18 @@
   .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
   .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
   .dpn-yn-btn.selected-na { background: #6b6b6b; color: #fff; border-color: #6b6b6b; }
+  .dpn-recent-note { background: #fff; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; }
+  .dpn-recent-note summary { cursor: pointer; padding: 12px 14px; list-style-position: inside; }
+  .dpn-recent-date { font-weight: 600; }
+  .dpn-recent-meta { display: block; font-size: 13px; color: #5B6B66; margin-top: 2px; padding-left: 18px; }
+  .dpn-recent-tag { display: inline-block; font-size: 12px; font-weight: 600; background: #FFF1CC; color: #7A5A00; border-radius: 999px; padding: 1px 8px; margin-left: 4px; }
+  .dpn-recent-body { padding: 0 14px 12px; border-top: 1px solid var(--border); }
+  .dpn-recent-q { padding: 10px 0; border-bottom: 1px solid #EEF0EE; }
+  .dpn-recent-label { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
+  .dpn-recent-answer { margin: 0; font-size: 14px; white-space: pre-wrap; }
+  .dpn-recent-exc { background: #FFF8E6; border-left: 3px solid #E0A526; padding-left: 10px; }
+  .dpn-recent-foot { font-size: 13px; color: #5B6B66; margin: 10px 0 4px; }
+  .dpn-recent-pdf { font-size: 14px; }
   .dpn-exceptional-def { margin: 0 0 8px; padding: 8px 10px; background: #FFF8E6; border-left: 3px solid #E0A526; border-radius: 6px; font-size: 14px; white-space: pre-wrap; }
   .dpn-exceptional-desc { margin-top: 10px; }
   .dpn-exceptional-desc .dpn-question-text { font-weight: 400; font-size: 14px; }
@@ -1233,6 +1245,17 @@
     <button id="si-submit" class="incident-button" style="border-radius:6px;">Submit Incident Report</button>
   </section>
 
+  <!-- Recent signed Daily Progress Notes (read-only) -->
+  <section id="screen-dpn-recent" class="screen">
+    <div class="screen-header">
+      <button class="back-button" data-back="dailyProgressNotes">&larr; Back</button>
+    </div>
+    <p class="screen-title" id="dpn-recent-title">Recent notes</p>
+    <p class="help-text" id="dpn-recent-help">Signed notes from the last 14 days, read-only. Tap a day to read it. Older notes are in Past notes.</p>
+    <p class="error-text" id="dpn-recent-error"></p>
+    <div id="dpn-recent-list"></div>
+  </section>
+
   <!-- Screen 11: Daily Progress Notes -->
   <section id="screen-daily-progress-notes" class="screen">
     <div class="screen-header">
@@ -1242,6 +1265,10 @@
     <button type="button" class="drive-item" id="dpn-past-notes" style="margin-bottom:14px;">
       <span class="drive-icon">&#128193;</span>
       <span><span class="drive-name">Past notes</span><span class="drive-meta">Signed notes for this resident, by month</span></span>
+    </button>
+    <button type="button" class="drive-item" id="dpn-recent-notes" style="margin-bottom:14px;">
+      <span class="drive-icon">&#128221;</span>
+      <span><span class="drive-name">Recent notes</span><span class="drive-meta">Read notes signed in the last 14 days, right away</span></span>
     </button>
 
     <div class="form-field" id="dpn-date-picker-wrap" style="display:none;">
@@ -1400,6 +1427,7 @@
     marReview: document.getElementById('screen-mar-review'),
     seriousIncident: document.getElementById('screen-serious-incident'),
     dailyProgressNotes: document.getElementById('screen-daily-progress-notes'),
+    dpnRecent: document.getElementById('screen-dpn-recent'),
     giveMeds: document.getElementById('screen-give-meds'),
     medical: document.getElementById('screen-medical'),
     weeklyFocus: document.getElementById('screen-weekly-focus'),
@@ -4902,6 +4930,75 @@
   document.getElementById('dpn-past-notes').addEventListener('click', function () {
     openDrive('progress-notes', currentDpnResidentInitials, 'dailyProgressNotes');
   });
+
+  // Recent signed notes, read straight from the database (no waiting for
+  // the morning PDF run). Read-only.
+  document.getElementById('dpn-recent-notes').addEventListener('click', function () {
+    showScreen('dpnRecent');
+    window.scrollTo(0, 0);
+    loadDpnRecent(currentDpnResidentInitials);
+  });
+
+  function dpnRecentNote(n) {
+    const d = document.createElement('details');
+    d.className = 'dpn-recent-note';
+    const sum = document.createElement('summary');
+    const signed = n.signedAt ? new Date(n.signedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    const exc = n.questions.some(function (q) { return q.type === 'Exceptional Day' && q.checklistAnswers['Exceptional day'] === 'Yes'; });
+    sum.innerHTML = '<span class="dpn-recent-date">' + escapeHtml(new Date(n.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })) + '</span>' +
+      (exc ? ' <span class="dpn-recent-tag">Exceptional day</span>' : '') +
+      '<span class="dpn-recent-meta">Signed by ' + escapeHtml(n.signedBy || '—') + (signed ? ' · ' + escapeHtml(signed) : '') + '</span>';
+    d.appendChild(sum);
+    const body = document.createElement('div');
+    body.className = 'dpn-recent-body';
+    const add = function (label, value, cls) {
+      const p = document.createElement('div');
+      p.className = 'dpn-recent-q' + (cls ? ' ' + cls : '');
+      p.innerHTML = '<p class="dpn-recent-label">' + escapeHtml(label) + '</p><p class="dpn-recent-answer">' + escapeHtml(value || '—') + '</p>';
+      body.appendChild(p);
+    };
+    if (n.timesCovered) add('Times covered', n.timesCovered);
+    n.questions.forEach(function (q, i) {
+      if (q.type === 'Exceptional Day') {
+        const v = q.checklistAnswers['Exceptional day'] || '—';
+        add((i + 1) + '. Exceptional day', 'Was today an exceptional day? ' + v + (v === 'Yes' ? '\n\n' + (q.answerText || '') : ''), v === 'Yes' ? 'dpn-recent-exc' : '');
+      } else if (q.type === 'Checklist') {
+        add((i + 1) + '. ' + q.text, (q.checklistItems || []).map(function (it) { return '• ' + it + ': ' + (q.checklistAnswers[it] || '—'); }).join('\n'));
+      } else {
+        add((i + 1) + '. ' + q.text, q.answerText);
+      }
+    });
+    const c = n.community || {};
+    if (c.outing) add('Community', 'Went out into the community: ' + c.outing + (c.outing === 'Yes' ? '\nWho chose: ' + (c.chosenBy || '—') + '\nGroup of 3 or fewer: ' + (c.smallGroup || '—') : ''));
+    const foot = document.createElement('p');
+    foot.className = 'dpn-recent-foot';
+    foot.textContent = (n.enteredBy ? 'Entered by ' + n.enteredBy + ' · ' : '') + 'Signed by ' + (n.signedBy || '—') + (n.pdfDriveUrl ? '' : ' · PDF filed at the next morning run');
+    body.appendChild(foot);
+    if (n.pdfDriveUrl) {
+      const a = document.createElement('a');
+      a.href = n.pdfDriveUrl; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open the PDF';
+      a.className = 'dpn-recent-pdf';
+      body.appendChild(a);
+    }
+    d.appendChild(body);
+    return d;
+  }
+
+  async function loadDpnRecent(resident) {
+    const list = document.getElementById('dpn-recent-list');
+    setError('dpn-recent-error', '');
+    document.getElementById('dpn-recent-title').textContent = 'Recent notes — ' + (resident || '');
+    list.innerHTML = '<p class="help-text">Loading&hellip;</p>';
+    try {
+      const data = await apiFetch('/get-recent-progress-notes?resident=' + encodeURIComponent(resident || ''));
+      list.innerHTML = '';
+      if (!data.notes.length) { list.innerHTML = '<p class="help-text">No signed notes in the last ' + data.days + ' days.</p>'; return; }
+      data.notes.forEach(function (n, i) { const el = dpnRecentNote(n); if (i === 0) el.open = true; list.appendChild(el); });
+    } catch (e) {
+      list.innerHTML = '';
+      setError('dpn-recent-error', e.message);
+    }
+  }
 
   document.getElementById('home-compliance').addEventListener('click', function () {
     showScreen('compliance');
