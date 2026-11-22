@@ -68,6 +68,13 @@ async function buildLocationReportPdf(report) {
     return out.join(', ') || '—';
   };
   const summary = function (a) {
+    if (a.record) {
+      // A record, not a check (M. Exceptional days): count the listed days.
+      const per = {};
+      a.items.forEach(function (i) { if (i.src === 'Daily progress note') { const r = i.req.split(' \u00b7 ')[0]; per[r] = (per[r] || 0) + 1; } });
+      const n = Object.keys(per).reduce(function (t, k) { return t + per[k]; }, 0);
+      return n ? n + ' exceptional day' + (n === 1 ? '' : 's') + ' recorded: ' + Object.keys(per).map(function (k) { return k + ' ' + per[k]; }).join(', ') + '.' : (a.items[0] ? a.items[0].found : '');
+    }
     const open = a.items.filter(function (i) { return i.s === 'r' || i.s === 'y'; });
     if (!open.length) {
       const g = a.items.filter(function (i) { return i.s === 'g'; }).length;

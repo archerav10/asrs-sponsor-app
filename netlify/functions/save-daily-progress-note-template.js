@@ -1,7 +1,7 @@
 const { requireSession } = require('./lib/session');
 const { createVersion, addDaysISO } = require('./lib/daily-progress-notes');
 
-const VALID_TYPES = ['Text', 'Checklist'];
+const VALID_TYPES = ['Text', 'Checklist', 'Exceptional Day'];
 
 // Publishes a new version of a resident's Daily Progress Notes question
 // set, effective on the given date. lib/daily-progress-notes.js's
@@ -62,10 +62,13 @@ exports.handler = async function (event) {
         return { statusCode: 400, body: JSON.stringify({ error: 'Every question needs text.' }) };
       }
       if (VALID_TYPES.indexOf(q.type) === -1) {
-        return { statusCode: 400, body: JSON.stringify({ error: 'Question type must be Text or Checklist.' }) };
+        return { statusCode: 400, body: JSON.stringify({ error: 'Question type must be Text, Checklist or Exceptional Day.' }) };
       }
       if (q.type === 'Checklist' && (!q.checklistItems || !q.checklistItems.filter(Boolean).length)) {
         return { statusCode: 400, body: JSON.stringify({ error: 'A Checklist question needs at least one item.' }) };
+      }
+      if (q.type === 'Exceptional Day' && questions.filter(function (x) { return x.type === 'Exceptional Day'; }).length > 1) {
+        return { statusCode: 400, body: JSON.stringify({ error: 'Use only one Exceptional Day question per resident.' }) };
       }
     }
 

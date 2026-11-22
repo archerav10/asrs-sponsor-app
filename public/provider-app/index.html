@@ -558,6 +558,10 @@
   .dpn-yn-btn.selected-yes { background: var(--forest); color: #fff; }
   .dpn-yn-btn.selected-no { background: var(--error); color: #fff; border-color: var(--error); }
   .dpn-yn-btn.selected-na { background: #6b6b6b; color: #fff; border-color: #6b6b6b; }
+  .dpn-exceptional-def { margin: 0 0 8px; padding: 8px 10px; background: #FFF8E6; border-left: 3px solid #E0A526; border-radius: 6px; font-size: 14px; white-space: pre-wrap; }
+  .dpn-exceptional-desc { margin-top: 10px; }
+  .dpn-exceptional-desc .dpn-question-text { font-weight: 400; font-size: 14px; }
+  .dpn-exceptional .dpn-yn-btn { width: auto; padding: 8px 12px; }
   .dpn-community .dpn-checklist-item, .dpn-community .dpn-yn-group { flex-wrap: wrap; }
   .dpn-community .dpn-checklist-item > span { flex: 1 1 100%; }
   .dpn-community .dpn-yn-group { flex-shrink: 1; min-width: 0; }
@@ -3531,6 +3535,34 @@
     return wrap;
   }
 
+  // Exceptional day (a per-resident template question): the question
+  // text is what an exceptional day is for this resident. Yes/No; on Yes,
+  // describe the day. Listed on the monthly location report.
+  function renderDpnExceptionalQuestion(q, answer) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dpn-question dpn-exceptional';
+    wrap.dataset.key = q.key;
+    wrap.dataset.type = 'Exceptional Day';
+    const existing = (answer && answer.checklistAnswers && answer.checklistAnswers['Exceptional day']) || '';
+    wrap.innerHTML =
+      '<p class="dpn-question-text">Exceptional day</p>' +
+      '<p class="dpn-exceptional-def">' + escapeHtml(q.text) + '</p>' +
+      '<div class="dpn-checklist-item"><span>Was today an exceptional day?</span><div class="dpn-yn-group">' +
+        '<button type="button" class="dpn-yn-btn dpn-yn-yes' + (existing === 'Yes' ? ' selected-yes' : '') + '">Yes</button>' +
+        '<button type="button" class="dpn-yn-btn dpn-yn-no' + (existing === 'No' ? ' selected-no' : '') + '">No</button>' +
+      '</div></div>';
+    if (existing) wrap.dataset.value = existing;
+    // Reuse the Text question's textarea and dictation for the description.
+    const desc = renderDpnTextQuestion({ key: q.key, text: 'Describe the day: what they did, who with, how they responded, and what made it exceptional.' }, existing === 'Yes' ? answer : null);
+    desc.className = 'dpn-exceptional-desc';
+    desc.style.display = existing === 'Yes' ? '' : 'none';
+    wrap.appendChild(desc);
+    const yes = wrap.querySelector('.dpn-yn-yes'), no = wrap.querySelector('.dpn-yn-no');
+    yes.addEventListener('click', function () { yes.classList.add('selected-yes'); no.classList.remove('selected-no'); wrap.dataset.value = 'Yes'; desc.style.display = ''; });
+    no.addEventListener('click', function () { no.classList.add('selected-no'); yes.classList.remove('selected-yes'); wrap.dataset.value = 'No'; desc.style.display = 'none'; });
+    return wrap;
+  }
+
   // Fixed Community questions on every note (stored on the note itself,
   // not in the resident's question template) so outings can be counted
   // for the monthly compliance report. The follow-ups only show for Yes.
@@ -3582,7 +3614,10 @@
     const answers = {};
     document.querySelectorAll('#dpn-questions .dpn-question:not(.dpn-community)').forEach(function (wrap) {
       const key = wrap.dataset.key;
-      if (wrap.dataset.type === 'Checklist') {
+      if (wrap.dataset.type === 'Exceptional Day') {
+        const v = wrap.dataset.value || '';
+        answers[key] = { checklistAnswers: v ? { 'Exceptional day': v } : {}, answerText: v === 'Yes' ? wrap.querySelector('textarea').value : '' };
+      } else if (wrap.dataset.type === 'Checklist') {
         const checklistAnswers = {};
         wrap.querySelectorAll('.dpn-checklist-item').forEach(function (row) {
           if (row.dataset.value) checklistAnswers[row.dataset.itemLabel] = row.dataset.value;
@@ -3758,7 +3793,7 @@
       questionsEl.innerHTML = '';
       currentDpnQuestions.forEach(function (q) {
         const answer = (data.answers || {})[q.key];
-        const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : renderDpnTextQuestion(q, answer);
+        const el = q.type === 'Checklist' ? renderDpnChecklistQuestion(q, answer) : q.type === 'Exceptional Day' ? renderDpnExceptionalQuestion(q, answer) : renderDpnTextQuestion(q, answer);
         questionsEl.appendChild(el);
       });
       if (currentDpnQuestions.length) {

@@ -40,7 +40,8 @@ const AREAS = [
   { key: 'I', title: 'Staff & sponsors' },
   { key: 'J', title: 'Liaison oversight' },
   { key: 'K', title: 'Daily progress notes' },
-  { key: 'L', title: 'Medication administration' }
+  { key: 'L', title: 'Medication administration' },
+  { key: 'M', title: 'Exceptional days', record: true }
 ];
 
 // Same ranges as the Physical Environment screen.
@@ -441,8 +442,48 @@ async function areaL(ctx) {
   return items;
 }
 
-const BUILDERS = { A: areaA, B: areaB, C: areaC, D: areaD, E: areaE, F: areaF, G: areaG, H: areaH, I: areaI, J: areaJ, K: areaK, L: areaL };
-const OWNER = { A: 'Sponsor', B: 'Sponsor', C: 'Sponsor', D: 'Sponsor', E: 'Sponsor', F: 'Program Director', G: 'Program Director', H: 'Residential Liaison', I: 'Program Director', J: 'Residential Liaison', K: 'Sponsor', L: 'Sponsor' };
+// ---- M: exceptional days (from the daily progress notes) ----
+// Lists each day a resident's note answered Yes to their Exceptional day
+// question (a per-resident template question whose text says what an
+// exceptional day is for them), with the description from the note.
+// It's a record, not a compliance check: listed days are green, and a
+// resident with none this month, or no such question, reads N/A.
+function weekday(iso) { return new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }); }
+
+async function areaM(ctx) {
+  const dpn = require('./daily-progress-notes');
+  if (!ctx.residents.length) return [item('n', 'Exceptional days', 'No residents on file.', 'Daily Progress Notes')];
+  const to = ctx.final ? ctx.b.end : ctx.asOf;
+  const rows = await dpn.exceptionalAnswers(ctx.location, ctx.b.start, to);
+  const items = [];
+  for (const r of ctx.residents) {
+    const mine = rows.filter(function (x) { return x.resident.toLowerCase() === r.toLowerCase(); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    let tracked = mine.length > 0;
+    if (!tracked) {
+      const qs = await dpn.findQuestionsForDate(ctx.location, r, to).catch(function () { return []; });
+      tracked = qs.some(function (q) { return q.type === dpn.EXCEPTIONAL_TYPE; });
+    }
+    if (!tracked) { items.push(item('n', r + ': Exceptional days', 'Not tracked: no Exceptional day question on this resident\u2019s daily note.', 'Daily Progress Notes')); continue; }
+    const yes = mine.filter(function (x) { return x.value === 'Yes'; });
+    const answered = mine.filter(function (x) { return x.value; }).length;
+    if (!yes.length) { items.push(item('n', r + ': Exceptional days', 'None recorded ' + (ctx.final ? 'this month' : 'so far this month') + ' (' + answered + ' note' + (answered === 1 ? '' : 's') + ' answered).', 'Daily Progress Notes')); continue; }
+    const covers = await dpn.findAllCovers(ctx.location, r).catch(function () { return []; });
+    const byDate = {};
+    covers.forEach(function (c) { byDate[c.date] = c; });
+    items.push(item('g', r + ': Exceptional days', yes.length + ' exceptional day' + (yes.length === 1 ? '' : 's') + ' of ' + answered + ' note' + (answered === 1 ? '' : 's') + ' answered. What counts: ' + (yes[yes.length - 1].definition || mine[mine.length - 1].definition), 'Daily Progress Notes'));
+    yes.forEach(function (x) {
+      const c = byDate[x.date] || {};
+      const co = c.community || {};
+      const outing = co.outing === 'Yes' ? ' Community outing: yes' + (co.chosenBy ? ', ' + co.chosenBy.toLowerCase() : '') + (co.smallGroup ? ', group of 3 or fewer: ' + co.smallGroup.toLowerCase() : '') + '.' : '';
+      const who = c.signedAt ? ' Note signed by ' + (c.signedBy || 'staff') + '.' : ' Note not signed yet.';
+      items.push(item('g', r + ' \u00b7 ' + weekday(x.date), (x.description || '(no description)') + outing + who, 'Daily progress note'));
+    });
+  }
+  return items;
+}
+
+const BUILDERS = { A: areaA, B: areaB, C: areaC, D: areaD, E: areaE, F: areaF, G: areaG, H: areaH, I: areaI, J: areaJ, K: areaK, L: areaL, M: areaM };
+const OWNER = { A: 'Sponsor', B: 'Sponsor', C: 'Sponsor', D: 'Sponsor', E: 'Sponsor', F: 'Program Director', G: 'Program Director', H: 'Residential Liaison', I: 'Program Director', J: 'Residential Liaison', K: 'Sponsor', L: 'Sponsor', M: 'Program Director' };
 
 // ---- Liaison flags ----
 function flagFromPage(page) {
@@ -549,7 +590,7 @@ async function build(location, month, mode, now) {
       console.error('location report area ' + a.key, e);
       items = [item('m', a.title, 'Couldn’t check this area right now. Try generating the report again.', '')];
     }
-    return { key: a.key, title: a.title, items: items, status: worst(items) };
+    return Object.assign({ key: a.key, title: a.title, items: items, status: worst(items) }, a.record ? { record: true } : {});
   }));
 
   const fixBy = final ? nextMonth(month) + '-10' : b.end;
